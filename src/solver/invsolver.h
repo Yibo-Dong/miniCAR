@@ -24,10 +24,9 @@
 #ifndef INV_SOLVER_H
 #define INV_SOLVER_H
 
-#include "data_structure.h"
+#include "definition.h"
 #include "carsolver.h"
 #include "statistics.h"
-#include "model.h"
 #include <vector>
 
 namespace car 

@@ -25,8 +25,7 @@
 #define START_SOLVER_H
 
 #include "carsolver.h"
-#include "model.h"
-#include "data_structure.h"
+#include "definition.h"
 #include "statistics.h"
 
 namespace car {

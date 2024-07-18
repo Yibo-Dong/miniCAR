@@ -19,8 +19,7 @@
 #define NEW_MAIN_SOLVER_H
 
 #include "carsolver.h"
-#include "data_structure.h"
-#include "model.h"
+#include "definition.h"
 #include "statistics.h"
 #include <vector>
 #include <assert.h>

@@ -25,14 +25,12 @@
 #ifndef carChecker_H
 #define carChecker_H
 
-#include "data_structure.h"
+#include "definition.h"
 #include "invsolver.h"
 #include "startsolver.h"
 #include "mainsolver.h"
 #include "newpartialsolver.h"
-#include "model.h"
 #include <assert.h>
-#include "utility.h"
 #include "statistics.h"
 #include <unordered_map>
 #include <unordered_set>

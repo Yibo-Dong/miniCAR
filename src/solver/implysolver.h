@@ -2,7 +2,7 @@
 #define ImplySolver_H
 
 #include "carsolver.h"
-#include "data_structure.h"
+#include "definition.h"
 #include "statistics.h"
 #include <map>
 #include <memory>

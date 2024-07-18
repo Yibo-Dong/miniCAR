@@ -2,9 +2,8 @@
 
 #define BMCCHECKER_H
 
-#include "data_structure.h"
+#include "definition.h"
 #include "mainsolver.h"
-#include "model.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>

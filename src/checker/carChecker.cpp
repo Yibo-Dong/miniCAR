@@ -20,7 +20,7 @@
 #include "implysolver.h"
 #include "newpartialsolver.h"
 #include "statistics.h"
-#include "utility.h"
+#include "definition.h"
 #include <vector>
 #include <iostream>
 #include <stack>

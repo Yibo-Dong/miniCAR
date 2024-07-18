@@ -18,9 +18,8 @@
 #include "bmcChecker.h"
 #include "carChecker.h"
 #include "statistics.h"
-#include "data_structure.h"
+#include "definition.h"
 #include "implysolver.h"
-#include "model.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
