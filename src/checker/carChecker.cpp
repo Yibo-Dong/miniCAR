@@ -1252,24 +1252,7 @@ namespace car
 
         Frame &frame = (dst_level_plus_one < int(O->size())) ? (*O)[dst_level_plus_one] : Otmp;
 
-#ifdef FRESH_UC
-        // To add \@ cu to \@ frame, there must be
-        // 1. \@ cu does not imply any clause in \@ frame
-        // 2. if a clause in \@ frame implies \@ cu, replace it by \@cu
-        Frame tmp_frame;
-        for (int i = 0; i < frame.size(); i++)
-        {
-            if (!imply(frame[i], uc, true))
-            {
-                tmp_frame.push_back(frame[i]);
-            }
-        }
-        tmp_frame.push_back(uc);
-
-        frame = tmp_frame;
-#else
         frame.push_back(uc);
-#endif // FRESH_UC
 
         if(impMethod != Imp_MOM)
             ImplySolver::add_uc(uc,dst_level_plus_one);
