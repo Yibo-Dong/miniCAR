@@ -16,7 +16,6 @@
 */
 
 #include "carChecker.h"
-#include "DEBUG_PRINTING.h"
 #include "implysolver.h"
 #include "newpartialsolver.h"
 #include "statistics.h"
@@ -376,7 +375,6 @@ namespace car
         if (rotate_enabled)
             rotates.push_back(rotate);
         bi_main_solver->add_new_frame(Otmp, O->size() - 1, O, forward);
-        PRINTIF_PROOF();
         return false;
     }
 
@@ -600,7 +598,6 @@ namespace car
      */
     void Checker::print_evidence() const
     {
-        PRINTIF_PRIOR();
 
         // cout << "Counter Example is found in " << (!backward_first ? "forward" : "backward") << " search" << endl;
 
@@ -711,7 +708,6 @@ namespace car
                 CARStats.count_main_solver_original_time_end(res,0);
             }
 
-            PRINTIF_SIMPLE_SAT();
         }
         else
         {
@@ -1025,9 +1021,7 @@ namespace car
                 // TODO: subsumption test is not cost-effective as we tested before, but we may use it to illustrate the diminishing effects.
                 
             }
-        }
-        PRINTIF_QUERY();
-        PRINTIF_SIMPLE_SAT();       
+        }    
 
         return res;
     }
@@ -1154,7 +1148,6 @@ namespace car
         {
             // this state is not reachable?
             // FIXME: fix here. It is not really blocked forever.
-            PRINTIF_UNREACHABLE();
             safe_reported = true;
         }
 

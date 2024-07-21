@@ -17,7 +17,6 @@
 
 #include "mainsolver.h"
 #include "definition.h"
-#include "DEBUG_PRINTING.h"
 #include <algorithm>
 using namespace std;
 namespace car
