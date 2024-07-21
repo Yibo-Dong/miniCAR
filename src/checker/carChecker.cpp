@@ -160,8 +160,7 @@ namespace car
             return true;
         }
 
-        LOG("End");
-        if (evidence_)
+                if (evidence_)
         {
             do
             {
@@ -201,12 +200,10 @@ namespace car
         while (true)
         {
             bool direction = !backward_first;
-            LOG((direction ? "F" : "B"));
-            Usequence &U = direction ? Uf : Ub;
+                        Usequence &U = direction ? Uf : Ub;
 
             Osequence &O = direction ? OI : Onp;
-            LOG("Bi-Target:" << (direction ? "I" : "~P"));
-
+            
             if (trySAT(U, &O, direction, res))
             {
                 // if this PP phase ends, but has not reached the whole end.
@@ -287,8 +284,7 @@ namespace car
          */
         while (State *missionary = pickState(U))
         {
-            LOG("Pick " << missionary->id);
-            /**
+                        /**
              * build a stack <state, depth, target_level>
              */
             CONTAINER stk;
@@ -299,22 +295,19 @@ namespace car
                 State *s;
                 int dst, depth;
                 std::tie(s, depth, dst) = stk.top();
-                LOG("Try " << s->id << " " << dst);
-                if (blockedIn(s, dst + 1, O, Otmp))
+                                if (blockedIn(s, dst + 1, O, Otmp))
                 {
                     // TODO: memorize state's blocking status. Since we do not remove UC, once blocked, forever blocked.
                     stk.pop();
                     CARStats.count_tried_before();
-                    LOG("Tried before");
-                    direct_blocked_counter++;
+                                        direct_blocked_counter++;
                     blocked_ids.insert(s->id);
 
                     int new_level = minNOTBlocked(s, dst + 2, O->size() - 1, O, Otmp);
                     if (new_level <= O->size())
                     {
                         stk.push(item(s, depth, new_level - 1));
-                        LOG("Again " << s->id << " " << dst << " " << new_level - 1);
-                    }
+                                            }
                     else
                     {
                     }
@@ -335,14 +328,12 @@ namespace car
 
                 if (satAssume(bi_main_solver, O, s, dst, Otmp, safe_reported))
                 {
-                    LOG("Succeed");
-                    if (dst == -1)
+                                        if (dst == -1)
                     {
                         return true;
                     }
                     State *tprime = getModel(bi_main_solver);
-                    LOG("Get " << tprime->id << " " << dst);
-
+                    
                     updateU(U, tprime, s);
 
                     // NOTE: why here calculate minNOTBLOCKED, rather than next time when pop?
@@ -354,13 +345,11 @@ namespace car
                     if (new_level <= dst) // if even not one step further, should not try it
                     {
                         stk.push(item(tprime, depth + 1, new_level - 1));
-                        LOG("Jump " << dst << " " << new_level - 1);
-                    }
+                                            }
                 }
                 else
                 {
-                    LOG("Fail ");
-                    stk.pop();
+                                        stk.pop();
 
                     if (safe_reported)
                         return true;
@@ -369,8 +358,7 @@ namespace car
                     if (new_level <= O->size())
                     {
                         stk.push(item(s, depth, new_level - 1));
-                        LOG("Again " << s->id << " " << dst << " " << new_level - 1);
-                    }
+                                            }
                     else
                     {
                     }

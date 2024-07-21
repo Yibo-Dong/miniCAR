@@ -7,8 +7,6 @@
 // print prior map in `print_evidence()`
 // #define PRINT_PRIOR
 
-#define LOG(msg)
-
 
 #ifdef PQUEUE
 #define CONTAINER priority_queue<item,std::vector<item>, CompareItem>
