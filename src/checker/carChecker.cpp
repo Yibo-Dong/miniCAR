@@ -375,9 +375,6 @@ namespace car
         direct_blocked_counter = 0;
         if (rotate_enabled)
             rotates.push_back(rotate);
-#ifdef SCORE
-        score_dicts.push_back(score_dict);
-#endif // SCORE
         bi_main_solver->add_new_frame(Otmp, O->size() - 1, O, forward);
         PRINTIF_PROOF();
         return false;
@@ -820,7 +817,6 @@ namespace car
         bool forward = !backward_first;
         vector<Cube> inter;
         Cube rres, rtmp;
-        Cube score_order;
         vector<Cube> ucs; // this is used for subsumption test, will cause low-efficiency, do not turn it on in practical scenarios.
 
         bool res = false;
@@ -946,65 +942,7 @@ namespace car
             } while (0);
 
             
-            do
-            {
-            #ifdef SCORE
-                // use score to order the state
-
-                // reference to the dict.
-                std::unordered_map<int, int> &dict_ref = level + 1 < score_dicts.size() ? score_dicts[level + 1] : score_dict;
-
-                // first assign to the original order.
-                score_order = s->s();
-
-                #ifdef SCORE_REVERSE
-                    // from low to high, for sanity check check.
-                    std::sort(score_order.begin(), score_order.end(), [&](const int &a, const int &b)
-                    {
-                    if(dict_ref[a] < dict_ref[b])
-                        return true;
-                    else if(dict_ref[a] > dict_ref[b])
-                        return false;
-                    else
-                    {
-                        return false;
-                    } });
-                #else
-                    // then sort according to the score.
-                    // high -> low
-                    // tie : ignore
-                    std::sort(score_order.begin(), score_order.end(), [&](const int &a, const int &b)
-                        {
-                    if(dict_ref[a] < dict_ref[b])
-                        return false;
-                    else if(dict_ref[a] > dict_ref[b])
-                        return true;
-                    else
-                    {
-                        // tie
-                        // TODO: add dealing here.
-
-                        // at present: do not change it.
-                        return false;
-                    } });
-                #endif
-
-                // cerr<<"state: ";
-                // for(int i:score_order)
-                // cerr<<i<<"("<<dict_ref[i]<<"), ";
-                // cerr<<endl;
-
-            #endif
-            } while (0);
-
-            #ifdef SCORE
-                    // NOTE: rotate and score are contradictory, because they both contain the whole state.
-                    vector<Cube> pref = inter;
-                    pref.push_back(score_order);
-            #else
-                    vector<Cube> pref = reorderAssum(inter, rres, rtmp);
-            #endif
-
+            vector<Cube> pref = reorderAssum(inter, rres, rtmp);
             
 
             switch (LOStrategy)
@@ -1079,70 +1017,6 @@ namespace car
             rcu = rres;
             rcu.insert(rcu.end(), rtmp.begin(), rtmp.end());
         }
-
-#ifdef SCORE
-        if (!res)
-        {
-            std::unordered_map<int, int> &dict_ref = level + 1 < score_dicts.size() ? score_dicts[level + 1] : score_dict;
-
-    #ifdef SCORE_DECAY
-            // multiplicative decay
-            if (decayCounter[level + 1] == 0)
-            {
-                // Magic Number 20.
-                decayCounter[level + 1] = 20;
-
-                if (decayStep[level + 1] == 0)
-                    decayStep[level + 1] = 1000;
-                else
-                    decayStep[level + 1] *= 1.01;
-
-                // to avoid overflow
-                if (decayStep[level + 1] > 1000000000)
-                {
-                    auto &dict = score_dicts[level + 1];
-                    for (auto &pair : dict)
-                    {
-                        pair.second >>= 28;
-                    }
-                    decayStep[level + 1] = 1000;
-                }
-            }
-            decayCounter[level + 1]--;
-
-            // plus bumping
-            for (auto &lit : s->s())
-            {
-    #ifdef SCORE_ABS
-                dict_ref[abs(lit)] += decayStep[level + 1];
-    #else
-                dict_ref[lit] += decayStep[level + 1];
-    #endif
-            }
-    #else
-            for (auto &lit : s->s())
-            {
-    #ifdef SCORE_ABS
-                dict_ref[abs(lit)]++;
-    #else
-                dict_ref[lit]++;
-    #endif
-            }
-    #endif
-            // cerr<<"state:";
-            // for(int i:s->s())
-            // cerr<<i<<", ";
-            // cerr<<endl;
-
-            // cerr<<"score:";
-            // for(auto i:dict_ref)
-            // cerr<<i.first <<":"<<i.second<<", ";
-            // cerr<<endl;
-
-            // TODO: As to those appear in UC, should we add more scores?
-        }
-
-#endif // !SCORE
 
         if(convMode >= 0)
         {
