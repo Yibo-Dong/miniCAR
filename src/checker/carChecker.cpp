@@ -287,7 +287,7 @@ namespace car
                         /**
              * build a stack <state, depth, target_level>
              */
-            CONTAINER stk;
+            stack<item> stk;
             stk.push(item(missionary, 0, O->size() - 1));
             while (!stk.empty())
             {

@@ -8,12 +8,6 @@
 // #define PRINT_PRIOR
 
 
-#ifdef PQUEUE
-#define CONTAINER priority_queue<item,std::vector<item>, CompareItem>
-#else
-#define CONTAINER stack<item>
-#endif
-
 #ifdef PRINT_SIMPLE_SAT
 #define PRINTIF_SIMPLE_SAT()                                                            \
 	static int sat_cnt = 0;                                                           \
