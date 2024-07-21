@@ -275,16 +275,10 @@ namespace car
 		Cube res = get_uc_no_bad (bad);
 		if(res.empty())
 			return res;
-        #ifdef LAST_FIRST
-		int last_lit = res.back();
-        #endif // LAST_FIRST
         if(!uc_no_sort)
         {
     		sort(res.begin(),res.end(),car::absIncr);
         }
-        #ifdef LAST_FIRST
-		res.push_back(last_lit);
-        #endif // LAST_FIRST
 		return std::move(res);
 	}
 	
@@ -330,19 +324,12 @@ namespace car
                 cout<<l<<", ";
             cout<<endl;
         }
-		#ifdef FRONT_FLAG
-		int conflict_back = conflict.front();
-		#else
 		int conflict_back = conflict.back();
-		#endif
 
         if(!uc_no_sort)
         {
             std::sort (conflict.begin (), conflict.end (), car::absIncr);
         }
-        #ifdef LAST_FIRST
-		conflict.push_back(conflict_back);
-        #endif
 		return std::move(conflict);
 	}
 
@@ -358,17 +345,10 @@ namespace car
 		{
 		    model_->shrink_to_latch_vars (conflict);
 		}
-		#ifdef FRONT_FLAG
-		int conflict_back = conflict.front();
-		#else
 		int conflict_back = conflict.back();
-		#endif
 
         #ifndef UC_NO_SORT
 		std::sort (conflict.begin (), conflict.end (), car::absIncr);
-        #endif
-        #ifdef LAST_FIRST
-		conflict.push_back(conflict_back);
         #endif
 		return std::move(conflict);
 	}

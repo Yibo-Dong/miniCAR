@@ -870,14 +870,6 @@ namespace car
                         inter_next = s->intersect(last_uc);
 
                         // otherwise, do not do this!
-                        #ifdef LAST_FIRST
-                        if (inter_next.size() > 1)
-                        {
-                            // insert the last bit to the front.
-                            inter_next.insert(inter_next.begin(), inter_next.back());
-                            inter_next.pop_back();
-                        }
-                        #endif
                         inter.push_back(inter_next);
                         ++index;
                     }
