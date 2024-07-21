@@ -159,18 +159,6 @@ namespace car
         inline void set_rotate(bool rtt) { rotate_enabled = rtt; }
         inline int get_rotate() { return rotate_enabled; }
 
-        /**
-         * @brief extract the knowledge from prior preprocessing phases heavily
-         *
-         */
-        void cook();
-
-        /**
-         * @brief extract the knowledge from prior preprocessing phases heavily
-         *
-         */
-        void cook_light();
-
     public:
         // we need to record whether it used another UC in the history.
         // level -> array[INT_MAX]
