@@ -1,27 +1,3 @@
-/*
-    Copyright (C) 2018, Jianwen Li (lijwen2748@gmail.com), Iowa State University
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
-/*
-    Author: Jianwen Li, Yibo Dong
-    Init Date: September 8, 2017
-    Update Date: Feb 12, 2023
-    Interface for the checker class
-*/
-
 #ifndef carChecker_H
 #define carChecker_H
 
@@ -42,28 +18,13 @@ namespace car
 {
     extern Statistics CARStats; // defined in main.cpp
     extern Problem *model;     // defined in main.cpp
-    extern int storage_id;
     class Checker;
     extern Checker ch;
 
     class Checker
     {
     public:
-        /**
-         * @brief Construct a new Checker object
-         *
-         * @param model aiger model to be checked
-         * @param out
-         * @param forward the search direction
-         * @param evidence whether to print the CEX if unsafe
-         * @param index_to_check the index of property to check. At present, only one property is allowed
-
-         */
-        Checker(Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false, bool partial = false);
-
-        Checker(int time_limit, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false, bool partial = false);
-
-        Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false, bool partial = false);
+        Checker(Problem *model, const OPTIONS& opt, std::ostream &out, Checker* last_chker);
 
         /**
          * @brief Destroy the Checker object
@@ -182,7 +143,6 @@ namespace car
 
     public:
         Problem *model_;
-        bool evidence_;
         bool backward_first = true;
         int bad_;
         StartSolver *bi_start_solver;
@@ -432,15 +392,6 @@ namespace car
         // corresponding to Otmp
         Cube rotate;
 
-    private:
-        /**
-         * @section use failed states to score
-         *
-         */
-        std::vector<std::unordered_map<int, int>> score_dicts;
-        std::unordered_map<int, int> score_dict;
-        std::unordered_map<int, int> decayStep;
-        std::unordered_map<int, int> decayCounter;
 
     private:
         /**

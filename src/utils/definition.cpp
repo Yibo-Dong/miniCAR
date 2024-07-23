@@ -106,9 +106,8 @@ namespace car {
 		return res;
 	}
 
-    Problem::Problem (aiger* aig, const bool verbose)
+    Problem::Problem (aiger* aig)
 	{
-		verbose_ = verbose;
 		// According to aiger format, inputs should be [1 ... num_inputs_]
 		// and latches should be [num_inputs+1 ... num_latches+num_inputs]]
 		num_inputs_ = aig->num_inputs;

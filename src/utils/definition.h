@@ -23,6 +23,7 @@
 #include <random>
 #include <algorithm>
 #include <assert.h>
+#include <string>
 #include "statistics.h"
 extern "C" {
 #include "aiger.h"
@@ -90,9 +91,6 @@ namespace car
             const bool _isnegp = false;
 			static const State* negp_state;
 
-            // the problem imported from AIGER
-            static const Problem* model_;
-			static const aiger* aig_;
             
             // size information about the problem
 			static int num_inputs_;
@@ -141,7 +139,7 @@ namespace car
 
 class Problem {
 public:
-	Problem (aiger*, const bool verbose = false);
+	Problem (aiger*);
 	~Problem () {}
 	
 	int prime (const int);
@@ -179,10 +177,6 @@ public:
 	inline int false_id () const {return false_;}
 	
 private:
-	//members
-	bool verbose_;
-	
-	
 	int num_inputs_;
 	int num_latches_;
 	int num_ands_;
@@ -326,6 +320,49 @@ public:
         std::mt19937 g(seed);
         std::shuffle(vec.begin(), vec.end(), g);
     }
+
+
+    // ##################################################
+    // #####               CLI OPTIONS             ######
+    // ##################################################
+    struct OPTIONS{
+        // use BMC rather than CAR
+        bool bmc = false;
+        // forward CAR / backward CAR
+        bool forward = false;
+        // use propagation
+        bool propagate = false;
+        // partial state enabled during forward-CAR.
+        bool partial = false;
+        // enable rotate
+        bool enable_rotate = false;
+        // do not check INVARIANT ==> incomplete
+        bool inv_incomplete = false;
+        // keep UC not sorted
+        bool raw_uc = false;
+        // #(UC) for intersection
+        int inter_cnt = 0;
+
+        // mUC mode
+        int convMode = -1;
+        // mUC param
+        int convParam = 0;
+        // #(UC)
+        int convAmount = 0;
+        // time limit to restart
+        int time_limit_to_restart = -1;
+        // remember option during restart
+        int rememOption = 0;
+        // literal ordering strategy
+        int LOStrategy = 0;
+        // method for calculate imply
+        int impMethod = 0;
+        // option for subsumption. NOTE: this is heavy!
+        bool subStat = false;
+
+        std::string inputPath;
+        std::string outputPath;
+    };
 }
 
 #endif

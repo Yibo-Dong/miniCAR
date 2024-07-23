@@ -36,13 +36,11 @@ namespace car
     Statistics CARStats;
     Checker *chk;
     Problem *model;
-    const Problem *State::model_;
-    const aiger *State::aig_;
 }
 
 /**
  * @brief do printing even if timeout.
- * 
+ *
  * @param sig_num : the signal number.
  */
 void signal_handler(int sig_num)
@@ -60,7 +58,6 @@ void print_usage()
     printf("       -p          enable propagation (Default = off)\n");
     printf("       -e          print witness (Default = off)\n");
     printf("       -h          print help information\n");
-    exit(1);
 }
 
 // cut filename from path.
@@ -78,235 +75,204 @@ string get_file_name(string &s)
     return s.substr(start_pos, end_pos - start_pos);
 }
 
-void check_aiger(int argc, char **argv)
+OPTIONS parse_args(int argc, char **argv)
 {
-    bool forward = false;
-    bool evidence = false;
-    bool propagate = false;
-    bool enable_draw = false;
-    bool bmc = false;
-    bool enable_conv=false;
-    bool enable_rotate=false;
-    bool inv_incomplete = false;
-    bool raw_uc = false;
-    int inter_cnt=0;
-    int convMode=-1;
-    int convParam=0;
-    int convAmount=0;
-    int impMethod=0;
-    int time_limit_to_restart = -1;
-    int rememOption = 0;
-    int LOStrategy=0;
-    bool subStat = false;
-    bool partial = false;
-
-    string input;
-    string output_dir;
-    bool input_set = false;
-    bool output_dir_set = false;
+    OPTIONS opt;
     for (int i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i], "--vb") ==0)
+        if (strcmp(argv[i], "--vb") == 0)
         {
-            inv_incomplete = true;
-            enable_rotate = true;
-            inter_cnt = 1;
-            raw_uc = true;
-            forward = false;
-            evidence = true;
-            impMethod = 5;
+            opt.inv_incomplete = true;
+            opt.enable_rotate = true;
+            opt.inter_cnt = 1;
+            opt.raw_uc = true;
+            opt.forward = false;
+            opt.impMethod = 5;
         }
         else if (strcmp(argv[i], "-f") == 0)
-            forward = true;
+            opt.forward = true;
         else if (strcmp(argv[i], "-b") == 0)
-            forward = false;    
-        else if (strcmp(argv[i], "-p") == 0)
-            propagate = true;
+            opt.forward = false;
+        else if (strcmp(argv[i], "--prop") == 0)
+            opt.propagate = true;
         else if (strcmp(argv[i], "--partial") == 0)
-            partial = true;
-        else if (strcmp(argv[i], "-e") == 0)
-            evidence = true;
+            opt.partial = true;
         else if (strcmp(argv[i], "-h") == 0)
             print_usage();
         else if (strcmp(argv[i], "--rotate") == 0)
-        {
-            enable_rotate=true;
-        }
+            opt.enable_rotate = true;
         else if (strcmp(argv[i], "--inter") == 0)
         {
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            inter_cnt = atoi(argv[i]);
+            opt.inter_cnt = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--restart") == 0)
         {
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            time_limit_to_restart = atoi(argv[i]);
+            opt.time_limit_to_restart = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--rem") == 0)
         {
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            rememOption = atoi(argv[i]);
-        }
-        else if (strcmp(argv[i], "--draw") == 0)
-        {
-            evidence = true;
-            enable_draw = true;
+            opt.rememOption = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--bmc") == 0)
         {
-            bmc = true;
+            opt.bmc = true;
         }
         else if (strcmp(argv[i], "--imp") == 0)
         {
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            impMethod = atoi(argv[i]);
+            opt.impMethod = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--incomplete") == 0)
         {
-            inv_incomplete = true;
+            opt.inv_incomplete = true;
         }
         else if (strcmp(argv[i], "--raw") == 0)
         {
-            raw_uc = true;
+            opt.raw_uc = true;
         }
         else if (strcmp(argv[i], "--convMode") == 0)
         {
-            enable_conv = true;
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            convMode = atoi(argv[i]);
+            opt.convMode = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--convParam") == 0)
         {
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            convParam = atoi(argv[i]);
+            opt.convParam = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--convAmount") == 0)
         {
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            convAmount = atoi(argv[i]);
+            opt.convAmount = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--order") == 0)
         {
-            assert(i+1<argc);
+            assert(i + 1 < argc);
             ++i;
-            LOStrategy = atoi(argv[i]);
+            opt.LOStrategy = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--sub") == 0)
         {
-            subStat = true;
+            opt.subStat = true;
         }
-        else if (!input_set)
+        else if (opt.inputPath.empty())
         {
-            input = string(argv[i]);
-            input_set = true;
+            opt.inputPath = string(argv[i]);
         }
-        else if (!output_dir_set)
+        else if (opt.outputPath.empty())
         {
-            output_dir = string(argv[i]);
-            output_dir_set = true;
+            opt.outputPath = string(argv[i]);
+            if (opt.outputPath.at(opt.outputPath.size() - 1) != '/')
+                opt.outputPath += "/";
         }
         else
-            print_usage();
+        {
+            cerr << "unrecognized option: " << argv[i] << endl;
+            exit(1);
+        }
     }
-    if (!input_set || !output_dir_set)
-        print_usage();
+    if (opt.inputPath.empty() || opt.outputPath.empty())
+    {
+        cerr << "missing input or output" << endl;
+        exit(1);
+    }
+    return opt;
+}
 
-    if (output_dir.at(output_dir.size() - 1) != '/')
-        output_dir += "/";
-    std::string filename = get_file_name(input);
+void check_aiger(int argc, char **argv)
+{
+    OPTIONS opt = parse_args(argc, argv);
 
-    std::string stdout_filename = output_dir + filename + ".log";
-    std::string res_file_name = output_dir + filename + ".res";
+    std::string filename = get_file_name(opt.inputPath);
+    std::string stdout_filename = opt.outputPath + filename + ".log";
+    std::string res_file_name = opt.outputPath + filename + ".res";
     // redirect to log file.
-    auto fs = freopen(stdout_filename.c_str(), "w", stdout);
+    auto __fs = freopen(stdout_filename.c_str(), "w", stdout);
     ofstream res_file;
     res_file.open(res_file_name.c_str());
 
     // get aiger object
     aiger *aig = aiger_init();
-    aiger_open_and_read_from_file(aig, input.c_str());
+    aiger_open_and_read_from_file(aig, opt.inputPath.c_str());
     const char *err = aiger_error(aig);
     if (err)
     {
         printf("read aiger file error!\n");
-        exit(0);
+        exit(2);
     }
     if (!aiger_is_reencoded(aig))
         aiger_reencode(aig);
 
-    Problem *model = new Problem(aig);
-    // FIXME: collect all these static members. unify them.
-    car::model = model;
-    State::model_ = model;
-    State::aig_ = aig;
-
-
+    car::model = new Problem(aig);
     State::set_num_inputs_and_latches(model->num_inputs(), model->num_latches());
 
     // assume that there is only one output needs to be checked in each aiger model,
     // which is consistent with the HWMCC format
     assert(model->num_outputs() == 1);
 
-    if (bmc)
+    // if BMC, then use BMC checker to check.
+    if (opt.bmc)
     {
         auto bchker = new bmc::BMCChecker(model);
         bchker->check();
         bchker->printEvidence(res_file);
         return;
     }
+
+    // clean duties
     std::set<car::Checker *> to_clean;
 
-    if(time_limit_to_restart > 0)
+    // if Restart NOT enabled, use one checker to check.
+    if (opt.time_limit_to_restart <= 0)
     {
-        assert(convMode >=0);
         CARStats.count_whole_begin();
-
-        // construct the checker
-        // cout << "strategy is : convParam = " << convParam << endl;
-        chk = new Checker(time_limit_to_restart, model, res_file,  forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat, partial);
-        auto clear_delay = chk;// last checker may be used to pass information.
-        bool res = chk->check();
-        while (chk->ppstoped)
-        {
-            ++convParam;
-            // see what happens with implySolver
-            ImplySolver::reset_all();
-            CARStats.reset_imply_cnter(); // reset
-            MainSolver::flag_of_O.clear();
-
-            chk = new Checker(time_limit_to_restart, clear_delay, rememOption, model, res_file, forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat, partial);
-            
-            // cout << "strategy is : convParam = " << convParam << endl;
-            res = chk->check();
-            delete clear_delay;
-            clear_delay = chk;
-        }
-        
-        CARStats.count_whole_end();
-        delete chk;
-
-    }
-    else{
-        chk = new Checker(model, res_file, forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat, partial);
-        CARStats.count_whole_begin();
+        chk = new Checker(model, opt, res_file, nullptr);
         chk->check();
         CARStats.count_whole_end();
         delete chk;
     }
-    
+    else
+    {
+        // if RESTART enabled:
+        // TODO: verify the result of restart
+        assert(opt.convMode >= 0 && "restart with multiple UCs, mode should be given");
+        CARStats.count_whole_begin();
+
+        chk = new Checker(model, opt, res_file, nullptr);
+        auto clear_delay = chk;
+        bool res = chk->check(); // the first check
+        while (chk->ppstoped)
+        {
+            ++opt.convParam;
+            ImplySolver::reset_all();
+            CARStats.reset_imply_cnter();
+            MainSolver::flag_of_O.clear();
+            // TODO: check whether we need to clean sth else?
+
+            // check, with information of last check avaiable.
+            chk = new Checker(model, opt, res_file, clear_delay);
+            res = chk->check();
+            delete clear_delay;
+            clear_delay = chk;
+        }
+        CARStats.count_whole_end();
+        delete chk;
+    }
 
     // cleaning work
     aiger_reset(aig);
     delete model;
     res_file.close();
-
 
     CARStats.print();
     return;

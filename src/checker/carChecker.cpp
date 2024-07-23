@@ -35,83 +35,28 @@ using clock_high = time_point<steady_clock>;
 
 namespace car
 {
-    // increase one each time. monotonous
-    int storage_id = 0;
-    static vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp);
-
-    Checker::Checker(Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat, bool partial) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat), partial(partial)
+    Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
+    model_(model), out(out), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), ConvAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker)
     {
-        // TODO: use propagate to accelerate
-        backward_first = !forward;
-        bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),uc_no_sort);
-        if(!backward_first)
+        backward_first = !opt.forward;
+        bad_ = model->output(0);
+        bi_main_solver = new MainSolver(model, get_rotate(), uc_no_sort);
+        if (!backward_first)
         {
             // only forward needs these
             bi_partial_solver = new PartialSolver(model);
             // TODO: extend to multi-properties.
             bi_start_solver = new StartSolver(model, bad_, true);
         }
-        else{
-            bi_partial_solver = nullptr;
-            bi_start_solver = nullptr;
-        }
-        rotates.clear();
-        rotate.clear();
-        score_dicts.clear();
-        score_dict.clear();
-        restart_enabled = false;
-        importO = false;
-    }
-
-    Checker::Checker(int time_limit, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat, bool partial) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat), partial(partial)
-    {
-        // TODO: use propagate to accelerate
-        backward_first = !forward;
-        bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),uc_no_sort);
-        if(!backward_first)
+        else
         {
-            // only forward needs these
-            bi_partial_solver = new PartialSolver(model);
-            // TODO: extend to multi-properties.
-            bi_start_solver = new StartSolver(model, bad_, true);
-        }
-        else{
             bi_partial_solver = nullptr;
             bi_start_solver = nullptr;
         }
         rotates.clear();
         rotate.clear();
-        score_dicts.clear();
-        score_dict.clear();
-        restart_enabled = true;
-        importO = false;
-    }
-
-    Checker::Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat, bool partial) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), last_chker(last_chker), rememOption(rememOption), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat), partial(partial)
-    {
-        // TODO: use propagate to accelerate
-        backward_first = !forward;
-        bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),uc_no_sort);
-        if(!backward_first)
-        {
-            // only forward needs these
-            bi_partial_solver = new PartialSolver(model);
-            // TODO: extend to multi-properties.
-            bi_start_solver = new StartSolver(model, bad_, true);
-        }
-        else{
-            bi_partial_solver = nullptr;
-            bi_start_solver = nullptr;
-        }
-        rotates.clear();
-        rotate.clear();
-        score_dicts.clear();
-        score_dict.clear();
-        restart_enabled = true;
-        importO = true;
+        if(opt.time_limit_to_restart > 0)
+            restart_enabled = true;
     }
 
     Checker::~Checker()
@@ -150,21 +95,19 @@ namespace car
             return true;
         }
 
-                if (evidence_)
-        {
-            do
-            {
-                if (res)
-                {
-                    out << "0" << endl;
-                    out << "b0" << endl;
-                    out << "." << endl;
-                    break;
-                }
 
-                print_evidence();
-            } while (false);
-        }
+        do
+        {
+            if (res)
+            {
+                out << "0" << endl;
+                out << "b0" << endl;
+                out << "." << endl;
+                break;
+            }
+
+            print_evidence();
+        } while (false);
 
         return res;
     }
@@ -226,7 +169,6 @@ namespace car
             out << "1" << endl;
             out << "b"
                 << "0" << endl;
-            if (evidence_)
             {
                 // print init state
                 // FIXME: fix for latch inits.
@@ -568,9 +510,6 @@ namespace car
      */
     void Checker::print_evidence() const
     {
-
-        // cout << "Counter Example is found in " << (!backward_first ? "forward" : "backward") << " search" << endl;
-
         // Print Backward chain first.
         bool latch_printed = false;
 
@@ -630,12 +569,13 @@ namespace car
         return true;
     }
 
-    static vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp)
+    vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp)
     {
         vector<Cube> pref;
+        pref.reserve(inter.size() + rres.size() + rtmp.size());
         pref = inter;
-        pref.push_back(rres);
-        pref.push_back(rtmp);
+        pref.push_back(std::move(rres));
+        pref.push_back(std::move(rtmp));
         return pref;
     }
 
