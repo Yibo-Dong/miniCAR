@@ -39,7 +39,7 @@ namespace car
     int storage_id = 0;
     static vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp);
 
-    Checker::Checker(Model *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
+    Checker::Checker(Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
     {
         // TODO: use propagate to accelerate
         backward_first = !forward;
@@ -67,7 +67,7 @@ namespace car
         importO = false;
     }
 
-    Checker::Checker(int time_limit, Model *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
+    Checker::Checker(int time_limit, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
     {
         // TODO: use propagate to accelerate
         backward_first = !forward;
@@ -95,7 +95,7 @@ namespace car
         importO = false;
     }
 
-    Checker::Checker(int time_limit, Checker* last_chker, int rememOption, Model *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), last_chker(last_chker), rememOption(rememOption), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
+    Checker::Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), last_chker(last_chker), rememOption(rememOption), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
     {
         // TODO: use propagate to accelerate
         backward_first = !forward;
@@ -199,9 +199,9 @@ namespace car
         while (true)
         {
             bool direction = !backward_first;
-                        Usequence &U = direction ? Uf : Ub;
+            USequence &U = direction ? Uf : Ub;
 
-            Osequence &O = direction ? OI : Onp;
+            OSequence &O = direction ? OI : Onp;
             
             if (trySAT(U, &O, direction, res))
             {
@@ -228,7 +228,7 @@ namespace car
 
     bool Checker::trivialCheck(bool &res)
     {
-        const Model *model = model_;
+        const Problem *model = model_;
         // FIXME: fix for multiple properties.
         if (bad_ == model->true_id())
         {
@@ -270,24 +270,24 @@ namespace car
         return false;
     }
 
-    bool Checker::trySAT(Usequence &U, Osequence *O, bool forward, bool &safe_reported)
+    bool Checker::trySAT(USequence &U, OSequence *O, bool forward, bool &safe_reported)
     {
         // NOTE: can eliminate initialization.
         safe_reported = false;
-        Frame Otmp;
+        OFrame Otmp;
         MainSolver *main_solver = bi_main_solver;
         CARStats.count_enter_new_ronud();
         /**
-         * this procedure is like the old car procedure, but the Osequence is not bound to be OI or Onegp.
+         * this procedure is like the old car procedure, but the OSequence is not bound to be OI or Onegp.
          * @param missionary the state to be checked
          */
         while (State *missionary = pickState(U))
         {
-                        /**
+            /**
              * build a stack <state, depth, target_level>
              */
-            stack<item> stk;
-            stk.push(item(missionary, 0, O->size() - 1));
+            stack<Obligation> stk;
+            stk.push(Obligation(missionary, 0, O->size() - 1));
             while (!stk.empty())
             {
                 CARStats.count_enter_new_try_by();
@@ -299,16 +299,11 @@ namespace car
                     // TODO: memorize state's blocking status. Since we do not remove UC, once blocked, forever blocked.
                     stk.pop();
                     CARStats.count_tried_before();
-                                        direct_blocked_counter++;
-                    blocked_ids.insert(s->id);
 
                     int new_level = minNOTBlocked(s, dst + 2, O->size() - 1, O, Otmp);
                     if (new_level <= O->size())
                     {
-                        stk.push(item(s, depth, new_level - 1));
-                                            }
-                    else
-                    {
+                        stk.push(Obligation(s, depth, new_level - 1));
                     }
                     continue;
                 }
@@ -327,7 +322,7 @@ namespace car
 
                 if (satAssume(bi_main_solver, O, s, dst, Otmp, safe_reported))
                 {
-                                        if (dst == -1)
+                    if (dst == -1)
                     {
                         return true;
                     }
@@ -343,8 +338,8 @@ namespace car
                     #endif
                     if (new_level <= dst) // if even not one step further, should not try it
                     {
-                        stk.push(item(tprime, depth + 1, new_level - 1));
-                                            }
+                        stk.push(Obligation(tprime, depth + 1, new_level - 1));
+                    }
                 }
                 else
                 {
@@ -356,7 +351,7 @@ namespace car
                     int new_level = minNOTBlocked(s, dst + 2, O->size() - 1, O, Otmp);
                     if (new_level <= O->size())
                     {
-                        stk.push(item(s, depth, new_level - 1));
+                        stk.push(Obligation(s, depth, new_level - 1));
                                             }
                     else
                     {
@@ -368,10 +363,6 @@ namespace car
         // this is same with extend_F_sequence in old CAR.
         O->push_back(Otmp);
 
-
-        spliter.push_back(State::next_id_);
-        blocked_counter_array.push_back(direct_blocked_counter);
-        direct_blocked_counter = 0;
         if (rotate_enabled)
             rotates.push_back(rotate);
         bi_main_solver->add_new_frame(Otmp, O->size() - 1, O, forward);
@@ -387,7 +378,7 @@ namespace car
      * @return true : invariant found at target level
      * @return false : invariant does not exists at target level
      */
-    bool Checker::InvFoundAt(Osequence &O, int check_level, int minimal_update_level, InvSolver *inv_solver)
+    bool Checker::InvFoundAt(OSequence &O, int check_level, int minimal_update_level, InvSolver *inv_solver)
     {
         // a portion of `InvFound()`
         if (check_level < minimal_update_level)
@@ -404,9 +395,9 @@ namespace car
         return res;
     }
 
-    bool Checker::InvFound(Osequence *o)
+    bool Checker::InvFound(OSequence *o)
     {
-        Osequence &O = *o;
+        OSequence &O = *o;
         bool res = false;
         // FIXME: Should we reuse inv_solver instead of recreating?
         InvSolver *inv_solver = new InvSolver(model_);
@@ -457,19 +448,19 @@ namespace car
         return res;
     }
 
-    Osequence *Checker::createOWith(State *s)
+    OSequence *Checker::createOWith(State *s)
     {
-        Osequence *o;
+        OSequence *o;
         if (SO_map.find(s) != SO_map.end())
         {
             o = SO_map[s];
         }
         else
         {
-            Frame f;
-            for (auto i : s->s())
+            OFrame f;
+            for (auto i : s->get_latches())
                 f.push_back({-i});
-            o = new Osequence({f});
+            o = new OSequence({f});
             SO_map[s] = o;
             fresh_levels[o] = 0;
             // FIXME: When is the right time to add to solver? And when to set the flag?
@@ -481,7 +472,7 @@ namespace car
 
     // NOTE: when we try to pick a guide state, it is not used as part of the assumption but the target. Therefore, uc is not generated according to it, and therefore will not be updated.
     // Luckily, we do not use Onp or OI to guide. Therefore, here we have nothing to do with start_solver.
-    State *Checker::pickState(Usequence &U)
+    State *Checker::pickState(USequence &U)
     {
         if(pickStateLastIndex <= 0)
         {
@@ -491,7 +482,7 @@ namespace car
         }
         --pickStateLastIndex;
         State* s = U[pickStateLastIndex];
-        if(s->is_negp)
+        if(s->_isnegp)
         {
             // FIXME: check for forward CAR, where we need to enumerate by querying the start solver.
             // TODO: check for efficiency.
@@ -534,7 +525,7 @@ namespace car
         // it is not start state
         {
             // negate the s' as the cls, put into the solver.
-            Assignment cls = negate(prior_state->s());
+            Assignment cls = negate(prior_state->get_latches());
             bi_partial_solver->new_flag();
             bi_partial_solver->add_clause_with_flag(cls);
 
@@ -553,7 +544,7 @@ namespace car
                 // set the next state to be the initial state.
                 assert(Ub.size());
                 State *init = Ub[0];
-                s = init->s();
+                s = init->get_latches();
             }
 
             // block this clause.
@@ -618,9 +609,9 @@ namespace car
             {
                 State *next = prior_in_trail_b.find(to_print) != prior_in_trail_b.end() ? prior_in_trail_b.at(to_print) : nullptr;
                 if (next)
-                    helper.push(to_print->inputs());
+                    helper.push(to_print->get_inputs_str());
                 else
-                    helper.push(to_print->latches());
+                    helper.push(to_print->get_latches_str());
                 to_print = next;
             }
             while (!helper.empty())
@@ -635,38 +626,18 @@ namespace car
         {
             State *to_print = counter_start_f;
             if (!latch_printed)
-                out << to_print->latches() << endl;
+                out << to_print->get_latches_str() << endl;
             while (to_print)
             {
                 State *next = prior_in_trail_f.find(to_print) != prior_in_trail_f.end() ? prior_in_trail_f.at(to_print) : nullptr;
-                out << to_print->inputs() << endl;
+                out << to_print->get_inputs_str() << endl;
                 to_print = next;
             }
         }
         out << "." << endl;
     }
 
-    void Checker::print_flags(ostream &out)
-    {
-        out << endl;
-        out << "------ End Printing Flags ------" << endl;
-        for (auto p : SO_map)
-        {
-            out << "State is: " << p.first->id << endl;
-            auto &flags = bi_main_solver->flag_of_O;
-            if (flags.find(p.second) != flags.end())
-            {
-                auto &flag_for_this_O = flags[p.second];
-                for (int i = 0; i < flag_for_this_O.size(); ++i)
-                    out << i << ":" << flag_for_this_O[i] << ", ";
-            }
-            out << endl;
-        }
-        out << "------ End Printing Flags ------" << endl
-            << endl;
-    }
-
-    bool Checker::updateU(Usequence &U, State *s, State *prior_state_in_trail)
+    bool Checker::updateU(USequence &U, State *s, State *prior_state_in_trail)
     {
         // Counter Example Issue.
         // Every time we insert a new state into U sequence, it should be updated.
@@ -689,7 +660,7 @@ namespace car
         return pref;
     }
 
-    bool Checker::satAssume(MainSolver *solver, Osequence *O, State *s, int level, Frame &Otmp, bool& safe_reported)
+    bool Checker::satAssume(MainSolver *solver, OSequence *O, State *s, int level, OFrame &Otmp, bool& safe_reported)
     {
         bool forward = !backward_first;
         vector<Cube> inter;
@@ -717,7 +688,7 @@ namespace car
                 if (get_inter_cnt())
                 {
                     // NOTE: the meaning of inter_cnt is not consistent as to ni > 1
-                    const Frame &frame = level + 1 < O->size() ? (*O)[level + 1] : Otmp;
+                    const OFrame &frame = level + 1 < O->size() ? (*O)[level + 1] : Otmp;
  
                     // this index is which iCube we want to create.
                     int index = 1;
@@ -765,7 +736,7 @@ namespace car
                 if (rcu.empty())
                 {
                     rres = {};
-                    rtmp = s->s();
+                    rtmp = s->get_latches();
                     // TODO: try this to be inter?
                     break;
                 }
@@ -774,9 +745,9 @@ namespace car
                 for (int i = 0; i < rcu.size(); ++i)
                 {
                     // full state
-                    if (s->size() == model_->num_latches())
+                    if (s->latch_size() == model_->num_latches())
                     {
-                        if (s->element(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
+                        if (s->latch_at(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
                             rres.push_back(rcu[i]);
                         else
                             rtmp.push_back(-rcu[i]);
@@ -786,9 +757,9 @@ namespace car
                     // a partial state
                     {
                         int i = 0, j = 0;
-                        while (i < s->size() && j < rcu.size())
+                        while (i < s->latch_size() && j < rcu.size())
                         {
-                            if (rcu[j] == s->element(i))
+                            if (rcu[j] == s->latch_at(i))
                             {
                                 rres.push_back(rcu[j]);
                                 i++;
@@ -796,8 +767,8 @@ namespace car
                             }
                             else
                             {
-                                rtmp.push_back(s->element(i));
-                                if (rcu[j] < s->element(i))
+                                rtmp.push_back(s->latch_at(i));
+                                if (rcu[j] < s->latch_at(i))
                                     j++;
                                 else
                                     i++;
@@ -819,7 +790,7 @@ namespace car
             {
                 std::random_device rd;
                 std::mt19937 gen(rd());
-                vector<int> shuff_helper = s->s();
+                vector<int> shuff_helper = s->get_latches();
                 for (int i = shuff_helper.size() - 1; i > 0; --i) {
                     // starting from 1, because 0 is the flag.
                     std::uniform_int_distribution<int> dis(0, i);
@@ -833,7 +804,7 @@ namespace car
             case 3: // expectation test
             {
                 // FIXME: implement this part to be a real decision procedure.
-                std::vector<int> exp = s->s();
+                std::vector<int> exp = s->get_latches();
                 solver->set_expectation(exp, forward);
                 solver->set_assumption(O, s, level, forward, pref);
                 break;
@@ -1088,7 +1059,7 @@ namespace car
         }
     }
 
-    void Checker::clearO(State *s, Osequence *Os)
+    void Checker::clearO(State *s, OSequence *Os)
     {
         assert(s);
         assert(Os);
@@ -1111,12 +1082,12 @@ namespace car
         index_set.insert({uc.size(),index});
     }
 
-    void Checker::addUCtoSolver(Cube &uc, Osequence *O, int dst_level_plus_one, Frame &Otmp)
+    void Checker::addUCtoSolver(Cube &uc, OSequence *O, int dst_level_plus_one, OFrame &Otmp)
     {
         if (dst_level_plus_one < fresh_levels[O])
             fresh_levels[O] = dst_level_plus_one;
 
-        Frame &frame = (dst_level_plus_one < int(O->size())) ? (*O)[dst_level_plus_one] : Otmp;
+        OFrame &frame = (dst_level_plus_one < int(O->size())) ? (*O)[dst_level_plus_one] : Otmp;
 
         frame.push_back(uc);
 
@@ -1140,7 +1111,7 @@ namespace car
         }
     }
 
-    void Checker::updateO(Osequence *O, int dst, Frame &Otmp, bool &safe_reported)
+    void Checker::updateO(OSequence *O, int dst, OFrame &Otmp, bool &safe_reported)
     {
         Cube uc = bi_main_solver->get_conflict(!backward_first);
 
@@ -1161,7 +1132,7 @@ namespace car
         State *negp = new State(true);
         clear_defer(init);
         clear_defer(negp);
-        Frame O0; // a frame with only one uc.
+        OFrame O0; // a frame with only one uc.
 
         switch (rememOption)
         {
@@ -1182,8 +1153,8 @@ namespace car
                     
                     // O_I
                     // NOTE: O stores the UC, while we actually use negations.
-                    Frame frame;
-                    for (auto lit : init->s())
+                    OFrame frame;
+                    for (auto lit : init->get_latches())
                     {
                         frame.push_back({-lit});
                     }
@@ -1211,7 +1182,7 @@ namespace car
                             ImplySolver::add_uc_MOM(O0[index],0);
                         insert_to_uc_index(O0[index],index,0);
                     }
-                    Onp = Osequence({O0});
+                    Onp = OSequence({O0});
                     SO_map[negp] = &Onp;
                 }
                 break;
@@ -1245,7 +1216,7 @@ namespace car
                             ImplySolver::add_uc_MOM(O0[index],0);
                         insert_to_uc_index(O0[index],index,0);
                     }
-                    Onp = Osequence({O0});
+                    Onp = OSequence({O0});
                     SO_map[negp] = &Onp;
                 }
                 break;
@@ -1295,7 +1266,7 @@ namespace car
                             ImplySolver::add_uc_MOM(O0[index],0);
                         insert_to_uc_index(O0[index],index,0);
                     }
-                    Onp = Osequence({O0});
+                    Onp = OSequence({O0});
                     SO_map[negp] = &Onp;
                 }
                 break;
@@ -1334,7 +1305,7 @@ namespace car
 
                     if(get_rotate())
                     {
-                        rotates.push_back(init->s());
+                        rotates.push_back(init->get_latches());
                     }
                     return false;
                 }
@@ -1346,7 +1317,7 @@ namespace car
                 assert(backward_first);
                 delete init;
                 auto *&last_init = last_chker->Ub[0];
-                auto * init = new State(last_init->inputs_vec(), last_init->s());
+                auto * init = new State(last_init->get_inputs(), last_init->get_latches());
                 clear_defer(init);
 
                 if (immediateCheck(init, bad_, res, O0))
@@ -1361,7 +1332,7 @@ namespace car
                     // all its followings
                     if(last_chker->whichPrior()[st] == init)
                     {
-                        State* s = new State(st->inputs_vec(), st->s());
+                        State* s = new State(st->get_inputs(), st->get_latches());
                         clear_defer(s);
                         updateU(Ub, s, init);
                     }
@@ -1383,7 +1354,7 @@ namespace car
                         ImplySolver::add_uc_MOM(O0[index],0);
                     insert_to_uc_index(O0[index],index,0);
                 }
-                Onp = Osequence({O0});
+                Onp = OSequence({O0});
                 SO_map[negp] = &Onp;
                 break;
             }
@@ -1401,8 +1372,8 @@ namespace car
 
                 // O_I
                 // NOTE: O stores the UC, while we actually use negations.
-                Frame frame;
-                for (auto lit : init->s())
+                OFrame frame;
+                for (auto lit : init->get_latches())
                 {
                     frame.push_back({-lit});
                 }
@@ -1425,7 +1396,7 @@ namespace car
                 {
                     ImplySolver::add_uc(uc0,0);
                 }
-                Onp = Osequence({O0});
+                Onp = OSequence({O0});
                 SO_map[negp] = &Onp;
             }
             break;
@@ -1435,7 +1406,7 @@ namespace car
 
         if(get_rotate())
         {
-            rotates.push_back(init->s());
+            rotates.push_back(init->get_latches());
         }
 
         if (backward_first)
@@ -1475,12 +1446,12 @@ namespace car
     }
 
     // This is used in sequence initialization
-    bool Checker::immediateCheck(State *from, int target, bool &res, Frame &O0)
+    bool Checker::immediateCheck(State *from, int target, bool &res, OFrame &O0)
     {
         // bi_main_solver.
         auto &solver = bi_main_solver;
         // NOTE: init may not be already set.
-        vector<int> latches = from->s();
+        vector<int> latches = from->get_latches();
 
         int last_max = 0;
         do
@@ -1532,7 +1503,7 @@ namespace car
         return false;
     }
 
-    bool Checker::lastCheck(State *from, Osequence *O)
+    bool Checker::lastCheck(State *from, OSequence *O)
     {
         // if(SO_map[State::negp_state] != O)
         // 	return true;
@@ -1547,7 +1518,7 @@ namespace car
         // in backward car, we use uc0 instead of ~P to initialize Ob[0]. This makes it possible to return false, because uc0 is necessary but not essential.
         {
             // check whether it's in it.
-            bool res = bi_main_solver->solve_with_assumption(from->s(), bad_);
+            bool res = bi_main_solver->solve_with_assumption(from->get_latches(), bad_);
             if (res)
             {
                 // OK. counter example is found.
@@ -1561,7 +1532,7 @@ namespace car
         return false;
     }
 
-    void Checker::print_sat_query(MainSolver *solver, State *s, Osequence *o, int level, bool res, ostream &out)
+    void Checker::print_sat_query(MainSolver *solver, State *s, OSequence *o, int level, bool res, ostream &out)
     {
         static int sat_cnt = 0;
         out << endl;
@@ -1569,7 +1540,7 @@ namespace car
         //<<"\tflag="<<solver->flag_of(o,level)<<endl;
         out << "SAT solver clause size: " << solver->size() << endl;
         out << "State: ";
-        for (int i : s->s())
+        for (int i : s->get_latches())
             out << i << ", ";
         out << endl;
         // cout<<"state: \n\tlatches: "<<s->latches()<<"\n\tinputs: "<<s->inputs()<<endl;
@@ -1581,7 +1552,7 @@ namespace car
 
     /**
      * @brief
-     * @pre s->s() is in abs-increasing order
+     * @pre s->get_latches() is in abs-increasing order
      *
      * @param s
      * @param frame_level
@@ -1590,14 +1561,14 @@ namespace car
      * @return true
      * @return false
      */
-    bool Checker::blockedIn(State *s, const int frame_level, Osequence *O, Frame &Otmp)
+    bool Checker::blockedIn(State *s, const int frame_level, OSequence *O, OFrame &Otmp)
     {
         bool res = false;
         switch (impMethod)
         {
             case(Imp_Manual):
             {
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                OFrame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
                 for (const auto &uc : frame)
                 {
                     res = s->imply(uc);
@@ -1636,7 +1607,7 @@ namespace car
                 {
                     if(imply_decision == -1)
                         CARStats.count_imply_dec_begin();
-                    Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                    OFrame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
                     for (const auto &uc : frame)
                     {
                         res = s->imply(uc);
@@ -1663,7 +1634,7 @@ namespace car
                     break;
                 }
                 auto& helper = uc_len_indexes[frame_level];
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                OFrame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
                 for (auto& pr: helper)
                 {
                     int index = pr.second;
@@ -1692,7 +1663,7 @@ namespace car
                 // manual
                 begin = steady_clock::now();
                 
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                OFrame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
                 for (const auto &uc : frame)
                 {
                     res = s->imply(uc);
@@ -1711,7 +1682,7 @@ namespace car
 
             case (Imp_Thresh):
             {
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                OFrame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
                 if(frame.size() > 10000)
                 {
                     res = ImplySolver::is_blocked(s,frame_level);
@@ -1736,40 +1707,6 @@ namespace car
                 break;
             }
 
-            case (Imp_Fresh):
-            {
-                /**
-                 * @brief Record what has been tested as to each state
-                 * 
-                 */
-                // get its fresh index!
-                if(impFreshRecord.find(frame_level)  == impFreshRecord.end())
-                {
-                    impFreshRecord[frame_level] = std::unordered_map<int,int>({});
-                }
-                auto &this_level_map = impFreshRecord[frame_level];
-                int freshIndex = 0;
-                if(this_level_map.find(s->id) != this_level_map.end())
-                {
-                    freshIndex = this_level_map[s->id];
-                    // cerr<<"id = "<<s->id<<", level = "<<frame_level<<", fresh = "<<freshIndex<<endl;
-                }
-
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
-                for (int i = frame.size()-1; i>= freshIndex; --i)
-                {
-                    auto& uc = frame[i];
-                    res = s->imply(uc);
-                    if (res)
-                    {
-                        break;
-                    }
-                }
-                // reach here, then we can update!
-                this_level_map[s->id] = frame.size();
-
-                break;
-            }
 
             default:
                 break;
@@ -1787,7 +1724,7 @@ namespace car
      * @param Otmp 
      * @return int 
      */
-    int Checker::minNOTBlocked(State *s, const int min, const int max, Osequence *O, Frame &Otmp)
+    int Checker::minNOTBlocked(State *s, const int min, const int max, OSequence *O, OFrame &Otmp)
     {
         CARStats.count_imply_begin();
         int start = min;
@@ -1811,7 +1748,7 @@ namespace car
          * Add the negation of this frame into the solver
          * @param frame
          */
-        void InvAddOR(Frame &frame, int level, InvSolver *inv_solver_)
+        void InvAddOR(OFrame &frame, int level, InvSolver *inv_solver_)
         {
             inv_solver_->add_constraint_or(frame, level);
         }
@@ -1821,7 +1758,7 @@ namespace car
          * Add the real states into this solver.
          * @param frame
          */
-        void InvAddAND(Frame &frame, int level, InvSolver *inv_solver_)
+        void InvAddAND(OFrame &frame, int level, InvSolver *inv_solver_)
         {
             inv_solver_->add_constraint_and(frame, level);
         }
@@ -1835,7 +1772,7 @@ namespace car
             inv_solver_->release_constraint_and(level);
         }
 
-        bool InvFoundAt(Fsequence &F_, const int frame_level, InvSolver *inv_solver_, int minimal_update_level_)
+        bool InvFoundAt(OSequence &F_, const int frame_level, InvSolver *inv_solver_, int minimal_update_level_)
         {
             if (frame_level <= minimal_update_level_)
             {
@@ -1851,7 +1788,7 @@ namespace car
 
         // -1 for not found.
         // >=0 for level
-        int InvFound(Model *model_, Fsequence &F_, int &minimal_update_level_, int frame_level)
+        int InvFound(Problem *model_, OSequence &F_, int &minimal_update_level_, int frame_level)
         {
             if (frame_level == 0)
                 return -1;

@@ -37,8 +37,8 @@ namespace car
     Checker *chk;
     bool verbose = false;
     bool verbose_ = false;
-    Model *model;
-    const Model *State::model_;
+    Problem *model;
+    const Problem *State::model_;
     const aiger *State::aig_;
 }
 
@@ -245,7 +245,7 @@ void check_aiger(int argc, char **argv)
     if (!aiger_is_reencoded(aig))
         aiger_reencode(aig);
 
-    Model *model = new Model(aig);
+    Problem *model = new Problem(aig);
     // FIXME: collect all these static members. unify them.
     car::model = model;
     State::model_ = model;

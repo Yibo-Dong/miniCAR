@@ -56,7 +56,7 @@ namespace car
 	class PartialSolver : public CARSolver
 	{
 	public:
-		PartialSolver(Model *, const bool verbose = false);
+		PartialSolver(Problem *, const bool verbose = false);
 		~PartialSolver() {}
 
 		// add clause with flag
@@ -76,7 +76,7 @@ namespace car
 
 	private:
 		int max_partial_id;
-		Model *model_;
+		Problem *model_;
 	};
 
 }

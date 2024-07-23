@@ -42,7 +42,7 @@ namespace car
 {
     extern Statistics CARStats; // defined in main.cpp
     extern bool verbose_;    // defined in main.cpp
-    extern Model *model;     // defined in main.cpp
+    extern Problem *model;     // defined in main.cpp
     extern int storage_id;
     class Checker;
     extern Checker ch;
@@ -60,11 +60,11 @@ namespace car
          * @param index_to_check the index of property to check. At present, only one property is allowed
 
          */
-        Checker(Model *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
+        Checker(Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
 
-        Checker(int time_limit, Model *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
+        Checker(int time_limit, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
 
-        Checker(int time_limit, Checker* last_chker, int rememOption, Model *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
+        Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
 
         /**
          * @brief Destroy the Checker object
@@ -90,7 +90,7 @@ namespace car
         bool trivialCheck(bool &res);
 
         /**
-         * @brief Searching procedure of bi-car. Enumerate states in U and use the Osequence as the guide.
+         * @brief Searching procedure of bi-car. Enumerate states in U and use the OSequence as the guide.
          *
          * @param U the U sequence to enumerate.
          * @param O the O sequence with a singleton (a state that is picked from the U sequence) making up its level 0.
@@ -98,7 +98,7 @@ namespace car
          * @return true : successfully reached O[0]. which means a cex is found.
          * @return false : all states in present U has been checked. No cex is found.
          */
-        bool trySAT(Usequence &U, Osequence *O, bool forward, bool &safe_reported);
+        bool trySAT(USequence &U, OSequence *O, bool forward, bool &safe_reported);
 
     public:
         /**
@@ -180,14 +180,14 @@ namespace car
         void insert_to_uc_index(Cube &uc,int index, int level);
 
     public:
-        Model *model_;
+        Problem *model_;
         bool evidence_;
         bool backward_first = true;
         int bad_;
         StartSolver *bi_start_solver;
 
         // mapping from state to its corresponding o sequence.
-        std::unordered_map<const State *, Osequence *> SO_map;
+        std::unordered_map<const State *, OSequence *> SO_map;
         // the main solver shared.
         MainSolver *bi_main_solver;
         // the partial solver shared.
@@ -196,9 +196,9 @@ namespace car
         int blocked_count = 0;
 
         // the map from O sequence to its minimal_level
-        std::unordered_map<const Osequence *, int> fresh_levels;
-        Usequence Uf, Ub; // Uf[0] is not explicitly constructed
-        Osequence Onp, OI;
+        std::unordered_map<const OSequence *, int> fresh_levels;
+        USequence Uf, Ub; // Uf[0] is not explicitly constructed
+        OSequence Onp, OI;
         // used in picking state randomly
         std::vector<std::pair<State *, int>> Uset;
 
@@ -208,12 +208,12 @@ namespace car
          *
          */
 
-        inline Usequence &whichU()
+        inline USequence &whichU()
         {
             return backward_first ? Ub : Uf;
         }
 
-        inline Usequence &otherU()
+        inline USequence &otherU()
         {
             return backward_first ? Uf : Ub;
         }
@@ -269,9 +269,9 @@ namespace car
          * @brief Create a O with given state object as its level 0.
          *
          * @param s
-         * @return Osequence&
+         * @return OSequence&
          */
-        Osequence *createOWith(State *s);
+        OSequence *createOWith(State *s);
 
         int pickStateLastIndex = -1;
         /**
@@ -282,7 +282,7 @@ namespace car
          *  then all the markers will be cleaned. Therefore, this method can be reused for another round.
          * @post Anytime it ends the iterative round earlier(before nullptr), it must has found the counter example in trySAT. Therefore, there will be no picking in the future.
          */
-        State *pickState(Usequence &);
+        State *pickState(USequence &);
 
         /**
          * @brief Get the partial state with assignment s. This is used in forward CAR.
@@ -306,7 +306,7 @@ namespace car
          *
          * @return whether it is already seen at a lower level.
          */
-        bool updateU(Usequence &, State *, State *prior_in_trail);
+        bool updateU(USequence &, State *, State *prior_in_trail);
 
         /**
          * @brief Update O sequence
@@ -316,7 +316,7 @@ namespace car
          * @param Otmp
          * @param safe_reported
          */
-        void updateO(Osequence *O, int dst_level, Frame &Otmp, bool &safe_reported);
+        void updateO(OSequence *O, int dst_level, OFrame &Otmp, bool &safe_reported);
 
         /**
          * @brief SAT_Assume(assum, clauses)
@@ -324,7 +324,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool satAssume(MainSolver *, Osequence *O, State *, int, Frame &Otmp, bool &safe_reported);
+        bool satAssume(MainSolver *, OSequence *O, State *, int, OFrame &Otmp, bool &safe_reported);
 
         /**
          * @brief Interface for cleaning.
@@ -338,7 +338,7 @@ namespace car
          * @param s
          * @param Os
          */
-        void clearO(State *s, Osequence *Os);
+        void clearO(State *s, OSequence *Os);
 
         /**
          * @brief first create a clause with target uc and flag of the corresponding O[dst], then add this clause to main solver or start solver, depending on the level.
@@ -347,7 +347,7 @@ namespace car
          * @param O
          * @param dst_level
          */
-        void addUCtoSolver(Cube &uc, Osequence *O, int dst_level, Frame &Otmp);
+        void addUCtoSolver(Cube &uc, OSequence *O, int dst_level, OFrame &Otmp);
 
         /**
          * @brief init special sequences: Uf, Ub, Oi, Onp
@@ -370,7 +370,7 @@ namespace car
          * use uc to initialize O[0] is suitable.
          *
          */
-        bool immediateCheck(State *from, int target, bool &res, Frame &O0);
+        bool immediateCheck(State *from, int target, bool &res, OFrame &O0);
 
         /**
          * @brief Check whether this in O[0] is actually a CEX.
@@ -380,7 +380,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool lastCheck(State *from, Osequence *O);
+        bool lastCheck(State *from, OSequence *O);
 
         /**
          * @brief Whether this state is blocked in this O frame, namely O[frame_level] (or Otmp, if frame_level == O.size)
@@ -392,7 +392,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool blockedIn(State *s, const int frame_level, Osequence *O, Frame &Otmp);
+        bool blockedIn(State *s, const int frame_level, OSequence *O, OFrame &Otmp);
 
         /**
          * @brief Use `blocked in` to iterate, from min to max, to find the minimal level where this state is not blocked.
@@ -404,7 +404,7 @@ namespace car
          * @param Otmp
          * @return int
          */
-        int minNOTBlocked(State *s, const int min, const int max, Osequence *O, Frame &Otmp);
+        int minNOTBlocked(State *s, const int min, const int max, OSequence *O, OFrame &Otmp);
 
     public:
         void print_flags(std::ostream &out);
@@ -418,12 +418,8 @@ namespace car
          * @param res
          * @param out
          */
-        void print_sat_query(MainSolver *solver, State *s, Osequence *o, int level, bool res, std::ostream &out);
-        std::vector<int> spliter;
-        std::set<int> blocked_ids;
-        std::vector<int> blocked_counter_array;
+        void print_sat_query(MainSolver *solver, State *s, OSequence *o, int level, bool res, std::ostream &out);
         // count of tried before
-        int direct_blocked_counter = 0;
 
     private:
         /**
@@ -452,26 +448,26 @@ namespace car
          */
 
         /**
-         * @brief Check whether there exists an invariant in this sequence. Which means the center state of this Osequence is not reachable, and should be later blocked
+         * @brief Check whether there exists an invariant in this sequence. Which means the center state of this OSequence is not reachable, and should be later blocked
          *
          * @param O the sequence to be checked
          * @return true : invariant is found
          * @return false : no invariant is found
          */
-        bool InvFound(Osequence *O);
+        bool InvFound(OSequence *O);
 
-        bool InvFoundAt(Osequence &O, int check_level, int minimal_update_level, InvSolver *inv_solver);
+        bool InvFoundAt(OSequence &O, int check_level, int minimal_update_level, InvSolver *inv_solver);
     };
 
     namespace inv
     {
-        void InvAddOR(Frame &frame, int level, InvSolver *inv_solver_);
+        void InvAddOR(OFrame &frame, int level, InvSolver *inv_solver_);
 
-        void InvAddAND(Frame &frame, int level, InvSolver *inv_solver_);
+        void InvAddAND(OFrame &frame, int level, InvSolver *inv_solver_);
 
         void InvRemoveAND(InvSolver *inv_solver_, int level);
 
-        bool InvFoundAt(Fsequence &F_, const int frame_level, InvSolver *inv_solver_, int minimal_update_level_);
+        bool InvFoundAt(OSequence &F_, const int frame_level, InvSolver *inv_solver_, int minimal_update_level_);
     }
 }
 

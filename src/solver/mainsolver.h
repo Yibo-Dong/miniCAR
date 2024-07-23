@@ -32,15 +32,15 @@ namespace car
 	class MainSolver : public CARSolver
 	{
 	public:
-		MainSolver(Model *, int rotate_is_on, const bool verbose = false, bool uc_no_sort = false);
-		MainSolver (Model* m, const bool verbose, int unroll_level, bool placeholder) ;
+		MainSolver(Problem *, int rotate_is_on, const bool verbose = false, bool uc_no_sort = false);
+		MainSolver (Problem* m, const bool verbose, int unroll_level, bool placeholder) ;
 		~MainSolver() {}
 
 		void set_assumption(const Assignment &, const int);
 		
-		// set assumption = { s->s() , flag_of(Os[frame_level]) }
-		void set_assumption(Osequence *O, State *s, const int frame_level, const bool forward);
-		void set_assumption(Osequence *O, State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
+		// set assumption = { s->get_latches() , flag_of(Os[frame_level]) }
+		void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward);
+		void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
 		
         // if assumptions are already set, just solve.
 		inline bool solve_with_assumption(){return CARSolver::solve_assumption();};
@@ -86,9 +86,9 @@ namespace car
 			CARSolver::add_cube_negate(cu);
 		}
 
-		void add_new_frame(const Frame& frame, const int frame_level, Osequence *O, const bool forward);
+		void add_new_frame(const OFrame& frame, const int frame_level, OSequence *O, const bool forward);
 
-		void add_clause_from_cube(const Cube &cu, const int frame_level, Osequence *O, const bool forward);
+		void add_clause_from_cube(const Cube &cu, const int frame_level, OSequence *O, const bool forward);
 
 		void shrink_model(Assignment &model);
 
@@ -98,9 +98,9 @@ namespace car
 		// silly method: clear the main solver when seraching with the O sequence ends.
 		// clever method: record flag of different levels in each O sequence.
 		
-		static std::unordered_map<Osequence*,std::vector<int>> flag_of_O;
+		static std::unordered_map<OSequence*,std::vector<int>> flag_of_O;
 
-		inline int flag_of(Osequence *o, const int frame_level)
+		inline int flag_of(OSequence *o, const int frame_level)
 		{
 			assert(frame_level >= 0);
 			while(frame_level >= flag_of_O[o].size())
@@ -110,7 +110,7 @@ namespace car
 			return flag_of_O[o][frame_level];
 		}
 		
-		void bi_record_O(Osequence *o, bool dir)
+		void bi_record_O(OSequence *o, bool dir)
 		{
 			// should not have met before.
 			assert(flag_of_O.count(o) == 0); 
@@ -133,7 +133,7 @@ namespace car
 
 		int unroll_level;
 	private:
-		Model *model_;
+		Problem *model_;
 		int max_flag;
         bool rotate_is_on;
         bool uc_no_sort;

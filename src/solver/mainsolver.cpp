@@ -23,7 +23,7 @@ namespace car
 {
 
 	// record the flag of flags of every frams in every O sequence(in bi-car, there will be multiple O sequences, each starts from a unique center state.)
-	std::unordered_map<Osequence*,std::vector<int>> MainSolver::flag_of_O;
+	std::unordered_map<OSequence*,std::vector<int>> MainSolver::flag_of_O;
 
 	/**
 	 * @brief 把constraints、outputs和latches加入clause。
@@ -31,7 +31,7 @@ namespace car
 	 * @param m 
 	 * @param verbose 
 	 */
-	MainSolver::MainSolver (Model* m,int rotate_is_on, const bool verbose, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort)
+	MainSolver::MainSolver (Problem* m,int rotate_is_on, const bool verbose, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort)
 	{
 		model_ = m;
 		max_flag = m->max_id() + 1;
@@ -89,7 +89,7 @@ namespace car
 	 * @param verbose 
 	 * @param unroll_level 
 	 */
-	MainSolver::MainSolver (Model* m, const bool verbose, int unroll_level, bool __placeholder) 
+	MainSolver::MainSolver (Problem* m, const bool verbose, int unroll_level, bool __placeholder) 
 	{
 		assert(unroll_level >=1);
 		// no need to unroll if level == 1.
@@ -157,25 +157,25 @@ namespace car
 	}
 
 	/**
-	 * @brief set assumption = { s->s() , flag_of(Os[frame_level]) }
+	 * @brief set assumption = { s->get_latches() , flag_of(Os[frame_level]) }
 	 * 
 	 * @param s 
 	 * @param frame_level 
 	 * @param forward 
 	 */
-    void MainSolver::set_assumption(Osequence* O, State*s,  const int frame_level, const bool forward)
+    void MainSolver::set_assumption(OSequence* O, State*s,  const int frame_level, const bool forward)
     {
         assumptions.clear();
         if (frame_level > -1)
 			assumptions.push (SAT_lit (flag_of(O,frame_level)));
-		for (const int &id :s->s())
+		for (const int &id :s->get_latches())
 		{
 			int target = forward ? model_->prime (id) : id;
 			assumptions.push (SAT_lit (target));
 		}
     }
 
-	void MainSolver::set_assumption(Osequence* O, State*s,  const int frame_level, const bool forward, const std::vector<Cube> & prefers)
+	void MainSolver::set_assumption(OSequence* O, State*s,  const int frame_level, const bool forward, const std::vector<Cube> & prefers)
     {
         assumptions.clear();
         if (frame_level > -1) // should always satisfy
@@ -194,7 +194,7 @@ namespace car
         {
             // with rotate on, it will already be the whole state.
             // therefore, no need to add the rest part.
-            for (const int &id :s->s())
+            for (const int &id :s->get_latches())
             {
                 int target = forward ? model_->prime (id) : id;
                 assumptions.push (SAT_lit (target));
@@ -352,7 +352,7 @@ namespace car
 		return std::move(conflict);
 	}
 	
-	void MainSolver::add_new_frame(const Frame& frame, const int frame_level,Osequence *O, const bool forward)
+	void MainSolver::add_new_frame(const OFrame& frame, const int frame_level,OSequence *O, const bool forward)
 	{
 		for (int i = 0; i < frame.size (); i ++)
 		{
@@ -362,7 +362,7 @@ namespace car
 
 	// Actually, each center_state should only exist in O sequence in one direction.
 	// Should we just record this?
-	void MainSolver::add_clause_from_cube(const Cube &cu, const int frame_level, Osequence *O, const bool forward)
+	void MainSolver::add_clause_from_cube(const Cube &cu, const int frame_level, OSequence *O, const bool forward)
 	{
 		int flag = flag_of(O,frame_level);
 		vector<int> cl = {-flag};

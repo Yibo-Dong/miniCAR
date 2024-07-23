@@ -36,9 +36,9 @@ namespace car
 	{
 		bool verbose_;
 		public:
-			InvSolver (const Model* m, bool verbose=false) : verbose_(verbose),id_aiger_max_ (const_cast<Model*>(m)->max_id ())
+			InvSolver (const Problem* m, bool verbose=false) : verbose_(verbose),id_aiger_max_ (const_cast<Problem*>(m)->max_id ())
 			{
-				model_ = const_cast<Model*> (m);
+				model_ = const_cast<Problem*> (m);
 			    int end =  model_->outputs_start ();
 			    for (int i = 0; i < end ; i ++)
                     add_clause (model_->element (i));
@@ -64,7 +64,7 @@ namespace car
 			 * Add the negation of this frame into the solver
 			 * @param frame 
 			 */
-			inline void add_constraint_or (const Frame &frame, int level)
+			inline void add_constraint_or (const OFrame &frame, int level)
 			{
 				// there should be no prior flag for this frame. 
 				assert(or_flag.find(level) == or_flag.end());
@@ -98,7 +98,7 @@ namespace car
 			 * Add the real states into this solver.
 			 * @param frame 
 			 */
-			inline void add_constraint_and (const Frame &frame, int level)
+			inline void add_constraint_and (const OFrame &frame, int level)
 			{
 				// flag = 1 : Clauses in this frame is enabled.
 				// The real states this frame Represent
@@ -266,7 +266,7 @@ namespace car
 				model = res;
 			}
 
-			void inv_update_U(Usequence &U, State *s, int level, State * prior_state_in_trail)
+			void inv_update_U(USequence &U, State *s, int level, State * prior_state_in_trail)
 			{
                 
 				while(U.size() <= level)
@@ -276,9 +276,9 @@ namespace car
 				prior[s] = prior_state_in_trail;
 			}
 
-			void addUCtoSolver(Cube&uc, Osequence* O ,int level)
+			void addUCtoSolver(Cube&uc, OSequence* O ,int level)
 			{
-				Frame&frame = (*O)[level];
+				OFrame&frame = (*O)[level];
 				//FIXME: add clause from cube.
 			}
 
@@ -312,7 +312,7 @@ namespace car
 			std::vector<int> frame_flags;	
 
 		protected:
-			Model* model_;
+			Problem* model_;
 			int id_aiger_max_;  	//to store the maximum number used in aiger model
 
 	};

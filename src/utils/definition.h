@@ -1,19 +1,28 @@
+/**
+ * @file definition.h
+ * @author yibodong (prodongf@gmail.com)
+ * @brief The basic data structures
+ * @version 0.1.0
+ * @date 2024-07-23
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #ifndef DEFINITION_H
 #define DEFINITION_H
 
-#include <vector>
-#include <iostream>
-#include <stdlib.h>
-#include <unordered_map>
-#include <unordered_set>
-#include <set>
-#include <random>
-#include <algorithm>
-#include <stdlib.h>
 #include <iostream>
 #include <fstream>
-#include <assert.h>
+#include <stdlib.h>
+#include <vector>
 #include <map> 
+#include <set>
+#include <unordered_map>
+#include <unordered_set>
+#include <random>
+#include <algorithm>
+#include <assert.h>
 #include "statistics.h"
 extern "C" {
 #include "aiger.h"
@@ -22,102 +31,111 @@ extern "C" {
 
 namespace car
 {
-    /* 1-100
-	1,1, -1, -1 ,-1 ...
-	1,2 √
-	*/
-	typedef std::vector<int> Assignment;
-	// a /\ b /\ c
-	typedef std::vector<int> Cube;
-	// a \/ b \/ c
-	typedef std::vector<int> Clause;
-	// ~(c1 \/ c2 \/ c3)  c_i都是uc，不用管初始化（全集？）的问题
-	typedef std::vector<Cube> Frame;
-	//
-	typedef std::vector<Frame> Fsequence;
+    // ##################################################
+    // #####           Basic Data Strucutre        ######
+    // ##################################################
 
-	/* 1-100
-	1,1, -1, -1 ,-1 ...
-	1,2 √
-	*/
-	extern Statistics CARStats;
-	class Model;
 
-	// state
+    // Problem ::= {Model, Property, (Optional) Constraints }
+    // where:
+    //      Model ::= BTS(Boolean Transition System) === {V, I, T}, where
+    //          V = All the Variables
+    //          I = Initial States
+    //          T = Transition Relationship.
+    //      Property ::= CNF to be satisfied
+    //      Constraints ::= CNF that are always satisfied
+    class Problem;
+    // state ::= {inputs, latches}
+    class State;
+
+    // full assignment of a state
+    using Assignment = std::vector<int>;
+    // a CNF of literals
+    using Cube = std::vector<int>; // TODO: change to LIT?
+    // a DNF of literals
+    using Clause = std::vector<int>; 
+    // Many Cubes, representing an Over-Approximation
+	using OFrame = std::vector<Cube>;
+    // Many OFrames, representing a trial of Over-Appriximations, where O_{i+1} is the Over-appximation of R{O_i} (or R^{-1}). 
+    using OSequence = std::vector<OFrame>;
+    // Many States, representing an Under-Approximation.
+	using USequence = std::vector<State *>;
+    // <state, depth, target level> to be verified.
+	using Obligation = std::tuple<car::State *, int, std::size_t>;
+	// how to compare.
+    struct CompareItem {
+		bool operator()(const Obligation &a, const Obligation &b) const {
+            // use the third member to sort.
+			return int(std::get<2>(a)) >= int(std::get<2>(b)); 
+		}
+	};
+
+    // ##################################################
+    // #####                State                  ######
+    // ##################################################
+
 	class State
 	{
-		public:
-			// construct a special state called negp.
-			State(bool isnegp) : is_negp(isnegp), id(-1) { assert(isnegp); negp_state=this; }
-
-			State(const Assignment &latches) : s_(latches), id(get_id(latches)) {}
-			State(const Assignment &inputs , const Assignment &latches): s_(latches), inputs_(inputs), id(get_id(latches)) {}
-
-			~State() {}
-
-			// s_ -> cu
-			// 当前状态是否在cu代表的状态中
-			bool imply(const Cube &cu) const;
-
-			// 取交
-			Cube intersect(const Cube &cu);
-			Cube intersect_no_dupl(const Cube &cu);
-			Cube intersect(const State*);
-
-
-			inline void set_inputs(const Assignment &st) { inputs_ = st; }
-
-			inline void print() { std::cout << latches() << std::endl; }
-
-			inline const Assignment& s() const { return s_; }
-			inline Assignment &inputs_vec() { return inputs_; }
-			std::string inputs() const;
-			std::string latches() const;
-
-			inline int size() const { return s_.size(); }
-			inline int element(int i) const { return s_.at(i); }
-
-		public:
-			const unsigned id;
+        // members of a state
+        private:
+            // latch values
+            Assignment _latches;
+            // input values
+			Assignment _inputs;
+        
+        public:
+			// whether it is the special state 'neg P'. 
+            // NOTE: At present, we do not unfold 'neg P', but use SAT solver to retrieve it's approximation (Follow simpleCAR). So we use one special state to represent it.
+            const bool _isnegp = false;
 			static const State* negp_state;
-			bool is_negp = false;
-		
-			static void set_num_inputs_and_latches (const int n1, const int n2) 
+
+            // the problem imported from AIGER
+            static const Problem* model_;
+			static const aiger* aig_;
+            
+            // size information about the problem
+			static int num_inputs_;
+			static int num_latches_;
+            static void set_num_inputs_and_latches (const int n1, const int n2) 
 			{
 				num_inputs_ = n1;
 				num_latches_ = n2;
 			}
-			
-		public:
-			static const Model* model_;
-			static const aiger* aig_;
-		private:
-			Assignment s_;
-			std::vector<int> inputs_;
-
-			static std::map<Assignment, int> ids;
-			inline unsigned get_id(const Assignment& latches){
-				return ++next_id_;
-			}
-		public:
-			static int num_inputs_;
-			static int num_latches_;
-			static unsigned next_id_;
 
 		public:
+            // Construct a special state 'neg P', whose id is -1.
+			State(bool _isnegp) : _isnegp(_isnegp) { assert(_isnegp); negp_state=this; }
+            const State *get_negp() const { return negp_state; }
 
+            // Construct a state with only latches, inputs to be set later.
+			State(const Assignment &latches) : _latches(latches), _isnegp(false) {}
+            inline void set_inputs(const Assignment &st) { _inputs = st; }
+
+            // Construct a state with inputs and latches.
+			State(const Assignment &inputs , const Assignment &latches): _latches(latches), _inputs(inputs), _isnegp(false) {}
+
+            // do nothing.
+			~State() {}
+
+			inline const Assignment& get_latches() const { return _latches; }
+			inline const Assignment& get_inputs() const { return _inputs; }
+			inline int latch_size() const { return _latches.size(); }
+			inline int latch_at(int i) const { return _latches.at(i); }
+			std::string get_inputs_str() const;
+			std::string get_latches_str() const;
+
+            // whether current state is blocked by this UC.
+            // this is a basic subsumption test: check whether each literal in this UC appears in this state.
+            // NOTE: latch values are stored in order ==> we could fetch-by-index.
+			bool imply(const Cube &cu) const;
+
+			// get the intersection with `cu`.
+			Cube intersect(const Cube &cu) const;
+
+		public:
 			// calculate what is already known about next latches according to present latch values.
-			Cube next_latches();
-	};
-
-	typedef std::vector<std::vector<State *>> Bsequence;
-	using Osequence = std::vector<Frame>;
-	using Usequence = std::vector<State *>;
-	using item = std::tuple<car::State *, int, std::size_t>;
-	struct CompareItem {
-		bool operator()(const item &a, const item &b) const {
-			return int(std::get<2>(a)) >= int(std::get<2>(b)); // 使用元组的第三个成员进行比较
-		}
+            // TODO: implement it.
+			Cube probe();
 	};
 
 
@@ -141,10 +159,10 @@ void shuffle(std::vector<T>& vec) {
 }
 
 
-class Model {
+class Problem {
 public:
-	Model (aiger*, const bool verbose = false);
-	~Model () {}
+	Problem (aiger*, const bool verbose = false);
+	~Problem () {}
 	
 	int prime (const int);
 	std::vector<int> previous (const int);
@@ -292,6 +310,5 @@ public:
 };
 
 }
-
 
 #endif

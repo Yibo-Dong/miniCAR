@@ -25,7 +25,7 @@ namespace car
         }
 
         auto& ref = moms[level];
-        std::vector<int> ass = s->s();
+        std::vector<int> ass = s->get_latches();
         std::sort(ass.begin(),ass.end(),[&ref](int a, int b){return ref[b] < ref[a];});
 
         solver->set_assumption(ass);
@@ -71,7 +71,7 @@ namespace car
     {
         // not so good to those with large latches scales.
         std::shared_ptr<ImplySolver> solver = getSolver(level);
-        solver->set_assumption(s->s());
+        solver->set_assumption(s->get_latches());
 
         /* note, we set the budget of solver in this level.
            we do not actually need the solution. We just want to check whether it is blocked by any UC.

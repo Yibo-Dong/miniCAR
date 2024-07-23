@@ -17,23 +17,29 @@ using namespace std;
 
 namespace car {
 
+    // the special negp state
+    // TODO: try unfold negp instead of this.
+    const State* State::negp_state;
 
-const State* State::negp_state;
+    int State::num_inputs_ = 0;
+ 	int State::num_latches_ = 0;
  	
     /**
      * @brief Whether this state is already blocked by this cube.
      * @pre need state(this) to follow the literal order.
-     * @param cu 
-     * @return true 
-     * @return false 
+     * @param cu : The UC 
+     * @return true : is blocked
+     * @return false : not blocked
      */
- 	bool State::imply (const Cube& cu) const
+ 	bool State::imply (const Cube& uc) const
 	{
-		for (int i = cu.size() - 1 ; i >= 0; --i)
+        // TODO: use bit-operation to compare multiple bits at the same time?
+		for (int i = uc.size() - 1 ; i >= 0; --i)
 		{
-			int index = abs(cu[i]) - num_inputs_ - 1;
+            // get the offset of this literal.
+			int index = abs(uc[i]) - num_inputs_ - 1;
 			assert (index >= 0);
-			if (s_[index] ^ cu[i])
+			if (_latches[index] ^ uc[i])
 			{
 				return false;
 			}
@@ -42,211 +48,65 @@ const State* State::negp_state;
 	}
 	
     /**
-     * @brief calculate intersection of two cubes.
+     * @brief calculate intersection of this->latches() and cu.
      * @pre need state(this) to follow the literal order.
      * @post follow the order in cu.
      * @param cu 
      * @return true 
      * @return false 
      */
-	Cube State::intersect (const Cube& cu) 
+	Cube State::intersect (const Cube& cu) const
 	{
 		Cube res;
+        res.reserve(cu.size());
 		for (int i = 0; i < cu.size (); i ++)
 		{
 			int index = abs(cu[i]) - num_inputs_ - 1;
 			assert (index >= 0);
-			if (s_[index] == cu[i])
+			if (_latches[index] == cu[i])
 				res.push_back (cu[i]);
 		}
 		return res;
 	}
 
-	Cube State::intersect_no_dupl (const Cube& cu) 
-	{
-		Cube res;
-		std::unordered_set<int> mark;
-		for (int i = 0; i < cu.size (); i ++)
-		{
-			int index = abs(cu[i]) - num_inputs_ - 1;
-			assert (index >= 0);
-			if (s_[index] == cu[i] && mark.find(cu[i]) == mark.end())
-			{
-				res.push_back (cu[i]);
-				mark.insert(cu[i]);
-			}
-		}
-		mark.clear();
-		return res;
-	}
-
-	Cube State::intersect (const State *s) 
-	{
-		Cube res;
-		Cube latches = s->s();
-
-		for (int i = 0; i < latches.size (); i ++)
-		{
-			if (s_[i] == latches[i])
-				res.push_back( s_[i] > 0 ? (i +  num_inputs_ + 1) : -(i +  num_inputs_ + 1));
-		}
-		return res;
-	}
- 	
-
-	string State::inputs() const
+    /**
+     * @brief get input values as a string. Used in CEX printing.
+     * 
+     * @return string 
+     */
+	string State::get_inputs_str() const
 	{
 		string res = "";
-		for (int i = 0; i < inputs_.size(); i++)
-			res += (inputs_.at(i) > 0) ? "1" : "0";
+		for (int i = 0; i < _inputs.size(); i++)
+			res += (_inputs.at(i) > 0) ? "1" : "0";
 		return res;
 	}
 
-	string State::latches() const
+    /**
+     * @brief get latch values as a string. Used in CEX printing.
+     * 
+     * @return string 
+     */
+	string State::get_latches_str() const
 	{
 		string res = "";
 		int j = 0;
 		for (int i = 0; i < num_latches_; i++)
 		{
-			if (j == s_.size())
+			if (j == _latches.size())
 				res += "x";
-			else if (num_inputs_ + i + 1 < abs(s_.at(j)))
+			else if (num_inputs_ + i + 1 < abs(_latches.at(j)))
 				res += "x";
 			else
 			{
-				res += (s_.at(j) > 0) ? "1" : "0";
+				res += (_latches.at(j) > 0) ? "1" : "0";
 				j++;
 			}
 		}
 		return res;
 	}
 
-	int State::num_inputs_ = 0;
- 	int State::num_latches_ = 0;
-
-	unsigned State::next_id_ = 0;
-
-	Cube State::next_latches()
-	{
-		// if it's negp, nothing is already known.
-		if(is_negp)
-			return {};
-
-		Cube known;
-		std::unordered_map<int,int> value;
-		// value for 0/1 is constant.
-		value[0] = 0;
-		
-		// value for inputs.
-		// if(inputs_.empty())
-		// {
-			for (int i = 0; i < aig_->num_inputs; ++i)
-			{
-				value[i+1] = -1;
-			}
-		// }else{
-		// 	for(int i = 0; i < aig_->num_inputs;++i)
-		// 	{
-		// 		value[i+1] = (inputs_[i] > 0) ? 1 : 0;
-		// 	}
-		// }
-
-		// value for latches
-		for(int i = 0; i < s_.size();++i)
-		{
-			int offset = abs(s_[i] -1 - int(aig_->num_inputs));
-			value[1+aig_->num_inputs +i ] = (s_[i]>0) ? 1 : 0;
-		}
-		
-		// auto getLitValue = [&value](int x){
-		// 	assert(value.find(x) != value.end() || value.find(-x) != value.end());
-		// 	if(x<0){return value[x] == -1 ? -1 : 1 - value[x];}
-		// 	else{return value[x];}
-		// };
-
-		auto getAigValue = [&value](int x){
-			// assert(value.find(x>>1) != value.end() || value.find(1 + (x>>1)) != value.end());
-			if(x & 1){ assert(value.find(x>>1) != value.end());  return value[x>>1] == -1 ? -1 : 1 - value[x>>1];}
-			else{assert(value.find(x>>1) != value.end()); return value[x>>1];}
-		};
-		
-		// value for and gates
-		for (int i = 0; i < aig_->num_ands; i ++)
-		{
-			aiger_and& aa = aig_->ands[i];
-			int rhs0_value = getAigValue(aa.rhs0);
-			int rhs1_value = getAigValue(aa.rhs1);
-			int lhs_value;
-
-			if(rhs0_value == 0 || rhs1_value == 0)
-				lhs_value = 0;
-			// taint will spread. mark as not determined
-			else if(rhs0_value == -1 || rhs1_value ==-1)
-			{
-				lhs_value = -1;
-				if(aa.rhs0 == aa.rhs1)
-					lhs_value = 1;
-				else if(aa.rhs0 == aa.rhs1 + 1 && aa.rhs0&1 )
-					lhs_value = 0;
-				// if(lhs_value != -1)
-				// 	cerr<<"?= "<<aa.rhs0<<endl;
-			}
-			else if (rhs0_value == 1 && rhs1_value == 1)
-				lhs_value = 1;
-			// else
-			// {
-			// 	cerr<<"strange value,"<<aa.rhs0 <<":" <<rhs0_value<<", "<<aa.rhs1<<": "<<rhs1_value<<endl;
-			// }
-			value[aa.lhs >> 1] = lhs_value;
-
-			// cerr<<aa.lhs<<" = "<<aa.rhs0 <<" + "<<aa.rhs1<<endl;
-			// cerr<<getAigValue(aa.lhs)<<" = "<<getAigValue(aa.rhs0)<< " + "<<getAigValue(aa.rhs1) <<endl;
-		}
-
-		// calculate necessaries.
-		for(int i = 0; i< aig_->num_latches; ++i)
-		{
-			int offset = 1+aig_->num_inputs;
-			int next_value = getAigValue(aig_->latches[i].next);
-			if(next_value!=-1)
-			{
-				// cerr<<(next_value>0);
-				known.push_back(next_value==0? -(i + offset) : i+ offset);
-			}
-			// else{
-			// 	cerr<<"x";
-			// }
-		}
-		// if(id == 5)
-		// {
-		// 	std::vector<int> values(aig_->maxvar,0);
-			
-		// 	cout<<"values: ";
-		// 	for(auto &p:value)
-		// 	{
-		// 		values[p.first] = p.second;
-		// 	}	
-		// 	for(int i = 0; i< values.size();++i)
-		// 		cout<<i<<" : "<<values[i]<<", ";
-		// 	cout<<endl;
-		// 	cout<<"known :";
-		// 	for(int i:known)
-		// 	cout<<i<<", ";
-		// 	cout<<endl;
-		// }
-		// cout<<"known:";
-		// for(int i:known)
-		// 	cout<<i<<", ";
-		// cout<<endl;
-
-
-		
-		return known;
-	}
-
-	std::map<Assignment, int> State::ids;
-
-Model::Model (aiger* aig, const bool verbose)
+    Problem::Problem (aiger* aig, const bool verbose)
 	{
 		verbose_ = verbose;
 		// According to aiger format, inputs should be [1 ... num_inputs_]
@@ -257,7 +117,8 @@ Model::Model (aiger* aig, const bool verbose)
 		num_constraints_ = aig->num_constraints;
 		num_outputs_ = aig->num_outputs;
 
-		//preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
+		// preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
+        // TODO: remove it?
 		max_id_ = aig->maxvar+2;
 		max_model_id_ =  aig->maxvar+2;
 		true_ = max_id_ - 1;
@@ -274,7 +135,7 @@ Model::Model (aiger* aig, const bool verbose)
 	}
 	
 	// collect those that is trivially constant
-	void Model::collect_trues (const aiger* aig)
+	void Problem::collect_trues (const aiger* aig)
 	{
 		for (int i = 0; i < aig->num_ands; i ++)
 		{
@@ -292,7 +153,7 @@ Model::Model (aiger* aig, const bool verbose)
 		}
 	}
 
-	void Model::set_constraints (const aiger* aig)
+	void Problem::set_constraints (const aiger* aig)
 	{
 		for (int i = 0; i < aig->num_constraints; i++)
 		{
@@ -301,7 +162,7 @@ Model::Model (aiger* aig, const bool verbose)
 		}
 	}
 	
-	void Model::set_outputs (const aiger* aig)
+	void Problem::set_outputs (const aiger* aig)
 	{
 		for (int i = 0; i < aig->num_outputs; i++)
 		{
@@ -310,7 +171,7 @@ Model::Model (aiger* aig, const bool verbose)
 		}
 	}
 
-	void Model::set_init (const aiger* aig)
+	void Problem::set_init (const aiger* aig)
 	{
 		for (int i = 0; i < aig->num_latches; i ++)
 		{
@@ -326,7 +187,7 @@ Model::Model (aiger* aig, const bool verbose)
 		}
 	}
 	
-	void Model::create_next_map (const aiger* aig)
+	void Problem::create_next_map (const aiger* aig)
 	{
 		for (int i = 0; i < aig->num_latches; i ++)
 		{
@@ -359,7 +220,7 @@ Model::Model (aiger* aig, const bool verbose)
 		}
 	}
 	
-	void Model::insert_to_reverse_next_map (const int index, const int val)
+	void Problem::insert_to_reverse_next_map (const int index, const int val)
 	{
 	    reverseNextMap::iterator it = reverse_next_map_.find (index);
 	    if (it == reverse_next_map_.end ())
@@ -372,7 +233,7 @@ Model::Model (aiger* aig, const bool verbose)
 	        (it->second).push_back (val);
 	}
 	
-	void Model::create_clauses (const aiger* aig)
+	void Problem::create_clauses (const aiger* aig)
 	{
 		// contraints, outputs and latches gates are stored in order,
 		// as the need for start solver construction
@@ -449,7 +310,7 @@ Model::Model (aiger* aig, const bool verbose)
 	 * flag2: All latches are initialized to 0
 	 * flags are enabled when assigned to 1.
 	 */
-	void Model::create_constraints_for_latches()
+	void Problem::create_constraints_for_latches()
 	{
 		int flag1 = ++max_id_;
 
@@ -490,7 +351,7 @@ Model::Model (aiger* aig, const bool verbose)
 		cls_.push_back({flag1, flag2});
 	}
 
-	void Model::collect_necessary_gates (const aiger* aig, const aiger_symbol* as, const int as_size, 
+	void Problem::collect_necessary_gates (const aiger* aig, const aiger_symbol* as, const int as_size, 
 	                                        std::set<unsigned>& exist_gates, std::set<unsigned>& gates, bool next)
 	{
 		for (int i = 0; i < as_size; i ++)
@@ -514,7 +375,7 @@ Model::Model (aiger* aig, const bool verbose)
 		
 	}
 	
-	aiger_and* Model::necessary_gate (const unsigned id, const aiger* aig)
+	aiger_and* Problem::necessary_gate (const unsigned id, const aiger* aig)
 	{
 		if (!is_true (id) && !is_false (id))
 			return aiger_is_and (const_cast<aiger*> (aig), (id % 2 == 0) ? id : (id-1));
@@ -522,7 +383,7 @@ Model::Model (aiger* aig, const bool verbose)
 		return NULL;
 	}
 	
-	void Model::recursively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates)
+	void Problem::recursively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates)
 	{
 		if (aa == NULL)
 			return;
@@ -543,7 +404,7 @@ Model::Model (aiger* aig, const bool verbose)
 	 * 
 	 * @param aa 
 	 */
-	void Model::add_clauses_from_equation (const aiger_and* aa)
+	void Problem::add_clauses_from_equation (const aiger_and* aa)
 	{
 		assert (aa != NULL);
 		assert (!is_true (aa->lhs) && !is_false (aa->lhs));
@@ -579,7 +440,7 @@ Model::Model (aiger* aig, const bool verbose)
 	 * @param id 
 	 * @return int 
 	 */
-	int Model::prime (const int id)
+	int Problem::prime (const int id)
 	{
 		nextMap::iterator it = next_map_.find (abs (id));
 		if (it == next_map_.end ())
@@ -597,7 +458,7 @@ Model::Model (aiger* aig, const bool verbose)
 	 * @param id 
 	 * @return std::vector<int> 
 	 */
-	std::vector<int> Model::previous (const int id)
+	std::vector<int> Problem::previous (const int id)
 	{
 	    vector<int> res;
 	    reverseNextMap::iterator it = reverse_next_map_.find (abs (id));
@@ -617,7 +478,7 @@ Model::Model (aiger* aig, const bool verbose)
 	 * @note multiple latch may share a common next, therefore one lit may have several previous.
 	 * @param uc 
 	 */
-	void Model::shrink_to_previous_vars (Cube& uc)
+	void Problem::shrink_to_previous_vars (Cube& uc)
 	{
 		Cube tmp;
 		for (int i = 0; i < uc.size (); i ++)
@@ -637,7 +498,7 @@ Model::Model (aiger* aig, const bool verbose)
 	 * @pre since we now set all the flags t obe at the beginning of the assumption, they shall be at the end.
 	 * @param uc 
 	 */
-	void Model::shrink_to_latch_vars (Cube& uc)
+	void Problem::shrink_to_latch_vars (Cube& uc)
 	{
         if(!latch_var(abs(uc.back())))
             uc.pop_back();

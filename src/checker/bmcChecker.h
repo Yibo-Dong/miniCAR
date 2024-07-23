@@ -14,7 +14,7 @@ namespace bmc{
     class BMCChecker
     {
         public:
-            BMCChecker(Model *model) : model_(model), lev(0)
+            BMCChecker(Problem *model) : model_(model), lev(0)
             {
                 solver = new MainSolver(model, false, 1, true);
                 // the initial state
@@ -40,7 +40,7 @@ namespace bmc{
 
             inline int getLevel(){return lev;}
         private:
-            Model* model_;
+            Problem* model_;
             MainSolver *solver;
             int lev = 0;
             State *init;

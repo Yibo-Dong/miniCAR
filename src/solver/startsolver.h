@@ -32,15 +32,15 @@ namespace car {
     extern Statistics CARStats;
     class StartSolver : public CARSolver {
     public:
-        StartSolver (const Model* m, const int bad, const bool forward, const bool verbose = false)
+        StartSolver (const Problem* m, const int bad, const bool forward, const bool verbose = false)
         {
             if (!forward)
-                add_cube (const_cast<Model*>(m)->init ());
+                add_cube (const_cast<Problem*>(m)->init ());
             else
             {
                 // FIXME: what does here mean?
-                for (int i = 0; i < const_cast<Model*>(m)->latches_start (); i ++)
-                    add_clause (const_cast<Model*>(m)->element (i));
+                for (int i = 0; i < const_cast<Problem*>(m)->latches_start (); i ++)
+                    add_clause (const_cast<Problem*>(m)->element (i));
                 assumptions.push (SAT_lit (bad));
             }
             model_ = m;
@@ -122,7 +122,7 @@ namespace car {
         int flag_;
         bool forward_;
         bool fresh; // whether it only contains initial assumptions.
-        const Model* model_;
+        const Problem* model_;
         
     };
 }
