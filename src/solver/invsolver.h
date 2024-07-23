@@ -34,9 +34,8 @@ namespace car
 	extern Statistics CARStats;
 	class InvSolver : public CARSolver
 	{
-		bool verbose_;
 		public:
-			InvSolver (const Problem* m, bool verbose=false) : verbose_(verbose),id_aiger_max_ (const_cast<Problem*>(m)->max_id ())
+			InvSolver (const Problem* m) : id_aiger_max_ (const_cast<Problem*>(m)->max_id ())
 			{
 				model_ = const_cast<Problem*> (m);
 			    int end =  model_->outputs_start ();
@@ -53,8 +52,6 @@ namespace car
 			 */
 			inline bool solve_with_assumption ()
 			{
-				if (verbose_)
-					std::cout << "InvSolver::";
 				bool res = solve_assumption ();
 				return res;
 			}

@@ -41,7 +41,6 @@
 namespace car
 {
     extern Statistics CARStats; // defined in main.cpp
-    extern bool verbose_;    // defined in main.cpp
     extern Problem *model;     // defined in main.cpp
     extern int storage_id;
     class Checker;

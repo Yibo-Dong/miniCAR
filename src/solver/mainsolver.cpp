@@ -29,9 +29,8 @@ namespace car
 	 * @brief 把constraints、outputs和latches加入clause。
 	 * 		
 	 * @param m 
-	 * @param verbose 
 	 */
-	MainSolver::MainSolver (Problem* m,int rotate_is_on, const bool verbose, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort)
+	MainSolver::MainSolver (Problem* m,int rotate_is_on, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort)
 	{
 		model_ = m;
 		max_flag = m->max_id() + 1;
@@ -86,10 +85,9 @@ namespace car
 	 * First, copy the literals. 
 	 * 
 	 * @param m 
-	 * @param verbose 
 	 * @param unroll_level 
 	 */
-	MainSolver::MainSolver (Problem* m, const bool verbose, int unroll_level, bool __placeholder) 
+	MainSolver::MainSolver (Problem* m, int unroll_level) 
 	{
 		assert(unroll_level >=1);
 		// no need to unroll if level == 1.

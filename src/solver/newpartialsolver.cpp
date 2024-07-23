@@ -27,7 +27,7 @@
 using namespace std;
 namespace car
 {
-	PartialSolver::PartialSolver (Problem* m, const bool verbose) 
+	PartialSolver::PartialSolver (Problem* m) 
 	{
 		model_ = m;
 		max_partial_id = m->max_id() +1;

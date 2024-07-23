@@ -32,8 +32,8 @@ namespace car
 	class MainSolver : public CARSolver
 	{
 	public:
-		MainSolver(Problem *, int rotate_is_on, const bool verbose = false, bool uc_no_sort = false);
-		MainSolver (Problem* m, const bool verbose, int unroll_level, bool placeholder) ;
+		MainSolver(Problem *, int rotate_is_on, bool uc_no_sort);
+		MainSolver (Problem* m, int unroll_level) ;
 		~MainSolver() {}
 
 		void set_assumption(const Assignment &, const int);

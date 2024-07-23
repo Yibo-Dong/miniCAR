@@ -32,7 +32,7 @@ namespace car {
     extern Statistics CARStats;
     class StartSolver : public CARSolver {
     public:
-        StartSolver (const Problem* m, const int bad, const bool forward, const bool verbose = false)
+        StartSolver (const Problem* m, const int bad, const bool forward)
         {
             if (!forward)
                 add_cube (const_cast<Problem*>(m)->init ());

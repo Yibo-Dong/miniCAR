@@ -44,7 +44,7 @@ namespace car
         // TODO: use propagate to accelerate
         backward_first = !forward;
         bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
+        bi_main_solver = new MainSolver(model,get_rotate(),uc_no_sort);
         if(!backward_first)
         {
             // only forward needs these
@@ -69,7 +69,7 @@ namespace car
         // TODO: use propagate to accelerate
         backward_first = !forward;
         bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
+        bi_main_solver = new MainSolver(model,get_rotate(),uc_no_sort);
         if(!backward_first)
         {
             // only forward needs these
@@ -94,7 +94,7 @@ namespace car
         // TODO: use propagate to accelerate
         backward_first = !forward;
         bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
+        bi_main_solver = new MainSolver(model,get_rotate(),uc_no_sort);
         if(!backward_first)
         {
             // only forward needs these
@@ -239,10 +239,6 @@ namespace car
                 out << endl;
             }
             out << "." << endl;
-            if (verbose_)
-            {
-                cout << "return SAT since the output is true" << endl;
-            }
             res = true;
             return true;
         }
@@ -251,10 +247,6 @@ namespace car
             out << "0" << endl;
             out << "b" << endl;
             out << "." << endl;
-            if (verbose_)
-            {
-                cout << "return UNSAT since the output is false" << endl;
-            }
             res = false;
             return true;
         }

@@ -16,7 +16,7 @@ namespace bmc{
         public:
             BMCChecker(Problem *model) : model_(model), lev(0)
             {
-                solver = new MainSolver(model, false, 1, true);
+                solver = new MainSolver(model, 1);
                 // the initial state
                 init = new State(model->init());
                 cex.clear();

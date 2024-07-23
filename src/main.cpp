@@ -35,14 +35,22 @@ namespace car
     // global variables section.
     Statistics CARStats;
     Checker *chk;
-    bool verbose = false;
-    bool verbose_ = false;
     Problem *model;
     const Problem *State::model_;
     const aiger *State::aig_;
 }
 
-
+/**
+ * @brief do printing even if timeout.
+ * 
+ * @param sig_num : the signal number.
+ */
+void signal_handler(int sig_num)
+{
+    CARStats.stop_everything();
+    CARStats.print();
+    exit(0);
+}
 
 void print_usage()
 {
@@ -51,31 +59,23 @@ void print_usage()
     printf("       -b          backward checking \n");
     printf("       -p          enable propagation (Default = off)\n");
     printf("       -e          print witness (Default = off)\n");
-    printf("       -v          print verbose information (Default = off)\n");
     printf("       -h          print help information\n");
     exit(1);
 }
 
+// cut filename from path.
+// e.g. xxxxxx/xyz123.aig ==> xyz123
 string get_file_name(string &s)
 {
     size_t start_pos = s.find_last_of("/");
-    if (start_pos == string::npos)
+    if (start_pos == std::string::npos)
         start_pos = 0;
     else
         start_pos += 1;
+    size_t end_pos = s.find(".aig", start_pos);
+    assert(end_pos != std::string::npos);
 
-    string tmp_res = s.substr(start_pos);
-
-    string res = "";
-    // remove .aig
-
-    size_t end_pos = tmp_res.find(".aig");
-    assert(end_pos != string::npos);
-
-    for (int i = 0; i < end_pos; i++)
-        res += tmp_res.at(i);
-
-    return res;
+    return s.substr(start_pos, end_pos - start_pos);
 }
 
 void check_aiger(int argc, char **argv)
@@ -124,11 +124,6 @@ void check_aiger(int argc, char **argv)
             propagate = true;
         else if (strcmp(argv[i], "--partial") == 0)
             partial = true;
-        else if (strcmp(argv[i], "-v") == 0)
-        {
-            verbose = true;  // used outside checker
-            verbose_ = true; // used inside checker
-        }
         else if (strcmp(argv[i], "-e") == 0)
             evidence = true;
         else if (strcmp(argv[i], "-h") == 0)
@@ -228,10 +223,9 @@ void check_aiger(int argc, char **argv)
     std::string filename = get_file_name(input);
 
     std::string stdout_filename = output_dir + filename + ".log";
-    std::string stderr_filename = output_dir + filename + ".err";
     std::string res_file_name = output_dir + filename + ".res";
-    if (!verbose)
-        auto fs = freopen(stdout_filename.c_str(), "w", stdout);
+    // redirect to log file.
+    auto fs = freopen(stdout_filename.c_str(), "w", stdout);
     ofstream res_file;
     res_file.open(res_file_name.c_str());
 
@@ -242,7 +236,6 @@ void check_aiger(int argc, char **argv)
     if (err)
     {
         printf("read aiger file error!\n");
-        // throw InputError(err);
         exit(0);
     }
     if (!aiger_is_reencoded(aig))
@@ -317,18 +310,6 @@ void check_aiger(int argc, char **argv)
 
     CARStats.print();
     return;
-}
-
-/**
- * @brief do printing even if timeout.
- * 
- * @param sig_num : the signal number.
- */
-void signal_handler(int sig_num)
-{
-    CARStats.stop_everything();
-    CARStats.print();
-    exit(0);
 }
 
 int main(int argc, char **argv)
