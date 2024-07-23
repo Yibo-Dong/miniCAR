@@ -970,7 +970,7 @@ namespace car
                     bool sub = false;
                     for(auto& uc: ucs)
                     {
-                        if(imply(nextuc, uc))
+                        if(imply_heavy(nextuc, uc))
                         {
                             CARStats.recordUC(true);
                             sub = true;

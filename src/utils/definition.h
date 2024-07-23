@@ -49,6 +49,7 @@ namespace car
     class State;
 
     // full assignment of a state
+    // TODO: change to std::array.
     using Assignment = std::vector<int>;
     // a CNF of literals
     using Cube = std::vector<int>; // TODO: change to LIT?
@@ -137,27 +138,6 @@ namespace car
             // TODO: implement it.
 			Cube probe();
 	};
-
-
-//elements in v1, v2 are in order
-//check whether v2 is contained in v1 
-bool imply (const std::vector<int>& v1, const std::vector<int>& v2);
-
-bool absIncr (int i, int j);
-
-Cube negate(const Cube& cu);
-
-template <typename T>
-void shuffle(std::vector<T>& vec) {
-    #ifdef RANDSEED
-        int seed = RANDSEED;
-    #else
-        int seed = 1;
-    #endif
-    std::mt19937 g(seed);
-    std::shuffle(vec.begin(), vec.end(), g);
-}
-
 
 class Problem {
 public:
@@ -309,6 +289,43 @@ public:
 	
 };
 
+
+    // ##################################################
+    // #####            Tool Functions             ######
+    // ##################################################
+
+    /**
+     * @brief whether v2 is contained in v1
+     * @pre v2 and v1 can be unordered. 
+     */
+    inline bool imply_heavy (const std::vector<int>& v1, const std::vector<int>& v2)
+    {
+        std::unordered_set<int> marks(v1.begin(), v1.end());
+        for(auto lit: v2)
+            if(marks.find(lit) == marks.end())
+                return false;
+        return true;
+    }
+
+    inline bool absIncr (int i, int j) {return abs (i) < abs(j);}
+
+    inline std::vector<int> negate(const std::vector<int>& cu) {
+        std::vector<int> res = cu;
+        for (auto &i : res)
+            i = -i;
+        return res;
+    }
+
+    template <typename T>
+    void shuffle(std::vector<T>& vec) {
+        #ifdef RANDSEED
+            int seed = RANDSEED;
+        #else
+            int seed = 1;
+        #endif
+        std::mt19937 g(seed);
+        std::shuffle(vec.begin(), vec.end(), g);
+    }
 }
 
 #endif

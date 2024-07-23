@@ -508,30 +508,5 @@ namespace car {
         // }
 	}
 
-bool absIncr (int i, int j)
-{
-	return abs (i) < abs(j);
-}
-
-bool imply(const std::vector<int>& v1, const std::vector<int>& v2)
-{
-    std::unordered_set<int> marks;
-    for(auto lit: v1)
-        marks.insert(lit);
-    for(auto lit: v2)
-        if(marks.find(lit) == marks.end())
-            return false;
-    marks.clear();
-    return true;
-}
-
-Cube negate(const Cube& cu)
-{
-    Cube res;
-    res.reserve(cu.size());
-    for(auto &i : cu)
-        res.emplace_back(-i);
-    return res;
-}
 
 }
