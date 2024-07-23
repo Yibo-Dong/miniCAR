@@ -60,11 +60,11 @@ namespace car
          * @param index_to_check the index of property to check. At present, only one property is allowed
 
          */
-        Checker(Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
+        Checker(Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false, bool partial = false);
 
-        Checker(int time_limit, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
+        Checker(int time_limit, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false, bool partial = false);
 
-        Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false);
+        Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward = true, bool evidence = false, int index_to_check = 0, int convMode = -1, int convParam = 0, bool enable_rotate = false, int inter_cnt=0, bool inv_incomplete = false, bool uc_raw = false, int impMethod = 0, int LOStrategy = 0, int ConvAmount = 0, bool subStat = false, bool partial = false);
 
         /**
          * @brief Destroy the Checker object
@@ -153,6 +153,8 @@ namespace car
         int LOStrategy = 0;
         int ConvAmount = 0;
         bool subStat = false;
+
+        bool partial = false;
 
         inline void set_inter_cnt(int cnt) { inter_cnt = cnt; }
         inline int get_inter_cnt() { return inter_cnt; }

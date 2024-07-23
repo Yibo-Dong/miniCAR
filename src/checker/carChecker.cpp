@@ -39,15 +39,12 @@ namespace car
     int storage_id = 0;
     static vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp);
 
-    Checker::Checker(Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
+    Checker::Checker(Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat, bool partial) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat), partial(partial)
     {
         // TODO: use propagate to accelerate
         backward_first = !forward;
         bad_ = model->output(index_to_check);
         bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
-        #ifdef INC_SAT
-        bi_main_solver->setIncrementalMode();
-        #endif // INC_SAT
         if(!backward_first)
         {
             // only forward needs these
@@ -67,15 +64,12 @@ namespace car
         importO = false;
     }
 
-    Checker::Checker(int time_limit, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
+    Checker::Checker(int time_limit, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat, bool partial) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat), partial(partial)
     {
         // TODO: use propagate to accelerate
         backward_first = !forward;
         bad_ = model->output(index_to_check);
         bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
-        #ifdef INC_SAT
-        bi_main_solver->setIncrementalMode();
-        #endif // INC_SAT
         if(!backward_first)
         {
             // only forward needs these
@@ -95,15 +89,12 @@ namespace car
         importO = false;
     }
 
-    Checker::Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), last_chker(last_chker), rememOption(rememOption), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
+    Checker::Checker(int time_limit, Checker* last_chker, int rememOption, Problem *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat, bool partial) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), last_chker(last_chker), rememOption(rememOption), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat), partial(partial)
     {
         // TODO: use propagate to accelerate
         backward_first = !forward;
         bad_ = model->output(index_to_check);
         bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
-        #ifdef INC_SAT
-        bi_main_solver->setIncrementalMode();
-        #endif // INC_SAT
         if(!backward_first)
         {
             // only forward needs these
@@ -331,11 +322,7 @@ namespace car
                     updateU(U, tprime, s);
 
                     // NOTE: why here calculate minNOTBLOCKED, rather than next time when pop?
-                    #ifdef DEPTH
-                    int new_level = minNOTBlocked(tprime, max(0, int(O->size()-1-depth)), dst - 1, O, Otmp);
-                    #else
                     int new_level = minNOTBlocked(tprime, 0, dst - 1, O, Otmp);               
-                    #endif
                     if (new_level <= dst) // if even not one step further, should not try it
                     {
                         stk.push(Obligation(tprime, depth + 1, new_level - 1));
@@ -1018,14 +1005,16 @@ namespace car
         }
         else
         {
-#ifdef PARTIAL
-            Assignment full = solver->get_state_full_assignment(forward);
-            return get_partial_state(full, prior);
-#else
-            State *s = solver->get_state(forward);
-            clear_defer(s);
-            return s;
-#endif
+            if(partial)
+            {
+                Assignment full = solver->get_state_full_assignment(forward);
+                return get_partial_state(full, prior);
+            }
+            else{
+                State *s = solver->get_state(forward);
+                clear_defer(s);
+                return s;
+            }
         }
     }
 
@@ -1424,8 +1413,8 @@ namespace car
     // NOTE: if not updated, it return the same state all the time?
     State *Checker::enumerateStartStates(StartSolver *start_solver)
     {
-// partial state:
-#ifdef PARTIAL
+        if(partial)
+        {
         if (start_solver->solve_with_assumption())
         {
             Assignment ass = start_solver->get_model();
@@ -1434,14 +1423,16 @@ namespace car
             clear_defer(partial_res);
             return partial_res;
         }
-#else
-        if (start_solver->solve_with_assumption())
-        {
-            State *res = start_solver->create_new_state();
-            clear_defer(res);
-            return res;
         }
-#endif
+        else
+        {
+            if (start_solver->solve_with_assumption())
+            {
+                State *res = start_solver->create_new_state();
+                clear_defer(res);
+                return res;
+            }
+        }
         return NULL;
     }
 

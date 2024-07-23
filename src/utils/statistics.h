@@ -1,20 +1,3 @@
-/*
-    Copyright (C) 2018, Jianwen Li (lijwen2748@gmail.com), Iowa State University
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
 #ifndef STATISTICS_H
 #define STATISTICS_H
 
@@ -36,8 +19,6 @@ class Statistics
     public:
         Statistics () {}
         ~Statistics () {}
-
-
         // main solver's information:
         
         // how many are original ones
@@ -56,23 +37,19 @@ class Statistics
 
         inline void count_main_solver_original_time_start ()
         {
-#ifdef STAT
             main_solver_original_begin_ = steady_clock::now();
-#endif
-        is_counting_main_original = true;
+            is_counting_main_original = true;
         }
 
         int last_original_uc_sz = 0;
 
         inline void count_main_solver_original_time_end (bool res, int uc_length)
         {
-#ifdef STAT
             main_solver_original_end_ = steady_clock::now();
             duration_high elapsed = main_solver_original_end_ - main_solver_original_begin_;
             double time_delay = elapsed.count();
 
 	        time_main_solver_original_calls_ += time_delay;
-#endif
             is_counting_main_original = false;
 	        num_main_solver_original_calls_total ++;
 	        if(res)
@@ -98,19 +75,15 @@ class Statistics
 
         inline void count_main_solver_convergence_time_start()
         {
-#ifdef STAT
             main_solver_convergence_calls_begin_ = steady_clock::now();
-#endif
             is_counting_convergence = true;
         }
         inline void count_main_solver_convergence_time_end(int uc_length)
         {
-#ifdef STAT
             main_solver_convergence_calls_end_ = steady_clock::now();
             duration_high elapsed = main_solver_convergence_calls_end_ - main_solver_convergence_calls_begin_;
             double time_delay = elapsed.count();
             time_main_solver_convergence_calls_ += time_delay;
-#endif
             is_counting_convergence = false;
             num_main_solver_convergnece_calls_ ++;
             
@@ -128,9 +101,7 @@ class Statistics
         }
         inline void count_enter_new_try_by(){
             ++num_try_by;
-#ifdef STAT
             time_enter_new_try_by = steady_clock::now();
-#endif
         }
 
         // global time
@@ -149,11 +120,9 @@ class Statistics
         // tried before
         int num_tried_before = 0;
         inline void count_tried_before() { 
-#ifdef STAT
             clock_high tried_before_end = steady_clock::now();
             duration_high elapsed = tried_before_end - time_enter_new_try_by;
             time_imply += elapsed.count();
-#endif
             ++num_tried_before; 
         }
 
@@ -164,19 +133,15 @@ class Statistics
         bool is_counting_imply;
         inline void count_imply_begin()
         {
-#ifdef STAT
             imply_begin_ = steady_clock::now();
-#endif
-        is_counting_imply = true;
+            is_counting_imply = true;
         }
         inline void count_imply_end()
         {
-#ifdef STAT
             imply_end_ = steady_clock::now();
             duration_high elapsed = imply_end_ - imply_begin_;
             double time_delay = elapsed.count();
             time_imply += time_delay;
-#endif
             count_imply++;
             is_counting_imply = false;
         }
@@ -313,11 +278,9 @@ class Statistics
 
         inline void stop_everything(){
             count_whole_end();
-#ifdef STAT
             auto now = steady_clock::now();
             main_solver_original_end_ = now;
             main_solver_convergence_calls_end_ = now;
-#endif
             status = "timeout";
             if(is_counting_convergence)
             {

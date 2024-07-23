@@ -98,6 +98,7 @@ void check_aiger(int argc, char **argv)
     int rememOption = 0;
     int LOStrategy=0;
     bool subStat = false;
+    bool partial = false;
 
     string input;
     string output_dir;
@@ -118,9 +119,11 @@ void check_aiger(int argc, char **argv)
         else if (strcmp(argv[i], "-f") == 0)
             forward = true;
         else if (strcmp(argv[i], "-b") == 0)
-            forward = false;
+            forward = false;    
         else if (strcmp(argv[i], "-p") == 0)
             propagate = true;
+        else if (strcmp(argv[i], "--partial") == 0)
+            partial = true;
         else if (strcmp(argv[i], "-v") == 0)
         {
             verbose = true;  // used outside checker
@@ -274,7 +277,7 @@ void check_aiger(int argc, char **argv)
 
         // construct the checker
         // cout << "strategy is : convParam = " << convParam << endl;
-        chk = new Checker(time_limit_to_restart, model, res_file,  forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat);
+        chk = new Checker(time_limit_to_restart, model, res_file,  forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat, partial);
         auto clear_delay = chk;// last checker may be used to pass information.
         bool res = chk->check();
         while (chk->ppstoped)
@@ -285,7 +288,7 @@ void check_aiger(int argc, char **argv)
             CARStats.reset_imply_cnter(); // reset
             MainSolver::flag_of_O.clear();
 
-            chk = new Checker(time_limit_to_restart, clear_delay, rememOption, model, res_file, forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat);
+            chk = new Checker(time_limit_to_restart, clear_delay, rememOption, model, res_file, forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat, partial);
             
             // cout << "strategy is : convParam = " << convParam << endl;
             res = chk->check();
@@ -298,7 +301,7 @@ void check_aiger(int argc, char **argv)
 
     }
     else{
-        chk = new Checker(model, res_file, forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat);
+        chk = new Checker(model, res_file, forward, evidence, 0, convMode, convParam,enable_rotate, inter_cnt, inv_incomplete, raw_uc, impMethod, LOStrategy, convAmount, subStat, partial);
         CARStats.count_whole_begin();
         chk->check();
         CARStats.count_whole_end();
