@@ -17,12 +17,105 @@
 namespace car
 {
     extern Statistics CARStats; // defined in main.cpp
-    extern Problem *model;     // defined in main.cpp
     class Checker;
-    extern Checker ch;
 
     class Checker
     {
+        /**
+         * @section options
+         *
+         */
+        int inter_cnt = 0;
+        bool rotate_enabled = false;
+        bool inv_incomplete =false;
+        bool uc_no_sort = false;
+        int imply_decision = -1;
+        int time_limit_to_restart = -1;
+        int rememOption = 0;
+        int impMethod = 0;
+        int LOStrategy = 0;
+        int convAmount = 0;
+        int convMode=-1;
+        int convParam=0;
+        bool subStat = false;
+        bool partial = false;
+
+        // we need to record whether it used another UC in the history.
+        // level -> array[INT_MAX]
+        // we use the bit to record whether it pushed another UC.
+        std::unordered_map<int, unsigned short> conv_record;
+        enum convModeEnum{
+            ConvModeAlways = 0,
+            ConvModeLow = 1,
+            ConvModeHigh = 2,
+            ConvModeStuck = 3,
+            ConvModeRand = 4
+        };
+
+        enum LiteralOrderingEnum{
+            LO_Classic = 0,     // Intersection + Rotation for (1), Reverse it for (2), Random for the subsequent ones.
+            LO_Rand = 1,        // Just do random test.
+            LO_Fixpoint = 2,    // Rotation for (1), {not_used, used} for later
+            LO_Exp = 3,         // Reuse the phase-saving strategy to implement a biased-SAT instead.
+        };
+
+        // remember Option: whether we shall remember something during restart
+        enum rememberEnum{
+            remem_None = 0,
+            remem_O0 = 1,
+            remem_short = 2,
+            remem_Ok = 3,
+            remem_Uk = 4,
+        };
+        // last checker, which we can get information from.
+        Checker* last_chker;
+
+
+        // how to calculate imply.
+        enum ImpHowEnum{
+            Imp_Manual = 0,
+            Imp_Solver = 1,
+            Imp_Sample = 2,
+            // Imp_Sort = 3, // proved not to be useful. depricated.
+            Imp_Exp = 4,
+            Imp_Thresh = 5,
+            // Imp_MOM = 6, // proved not to be useful. depricated.
+            Imp_Fresh = 7,
+        };
+
+        // level -> id -> freshIndex
+        std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;
+
+        /**
+         * @section rotation technique
+         *
+         */
+        // corresponding to O[i]
+        std::vector<Cube> rotates;
+        // corresponding to Otmp
+        Cube rotate;
+
+
+
+         
+        clock_high sat_timer;
+
+        
+
+        inline void set_inter_cnt(int cnt) { inter_cnt = cnt; }
+        inline int get_inter_cnt() { return inter_cnt; }
+        inline void set_rotate(bool rtt) { rotate_enabled = rtt; }
+        inline int get_rotate() { return rotate_enabled; }
+
+        bool restart_enabled = false;
+
+        bool importO = false;
+        
+
+    public:
+        bool ppstoped = false;
+        
+
     public:
         Checker(Problem *model, const OPTIONS& opt, std::ostream &out, Checker* last_chker);
 
@@ -61,89 +154,8 @@ namespace car
         bool trySAT(USequence &U, OSequence *O, bool forward, bool &safe_reported);
 
     public:
-        /**
-         * @section Preprocessing technique
-         *
-         */
-
-        bool restart_enabled = false;
-        bool ppstoped = false;
-        int time_limit_to_restart = -1;
-        bool importO = false;
-        enum rememberEnum{
-            remem_None = 0,
-            remem_O0 = 1,
-            remem_short = 2,
-            remem_Ok = 3,
-            remem_Uk = 4,
-        };
-        Checker* last_chker;
-        int rememOption = 0;
-
-        int inter_cnt = 0;
-        bool rotate_enabled = false;
-        bool inv_incomplete =false;
-        bool uc_no_sort = false;
-        int imply_decision = -1;
-
-        enum ImpHowEnum{
-            Imp_Manual = 0,
-            Imp_Solver = 1,
-            Imp_Sample = 2,
-            Imp_Sort = 3,
-            Imp_Exp = 4,
-            Imp_Thresh = 5,
-            Imp_MOM = 6,
-            Imp_Fresh = 7,
-        };
-
-        int impMethod = 0;
-
-        // level -> id -> freshIndex
-        std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;
-         
-        clock_high sat_timer;
-
-        enum LiteralOrderingEnum{
-            LO_Classic = 0,     // Intersection + Rotation for (1), Reverse it for (2), Random for the subsequent ones.
-            LO_Rand = 1,        // Just do random test.
-            LO_Fixpoint = 2,    // Rotation for (1), {not_used, used} for later
-            LO_Exp = 3,         // Reuse the phase-saving strategy to implement a biased-SAT instead.
-        };
-        int LOStrategy = 0;
-        int ConvAmount = 0;
-        bool subStat = false;
-
-        bool partial = false;
-
-        inline void set_inter_cnt(int cnt) { inter_cnt = cnt; }
-        inline int get_inter_cnt() { return inter_cnt; }
-        inline void set_rotate(bool rtt) { rotate_enabled = rtt; }
-        inline int get_rotate() { return rotate_enabled; }
-
-    public:
-        // we need to record whether it used another UC in the history.
-        // level -> array[INT_MAX]
-        // we use the bit to record whether it pushed another UC.
-        std::unordered_map<int, unsigned short> conv_record;
-        enum convModeEnum{
-            ConvModeAlways = 0,
-            ConvModeLow = 1,
-            ConvModeHigh = 2,
-            ConvModeStuck = 3,
-            ConvModeRand = 4
-        };
-        int convMode=-1;
-        int convParam=0;
-
-        // for better manual method
-        // maintain the index to visit.
-        std::vector<std::set<std::pair<int,int>>> uc_len_indexes;
-        void insert_to_uc_index(Cube &uc,int index, int level);
-
-    public:
         Problem *model_;
-        bool backward_first = true;
+        bool backward_first;
         int bad_;
         StartSolver *bi_start_solver;
 
@@ -153,8 +165,6 @@ namespace car
         MainSolver *bi_main_solver;
         // the partial solver shared.
         PartialSolver *bi_partial_solver;
-        // count of blocked states.
-        int blocked_count = 0;
 
         // the map from O sequence to its minimal_level
         std::unordered_map<const OSequence *, int> fresh_levels;
@@ -368,7 +378,6 @@ namespace car
         int minNOTBlocked(State *s, const int min, const int max, OSequence *O, OFrame &Otmp);
 
     public:
-        void print_flags(std::ostream &out);
         /**
          * @brief Helper function to print SAT query.
          *
@@ -381,17 +390,6 @@ namespace car
          */
         void print_sat_query(MainSolver *solver, State *s, OSequence *o, int level, bool res, std::ostream &out);
         // count of tried before
-
-    private:
-        /**
-         * @section rotation technique
-         *
-         */
-        // corresponding to O[i]
-        std::vector<Cube> rotates;
-        // corresponding to Otmp
-        Cube rotate;
-
 
     private:
         /**

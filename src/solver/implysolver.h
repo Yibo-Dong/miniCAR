@@ -31,10 +31,6 @@ namespace car
 
         static void add_uc(const std::vector<int> &uc, int level);
 
-        static bool is_blocked_MOM(State *s, int level);
-
-        static void add_uc_MOM(const std::vector<int> &uc, int level);
-
         static inline void print_sz() {
             std::cerr<<"start printing sz"<<std::endl;
             for(auto& pr: imp_solvers) { std::cerr<<pr.first<<" : "<<pr.second->nClauses() <<std::endl; } 

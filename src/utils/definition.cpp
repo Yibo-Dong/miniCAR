@@ -110,16 +110,15 @@ namespace car {
 	{
 		// According to aiger format, inputs should be [1 ... num_inputs_]
 		// and latches should be [num_inputs+1 ... num_latches+num_inputs]]
-		num_inputs_ = aig->num_inputs;
-		num_latches_ = aig->num_latches;
-		num_ands_ = aig->num_ands;
-		num_constraints_ = aig->num_constraints;
-		num_outputs_ = aig->num_outputs;
+		num_inputs_         = aig->num_inputs;
+		num_latches_        = aig->num_latches;
+		num_ands_           = aig->num_ands;
+		num_constraints_    = aig->num_constraints;
+		num_outputs_        = aig->num_outputs;
 
 		// preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
         // TODO: remove it?
 		max_id_ = aig->maxvar+2;
-		max_model_id_ =  aig->maxvar+2;
 		true_ = max_id_ - 1;
 		false_ = max_id_;
 		
@@ -439,9 +438,9 @@ namespace car {
 	 * @param id 
 	 * @return int 
 	 */
-	int Problem::prime (const int id)
+	int Problem::prime (const int id) const
 	{
-		nextMap::iterator it = next_map_.find (abs (id));
+		nextMap::const_iterator it = next_map_.find (abs (id));
 		if (it == next_map_.end ())
 		{
 			cerr<<"[Fatal Error] Cannot find its prime:" << id<< endl;
@@ -457,10 +456,10 @@ namespace car {
 	 * @param id 
 	 * @return std::vector<int> 
 	 */
-	std::vector<int> Problem::previous (const int id)
+	std::vector<int> Problem::previous (const int id) const
 	{
 	    vector<int> res;
-	    reverseNextMap::iterator it = reverse_next_map_.find (abs (id));
+	    reverseNextMap::const_iterator it = reverse_next_map_.find (abs (id));
 		if (it == reverse_next_map_.end ())
 		    return res; //not found
 		res = it->second;
@@ -477,7 +476,7 @@ namespace car {
 	 * @note multiple latch may share a common next, therefore one lit may have several previous.
 	 * @param uc 
 	 */
-	void Problem::shrink_to_previous_vars (Cube& uc)
+	void Problem::shrink_to_previous_vars (Cube& uc) const
 	{
 		Cube tmp;
 		for (int i = 0; i < uc.size (); i ++)
@@ -497,7 +496,7 @@ namespace car {
 	 * @pre since we now set all the flags t obe at the beginning of the assumption, they shall be at the end.
 	 * @param uc 
 	 */
-	void Problem::shrink_to_latch_vars (Cube& uc)
+	void Problem::shrink_to_latch_vars (Cube& uc) const
 	{
         if(!latch_var(abs(uc.back())))
             uc.pop_back();

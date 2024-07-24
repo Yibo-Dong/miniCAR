@@ -137,68 +137,75 @@ namespace car
 			Cube probe();
 	};
 
-class Problem {
-public:
-	Problem (aiger*);
-	~Problem () {}
-	
-	int prime (const int);
-	std::vector<int> previous (const int);
-	
-	bool state_var (const int id)  {return (id >= 1) && (id <= num_inputs_+num_latches_);}
-	bool latch_var (const int id)  {return (id >= num_inputs_+1) && (id <= num_inputs_+num_latches_);}
 
-	inline int num_inputs() const { return num_inputs_; }
-	inline int num_latches() const { return num_latches_; }
-	inline int num_ands() const { return num_ands_; }
-	inline int num_constraints() const { return num_constraints_; }
-	inline int num_outputs() const { return num_outputs_; }
-	inline int max_id() const { return max_id_; }
-	inline int outputs_start() const { return outputs_start_; }
-	inline int common_next_start() const { return common_next_start_; }
-	inline int latches_start() const { return latches_start_; }
-	inline int size() const { return cls_.size(); }
-	std::vector<std::vector<int>> output_clauses()
-	{
-		// FIXME: Is this right?
-		assert(latches_start_ > outputs_start_);
-		return std::vector<car::Cube>(cls_.begin() + outputs_start_, cls_.begin() + latches_start_);
-	};
-	inline std::vector<int>& element (const int id) {return cls_[id];}
-	inline int output (const int id)const  {return outputs_[id];}
-	
-	// return initial values for latches
-	inline std::vector<int>& init () {return init_;}
-	
-	void shrink_to_previous_vars (Cube& cu);
-	void shrink_to_latch_vars (Cube& cu);
-	
-	inline int true_id () const {return true_;}
-	inline int false_id () const {return false_;}
-	
+    // ##################################################
+    // #####                 Problem               ######
+    // ##################################################
+class Problem {
 private:
-	int num_inputs_;
+    int num_inputs_;
 	int num_latches_;
 	int num_ands_;
 	int num_constraints_;
 	int num_outputs_;
 
-public:
-	int max_model_id_;
-private:
-	int max_id_;  //maximum used id in the model. Also preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
-	
-	int true_;  //id for true
-	int false_;  //id for false
+    // TODO: do not need to preserve? 0 and 1 are enough.
+    int max_id_;    // maximum used id in the model. Also preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
+	int true_;      // id for true
+	int false_;     // id for false
 	
 	typedef std::vector<int> vect;
 	typedef std::vector<vect> Clauses;
-	
+
+	std::unordered_set<unsigned> trues_;  //vars evaluated to be true, and their negation is false
 	vect init_;   //initial values for latches
 	vect outputs_; //output ids
 	vect constraints_; //constraint ids
+
 public:
-	Clauses cls_;  //set of clauses, it contains three parts:
+    typedef std::unordered_map<int, int> nextMap;
+	typedef std::unordered_map<int, std::vector<int> > reverseNextMap;
+	nextMap next_map_;  // map from latches to their next values
+	reverseNextMap reverse_next_map_;  // map from the next values of latches to latches
+	                                   
+public:
+    // construct from an AIGER.
+	Problem (aiger*);
+	~Problem () {}
+	
+    // get the 'next' of this literal.
+	int prime (const int) const;
+    // get those literals whose next is this.
+	std::vector<int> previous (const int) const;
+	
+	bool state_var (const int id) const {return (id >= 1) && (id <= num_inputs_+num_latches_);}
+	bool latch_var (const int id) const {return (id >= num_inputs_+1) && (id <= num_inputs_+num_latches_);}
+
+    inline int num_inputs()         const { return num_inputs_; }
+    inline int num_latches()        const { return num_latches_; }
+    inline int num_ands()           const { return num_ands_; }
+    inline int num_constraints()    const { return num_constraints_; }
+    inline int num_outputs()        const { return num_outputs_; }
+
+    inline int max_id()             const { return max_id_; }
+    inline int true_id()           const { return true_;}
+	inline int false_id()          const { return false_;}
+    inline int size()               const { return cls_.size(); }
+    inline int output(const int id) const { return outputs_[id]; }
+
+    inline int outputs_start()      const { return outputs_start_; }
+    inline int common_next_start()  const { return common_next_start_; }
+    inline int latches_start()      const { return latches_start_; }
+    
+    inline const std::vector<int> &element(const int id) const { return cls_.at(id); }
+    // return initial values for latches
+    inline const std::vector<int> &init() const { return init_; }
+
+    void shrink_to_previous_vars    (Cube &cu) const;
+    void shrink_to_latch_vars       (Cube &cu) const;
+	
+public:
+	Clauses cls_;   //set of clauses, it contains several parts:
 	                //(1) clauses for constraints, i.e. those before position outputs_start_;
 	                //(2) same next have same previous, initialized to 0.
 					//(3) clauses for outputs, i.e. those before position latches_start_;
@@ -210,44 +217,35 @@ public:
 	int latches_start_; //the index of cls_ to point the start position of latches
 
 	
-	typedef std::unordered_map<int, int> nextMap;
-	nextMap next_map_;  //map from latches to their next values
-	typedef std::unordered_map<int, std::vector<int> > reverseNextMap;
-	reverseNextMap reverse_next_map_;  //map from the next values of latches to latches
-	                                   //BE careful the situation when next (a) = c and next (b) = c!!
-	
-	std::unordered_set<unsigned> trues_;  //vars evaluated to be true, and their negation is false
-	
-	
 	//functions
 
-	inline bool is_true (const unsigned id)
+	inline bool is_true (const unsigned id) const
 	{
 		return (id == 1) || (trues_.find (id) != trues_.end ());
 	}
 	
-	inline bool is_false (const unsigned id)
+	inline bool is_false (const unsigned id) const
 	{
 		return (id == 0) || (trues_.find ((id % 2 == 0) ? (id+1) : (id-1)) != trues_.end ());
 	}
 	
-	inline int car_var (const unsigned id)
+	inline int car_var (const unsigned id) const
 	{
 		assert (id != 0);
 		return ((id % 2 == 0) ? (id/2) : -(id/2));
 	}
 	
-	inline vect clause (int id)
+	inline vect clause (int id) const
 	{
 		return (vect){id};
 	}
 	
-	inline vect clause (int id1, int id2)
+	inline vect clause (int id1, int id2) const
 	{
 		return (vect){id1, id2};
 	}
 	
-	inline vect clause (int id1, int id2, int id3)
+	inline vect clause (int id1, int id2, int id3) const
 	{
 		return (vect){id1, id2, id3};
 	}

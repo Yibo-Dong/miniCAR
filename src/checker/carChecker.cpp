@@ -36,7 +36,7 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    model_(model), out(out), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), ConvAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker)
+    model_(model), out(out), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker)
     {
         backward_first = !opt.forward;
         bad_ = model->output(0);
@@ -870,7 +870,7 @@ namespace car
             if (!res && trigger)
             {
                 int amount = 0;
-                while(++amount <= ConvAmount)
+                while(++amount <= convAmount)
                 {
                 // retrieve another bit.
                 conv_record[level + 1] <<= 1;
@@ -989,19 +989,6 @@ namespace car
         SO_map.erase(s);
     }
 
-    void Checker::insert_to_uc_index(Cube&uc, int index, int level)
-    {
-        if (impMethod != Imp_Sort)
-            return;
-        // about length based manual:
-        // level+2: [0,level]
-        while(uc_len_indexes.size() < level+1)
-            uc_len_indexes.emplace_back((std::set<std::pair<int,int>>){});
-        
-        auto& index_set = uc_len_indexes[level];
-        // sort according to sz
-        index_set.insert({uc.size(),index});
-    }
 
     void Checker::addUCtoSolver(Cube &uc, OSequence *O, int dst_level_plus_one, OFrame &Otmp)
     {
@@ -1012,12 +999,8 @@ namespace car
 
         frame.push_back(uc);
 
-        if(impMethod != Imp_MOM)
-            ImplySolver::add_uc(uc,dst_level_plus_one);
-        else
-            ImplySolver::add_uc_MOM(uc,dst_level_plus_one);
-
-        insert_to_uc_index(uc,frame.size()-1,dst_level_plus_one);
+        ImplySolver::add_uc(uc,dst_level_plus_one);
+        
 
         if (dst_level_plus_one < O->size())
             bi_main_solver->add_clause_from_cube(uc, dst_level_plus_one, O, !backward_first);
@@ -1049,7 +1032,7 @@ namespace car
 
     bool Checker::initSequence(bool &res)
     {
-        State *init = new State(model->init());
+        State *init = new State(model_->init());
         State *negp = new State(true);
         clear_defer(init);
         clear_defer(negp);
@@ -1097,11 +1080,7 @@ namespace car
                     // use uc to initialize O[0] is suitable.
                     for(int index = 0; index< O0.size(); ++index)
                     {
-                        if(impMethod != Imp_MOM)
-                            ImplySolver::add_uc(O0[index],0);
-                        else
-                            ImplySolver::add_uc_MOM(O0[index],0);
-                        insert_to_uc_index(O0[index],index,0);
+                        ImplySolver::add_uc(O0[index],0);
                     }
                     Onp = OSequence({O0});
                     SO_map[negp] = &Onp;
@@ -1131,11 +1110,7 @@ namespace car
 
                     for(int index = 0; index< O0.size(); ++index)
                     {
-                        if(impMethod != Imp_MOM)
-                            ImplySolver::add_uc(O0[index],0);
-                        else
-                            ImplySolver::add_uc_MOM(O0[index],0);
-                        insert_to_uc_index(O0[index],index,0);
+                        ImplySolver::add_uc(O0[index],0);
                     }
                     Onp = OSequence({O0});
                     SO_map[negp] = &Onp;
@@ -1181,11 +1156,7 @@ namespace car
 
                     for(int index = 0; index< O0.size(); ++index)
                     {
-                        if(impMethod != Imp_MOM)
-                            ImplySolver::add_uc(O0[index],0);
-                        else
-                            ImplySolver::add_uc_MOM(O0[index],0);
-                        insert_to_uc_index(O0[index],index,0);
+                        ImplySolver::add_uc(O0[index],0);
                     }
                     Onp = OSequence({O0});
                     SO_map[negp] = &Onp;
@@ -1215,11 +1186,7 @@ namespace car
                         auto &frame = Onp[findex];
                         for(int index = 0; index < frame.size(); ++index)
                         {
-                            if(impMethod != Imp_MOM)
-                                ImplySolver::add_uc(frame[index],findex);
-                            else
-                                ImplySolver::add_uc_MOM(frame[index],findex);
-                            insert_to_uc_index(frame[index], index, findex);
+                            ImplySolver::add_uc(frame[index],findex);
                         }
                         bi_main_solver->add_new_frame(Onp[0], Onp.size() - 1, &Onp, false);
                     }
@@ -1269,11 +1236,7 @@ namespace car
                 // use uc to initialize O[0] is suitable.
                 for(int index = 0; index< O0.size(); ++index)
                 {
-                    if(impMethod != Imp_MOM)
-                        ImplySolver::add_uc(O0[index],0);
-                    else
-                        ImplySolver::add_uc_MOM(O0[index],0);
-                    insert_to_uc_index(O0[index],index,0);
+                    ImplySolver::add_uc(O0[index],0);
                 }
                 Onp = OSequence({O0});
                 SO_map[negp] = &Onp;
@@ -1549,28 +1512,6 @@ namespace car
                 break;
             }
 
-            case(Imp_Sort):
-            {
-                if(frame_level+1 > uc_len_indexes.size())
-                {
-                    res = false;
-                    break;
-                }
-                auto& helper = uc_len_indexes[frame_level];
-                OFrame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
-                for (auto& pr: helper)
-                {
-                    int index = pr.second;
-                    const auto& uc = frame[index];
-                    res = s->imply(uc);
-                    if (res)
-                    {
-                        break;
-                    }
-                }
-                break;
-                // assert(frame.size() == helper.size());
-            }
 
             case (Imp_Exp):
             {
@@ -1623,13 +1564,6 @@ namespace car
                 }
                 break;
             }
-
-            case (Imp_MOM):
-            {
-                res = ImplySolver::is_blocked_MOM(s,frame_level);
-                break;
-            }
-
 
             default:
                 break;
