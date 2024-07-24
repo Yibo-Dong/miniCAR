@@ -117,9 +117,8 @@ namespace car {
 		num_outputs_        = aig->num_outputs;
 
 		// preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
-        // TODO: remove it?
-		max_id_ = aig->maxvar+2;
-		true_ = max_id_ - 1;
+        max_id_ = aig->maxvar + 2;
+        true_ = max_id_ - 1;
 		false_ = max_id_;
 		
 		collect_trues (aig);
@@ -132,7 +131,7 @@ namespace car {
 		create_clauses (aig);
 	}
 	
-	// collect those that is trivially constant
+	// collect those that are trivially constant
 	void Problem::collect_trues (const aiger* aig)
 	{
 		for (int i = 0; i < aig->num_ands; i ++)
@@ -140,12 +139,16 @@ namespace car {
 			aiger_and& aa = aig->ands[i];
 			// lhs of an and gate is always even in aiger
 			assert (aa.lhs % 2 == 0);
+            // ? = T && T
 			if (is_true (aa.rhs0) && is_true (aa.rhs1))
 				trues_.insert (aa.lhs);
+            // ? = F && ? 
+            // or
+            // ? = ? && F
 			else if (is_false (aa.rhs0) || is_false (aa.rhs1))
 				trues_.insert (aa.lhs + 1);
-			// lhs = 8 * 7 = a4 * ~a3 is not constant
-			// lhs = 9 * 8 = ~a4 * a4 is constant
+			// lhs = 8 && 7 = a4 && ~a3 is not constant
+			// lhs = 9 && 8 = ~a4 && a4 is constant
 			else if (aa.rhs0 == aa.rhs1+1 && aa.rhs0 % 2 == 1)
 				trues_.insert (aa.lhs + 1);
 		}
@@ -214,7 +217,6 @@ namespace car {
 				next_map_.insert (std::pair<int, int> (val, next_val));
 				insert_to_reverse_next_map (abs (next_val), (next_val > 0) ? val : -val);
 			}
-			
 		}
 	}
 	
@@ -236,7 +238,6 @@ namespace car {
 		// contraints, outputs and latches gates are stored in order,
 		// as the need for start solver construction
 		std::set<unsigned> exist_gates, gates;
-
 
 		// ============================================================================
 		// (1) create clauses for constraints encoding
