@@ -47,7 +47,22 @@ namespace car
          * * initial condition
          * * last check in backward CAR(forward search), where ~p is represented by an apprixmation.
          */
-		void set_assumption(const Assignment &st, const int bad);
+        inline bool badcheck(const Assignment &st, const int bad)
+        {
+            // assumption = {st, bad}
+            assumptions.clear();
+            assumptions.push (SAT_lit (bad));
+            for (const int &var :st)
+            {
+                assumptions.push (SAT_lit (var));
+            }
+    
+            if(unroll_level > 1)
+                enable_level(unroll_level);
+    
+            return solve_assumption();
+        }
+
 
         /**
          * @brief check SAT(_s_  /\ T  /\ O_l' ) in backward CAR, or
@@ -57,35 +72,11 @@ namespace car
 		// same as ↑, with `prefers` flattened and placed in the front.
         void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
 		
-        // if assumptions are already set, just solve.
-        inline bool solve_with_assumption() { return CARSolver::solve_assumption(); }
-        // otherwise, set assumption, then solve.
-        bool solve_with_assumption(const Assignment &assump, const int bad);
 
         // here we could like to reuse the data-structure for phase-saving within Minisat, in order to guide it when SAT.
         // FIXME: cause false SAFE now.
-        inline void set_expectation(const std::vector<int>& expectations, const bool forward)
-        {
-            assert(!forward && "temporarily not avaiable for forward-car");
-            for(auto& id : expectations)
-            {
-                bool sgn = (id > 0 ? true : false);
-                int var = sgn ? id : -id;
-                // see whether they are state literals
-                assert(_model->latch_var(var));
-                // get the prime version of the literals
-                auto id_prime = _model->prime(var);
-                // it shall already be encoded.
-                assert(nVars() >= id_prime);
-                
-                // set the polarity. It will work by default.
-                if(forward)
-                    setPolarity(var, sgn);
-                else
-                    setPolarity(id_prime, sgn);
-            }
-            
-        }
+        void set_expectation(const std::vector<int>& expectations, const bool forward);
+
 
 		// @note: can only be used if the unroll level is 1. For unroll level>1, use `get_states`.
 		State* get_state(const bool forward);

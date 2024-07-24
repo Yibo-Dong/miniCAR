@@ -20,19 +20,16 @@
 
 #include "statistics.h"
 #include <iostream>
-
-#ifdef MINISAT
-	#include "Solver.h"
-	namespace CARSolverNS {
-		using SolverType = Minisat::Solver;
-	}
-#else
-	#include "Solver.h"
-	namespace CARSolverNS {
-		using SolverType = Glucose::Solver;
-	}
-#endif // MINISAT
+#include "Solver.h"
 #include <vector>
+
+namespace CARSolverNS {
+    #ifdef MINISAT
+		using SolverType = Minisat::Solver;
+    #else
+		using SolverType = Glucose::Solver;
+    #endif // MINISAT
+}
 
 namespace car
 {
@@ -54,8 +51,8 @@ namespace car
              * @note before this, make sure all the assumption lits are put into assumptions.
              */
 			inline bool solve_assumption() { auto res = solve_(); return res == l_True; }								// Solve with the assumptions in _assumption.
-			inline int size() { return clauses.size(); }			// Solve with the assumptions in _assumption.
 			inline void clear_assumption() { assumptions.clear(); } // clear the assumptions
+			inline int size() { return clauses.size(); }			// Solve with the assumptions in _assumption.
 			std::vector<int> get_assumption() const;				// get the assumption
 			std::vector<int> get_model() const;						// get the model from SAT solver
 			std::vector<int> get_uc() const;						// get UC from SAT solver

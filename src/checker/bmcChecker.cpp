@@ -12,7 +12,7 @@ void BMCChecker::check()
         // try with level = lev
         int target = model_->output(0) + (model_->output(0) > 0 ? 1 : -1) * lev * solver->lits_per_round();
         cout << ", target is " << target;
-        res = solver->solve_with_assumption(init->get_latches(), target);
+        res = solver->badcheck(init->get_latches(), target);
         cout << ", res is " << res << endl;
         if (res)
             break;

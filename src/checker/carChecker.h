@@ -145,26 +145,25 @@ namespace car
         /**
          * @brief Searching procedure of bi-car. Enumerate states in U and use the OSequence as the guide.
          *
-         * @param U the U sequence to enumerate.
          * @param O the O sequence with a singleton (a state that is picked from the U sequence) making up its level 0.
          * @param forward whether the Transformation relationship should be used forward or backward
          * @return true : successfully reached O[0]. which means a cex is found.
          * @return false : all states in present U has been checked. No cex is found.
          */
-        bool trySAT(USequence &U, OSequence *O, bool forward, bool &safe_reported);
+        bool trySAT(OSequence *O, bool forward, bool &safe_reported);
 
     public:
         Problem *model_;
         bool backward_first;
         int bad_;
-        StartSolver *bi_start_solver;
+        StartSolver *start_solver;
 
         // mapping from state to its corresponding o sequence.
         std::unordered_map<const State *, OSequence *> SO_map;
         // the main solver shared.
-        MainSolver *bi_main_solver;
+        MainSolver *main_solver;
         // the partial solver shared.
-        PartialSolver *bi_partial_solver;
+        PartialSolver *partial_solver;
 
         // the map from O sequence to its minimal_level
         std::unordered_map<const OSequence *, int> fresh_levels;
@@ -179,7 +178,7 @@ namespace car
          *
          */
 
-        inline USequence &whichU()
+        inline USequence &whichU() 
         {
             return backward_first ? Ub : Uf;
         }
@@ -253,7 +252,7 @@ namespace car
          *  then all the markers will be cleaned. Therefore, this method can be reused for another round.
          * @post Anytime it ends the iterative round earlier(before nullptr), it must has found the counter example in trySAT. Therefore, there will be no picking in the future.
          */
-        State *pickState(USequence &);
+        State *pickState();
 
         /**
          * @brief Get the partial state with assignment s. This is used in forward CAR.
@@ -269,15 +268,15 @@ namespace car
          *
          * @return State* : the state representing the solution, which is to be added to the U sequence.
          */
-        State *getModel(MainSolver *);
-        State *getModel(MainSolver *, State *);
+        State *getModel();
+        State *getModel(State *);
 
         /**
          * @brief Update U sequence, and push into cex vector
          *
          * @return whether it is already seen at a lower level.
          */
-        bool updateU(USequence &, State *, State *prior_in_trail);
+        bool updateU(State *, State *prior_in_trail);
 
         /**
          * @brief Update O sequence
@@ -295,7 +294,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool satAssume(MainSolver *, OSequence *O, State *, int, OFrame &Otmp, bool &safe_reported);
+        bool satAssume(OSequence *O, State *, int, OFrame &Otmp, bool &safe_reported);
 
         /**
          * @brief Interface for cleaning.

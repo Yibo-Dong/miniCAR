@@ -51,21 +51,6 @@ namespace car
         }
     }
 
-	/**
-	 * @brief assumptions = {assum, bad_id}
-	 * 
-	 * @param assum 
-	 * @param bad_id 
-	 */
-	void MainSolver::set_assumption (const Assignment& assum, const int bad_id)
-	{
-        assumptions.clear ();
-		assumptions.push (SAT_lit (bad_id));
-		for (const int &var :assum)
-		{
-			assumptions.push (SAT_lit (var));
-		}
-	}
 
 	/**
 	 * @brief set assumption = { s->get_latches() , flag_of(Os[frame_level]) }
@@ -94,7 +79,6 @@ namespace car
         for(int i = 0; i < prefers.size(); ++i)
 		{
 			auto &vec = prefers[i];
-
 			for(auto &id : vec)
 			{
 				int target = forward?_model->prime(id) : id;
@@ -113,16 +97,28 @@ namespace car
         }
     }
 
-
-	bool MainSolver::solve_with_assumption (const Assignment& st, const int p)
-	{
-		set_assumption(st,p);
-		if(unroll_level > 1)
-		{
-			enable_level(unroll_level);
-		}
-        return solve_with_assumption();
-	}
+    void MainSolver::set_expectation(const std::vector<int>& expectations, const bool forward)
+    {
+        assert(!forward && "temporarily not avaiable for forward-car");
+        for(auto& id : expectations)
+        {
+            bool sgn = (id > 0 ? true : false);
+            int var = sgn ? id : -id;
+            // see whether they are state literals
+            assert(_model->latch_var(var));
+            // get the prime version of the literals
+            auto id_prime = _model->prime(var);
+            // it shall already be encoded.
+            assert(nVars() >= id_prime);
+            
+            // set the polarity. It will work by default.
+            if(forward)
+                setPolarity(var, sgn);
+            else
+                setPolarity(id_prime, sgn);
+        }
+        
+    }
 
 
 	//NOTE: this State* is not owned by this solver, but the checker. It should be immediately added into clear duty.	
@@ -179,6 +175,7 @@ namespace car
 		Cube conflict = get_uc ();
         if(_model->latch_var(conflict.back()))
         {
+            // should not enter. For debug only.
             cout<<"This is interesting"<<endl;
             cout<<"State is";
             for(auto l: get_assumption())

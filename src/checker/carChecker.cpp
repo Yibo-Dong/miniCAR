@@ -40,18 +40,18 @@ namespace car
     {
         backward_first = !opt.forward;
         bad_ = model->output(0);
-        bi_main_solver = new MainSolver(model, get_rotate(), uc_no_sort);
+        main_solver = new MainSolver(model, get_rotate(), uc_no_sort);
         if (!backward_first)
         {
             // only forward needs these
-            bi_partial_solver = new PartialSolver(model);
+            partial_solver = new PartialSolver(model);
             // TODO: extend to multi-properties.
-            bi_start_solver = new StartSolver(model, bad_, true);
+            start_solver = new StartSolver(model, bad_, true);
         }
         else
         {
-            bi_partial_solver = nullptr;
-            bi_start_solver = nullptr;
+            partial_solver = nullptr;
+            start_solver = nullptr;
         }
         rotates.clear();
         rotate.clear();
@@ -62,20 +62,20 @@ namespace car
     Checker::~Checker()
     {
         clean();
-        if (bi_main_solver)
+        if (main_solver)
         {
-            delete bi_main_solver;
-            bi_main_solver = nullptr;
+            delete main_solver;
+            main_solver = nullptr;
         }
-        if (bi_start_solver)
+        if (start_solver)
         {
-            delete bi_start_solver;
-            bi_start_solver = nullptr;
+            delete start_solver;
+            start_solver = nullptr;
         }
-        if (bi_partial_solver)
+        if (partial_solver)
         {
-            delete bi_partial_solver;
-            bi_partial_solver = nullptr;
+            delete partial_solver;
+            partial_solver = nullptr;
         }
     }
 
@@ -137,7 +137,7 @@ namespace car
 
             OSequence &O = direction ? OI : Onp;
             
-            if (trySAT(U, &O, direction, res))
+            if (trySAT(&O, direction, res))
             {
                 // if this PP phase ends, but has not reached the whole end.
                 if (ppstoped)
@@ -195,18 +195,18 @@ namespace car
         return false;
     }
 
-    bool Checker::trySAT(USequence &U, OSequence *O, bool forward, bool &safe_reported)
+    bool Checker::trySAT(OSequence *O, bool forward, bool &safe_reported)
     {
+        auto& U = whichU();
         // NOTE: can eliminate initialization.
         safe_reported = false;
         OFrame Otmp;
-        MainSolver *main_solver = bi_main_solver;
         CARStats.count_enter_new_ronud();
         /**
          * this procedure is like the old car procedure, but the OSequence is not bound to be OI or Onegp.
          * @param missionary the state to be checked
          */
-        while (State *missionary = pickState(U))
+        while (State *missionary = pickState())
         {
             /**
              * build a stack <state, depth, target_level>
@@ -245,15 +245,15 @@ namespace car
                     }
                 }
 
-                if (satAssume(bi_main_solver, O, s, dst, Otmp, safe_reported))
+                if (satAssume(O, s, dst, Otmp, safe_reported))
                 {
                     if (dst == -1)
                     {
                         return true;
                     }
-                    State *tprime = getModel(bi_main_solver);
+                    State *tprime = getModel();
                     
-                    updateU(U, tprime, s);
+                    updateU(tprime, s);
 
                     // NOTE: why here calculate minNOTBLOCKED, rather than next time when pop?
                     int new_level = minNOTBlocked(tprime, 0, dst - 1, O, Otmp);               
@@ -264,8 +264,7 @@ namespace car
                 }
                 else
                 {
-                                        stk.pop();
-
+                    stk.pop();
                     if (safe_reported)
                         return true;
 
@@ -273,9 +272,6 @@ namespace car
                     if (new_level <= O->size())
                     {
                         stk.push(Obligation(s, depth, new_level - 1));
-                                            }
-                    else
-                    {
                     }
                 }
             }
@@ -286,7 +282,7 @@ namespace car
 
         if (rotate_enabled)
             rotates.push_back(rotate);
-        bi_main_solver->add_new_frame(Otmp, O->size() - 1, O, forward);
+        main_solver->add_new_frame(Otmp, O->size() - 1, O, forward);
         return false;
     }
 
@@ -385,7 +381,7 @@ namespace car
             SO_map[s] = o;
             fresh_levels[o] = 0;
             // FIXME: When is the right time to add to solver? And when to set the flag?
-            bi_main_solver->add_new_frame(f, o->size() - 1, o, !backward_first);
+            main_solver->add_new_frame(f, o->size() - 1, o, !backward_first);
         }
         assert(o);
         return o;
@@ -393,8 +389,9 @@ namespace car
 
     // NOTE: when we try to pick a guide state, it is not used as part of the assumption but the target. Therefore, uc is not generated according to it, and therefore will not be updated.
     // Luckily, we do not use Onp or OI to guide. Therefore, here we have nothing to do with start_solver.
-    State *Checker::pickState(USequence &U)
+    State *Checker::pickState()
     {
+        auto& U = whichU();
         if(pickStateLastIndex <= 0)
         {
             // one round is end.
@@ -407,12 +404,12 @@ namespace car
         {
             // FIXME: check for forward CAR, where we need to enumerate by querying the start solver.
             // TODO: check for efficiency.
-            State *new_s = enumerateStartStates(bi_start_solver);
+            State *new_s = enumerateStartStates(start_solver);
             if(new_s)
             {
-                updateU(U,new_s,nullptr);
-                if(bi_start_solver)
-                    bi_start_solver->reset();
+                updateU(new_s,nullptr);
+                if(start_solver)
+                    start_solver->reset();
                 return new_s;
             }
             else
@@ -421,8 +418,8 @@ namespace car
                 // so when we try to fetch a state, but get negp, it is also the end of one round.
                 pickStateLastIndex = U.size();
 
-                if(bi_start_solver)
-                    bi_start_solver->reset();
+                if(start_solver)
+                    start_solver->reset();
                 return nullptr;
             }
             return nullptr;
@@ -447,17 +444,17 @@ namespace car
         {
             // negate the s' as the cls, put into the solver.
             Assignment cls = negate(prior_state->get_latches());
-            bi_partial_solver->new_flag();
-            bi_partial_solver->add_clause_with_flag(cls);
+            partial_solver->new_flag();
+            partial_solver->add_clause_with_flag(cls);
 
             // the assumption being t's input and latches.
-            next_assumptions.push_back(bi_partial_solver->get_flag());
-            bi_partial_solver->set_assumption(next_assumptions);
+            next_assumptions.push_back(partial_solver->get_flag());
+            partial_solver->set_assumption(next_assumptions);
 
             // Therefore, it ought to be unsat. If so, we can get the partial state (from the uc)
-            bool res = bi_partial_solver->solve_assumption();
+            bool res = partial_solver->solve_assumption();
             // uc actually stores the partial state.
-            s = bi_partial_solver->get_conflict();
+            s = partial_solver->get_conflict();
 
             if (res || s.empty())
             {
@@ -469,16 +466,16 @@ namespace car
             }
 
             // block this clause.
-            int flag = bi_partial_solver->get_flag();
-            bi_partial_solver->add_clause(flag);
+            int flag = partial_solver->get_flag();
+            partial_solver->add_clause(flag);
         }
         else
         // for initial states, there is no such "prior state", only "bad"
         {
             next_assumptions.push_back(-bad_);
-            bi_partial_solver->set_assumption(next_assumptions);
-            bool res = bi_partial_solver->solve_assumption();
-            s = bi_partial_solver->get_conflict_no_bad(-bad_);
+            partial_solver->set_assumption(next_assumptions);
+            bool res = partial_solver->solve_assumption();
+            s = partial_solver->get_conflict_no_bad(-bad_);
             // if one-step reachable, should already been found in immediate_satisfiable.
             assert(!s.empty());
         }
@@ -555,7 +552,7 @@ namespace car
         out << "." << endl;
     }
 
-    bool Checker::updateU(USequence &U, State *s, State *prior_state_in_trail)
+    bool Checker::updateU(State *s, State *prior_state_in_trail)
     {
         // Counter Example Issue.
         // Every time we insert a new state into U sequence, it should be updated.
@@ -563,8 +560,7 @@ namespace car
         {
             whichPrior()[s] = prior_state_in_trail;
         }
-
-        U.push_back(s);
+        whichU().push_back(s);
 
         return true;
     }
@@ -579,7 +575,7 @@ namespace car
         return pref;
     }
 
-    bool Checker::satAssume(MainSolver *solver, OSequence *O, State *s, int level, OFrame &Otmp, bool& safe_reported)
+    bool Checker::satAssume(OSequence *O, State *s, int level, OFrame &Otmp, bool& safe_reported)
     {
         bool forward = !backward_first;
         vector<Cube> inter;
@@ -716,16 +712,16 @@ namespace car
                     int j = dis(gen);
                     std::swap(shuff_helper[i], shuff_helper[j]);
                 }
-                solver->set_assumption(O, s, level, forward, {shuff_helper});
+                main_solver->set_assumption(O, s, level, forward, {shuff_helper});
                 break;
             }
 
             case 3: // expectation test
             {
                 // FIXME: implement this part to be a real decision procedure.
-                std::vector<int> exp = s->get_latches();
-                solver->set_expectation(exp, forward);
-                solver->set_assumption(O, s, level, forward, pref);
+                std::vector<int> exp = s->get_latches(); // tmp only.
+                main_solver->set_expectation(exp, forward);
+                main_solver->set_assumption(O, s, level, forward, pref);
                 break;
             }
 
@@ -733,14 +729,14 @@ namespace car
             case 0: // traditional one, no need to shuffel
             default:
             {
-                solver->set_assumption(O, s, level, forward, pref);
+                main_solver->set_assumption(O, s, level, forward, pref);
                 // do nothing
                 break;
             }
             }
             
             CARStats.count_main_solver_original_time_start();
-            res = solver->solve_with_assumption();
+            res = main_solver->solve_assumption();
             if(res)
             {
                 // if sat, no uc, we just update it here.
@@ -750,7 +746,7 @@ namespace car
         if(!res)
         {
             // update the UC.
-            Cube uc = bi_main_solver->get_conflict(!backward_first);
+            Cube uc = main_solver->get_conflict(!backward_first);
 
             if(subStat)
             {
@@ -881,7 +877,7 @@ namespace car
 
                 CARStats.count_main_solver_convergence_time_start();
                 // get another conflict!
-                auto nextuc = solver->get_conflict_another(!backward_first, LOStrategy, amount);
+                auto nextuc = main_solver->get_conflict_another(!backward_first, LOStrategy, amount);
                 
                 if(subStat)
                 {
@@ -916,21 +912,21 @@ namespace car
         return res;
     }
 
-    State *Checker::getModel(MainSolver *solver)
+    State *Checker::getModel()
     {
         bool forward = !backward_first;
-        State *s = solver->get_state(forward);
+        State *s = main_solver->get_state(forward);
         // NOTE: if it is the last state, it will be set last-inputs later.
         clear_defer(s);
         return s;
     }
 
-    State *Checker::getModel(MainSolver *solver, State *prior)
+    State *Checker::getModel(State *prior)
     {
         bool forward = !backward_first;
         if (!forward)
         {
-            State *s = solver->get_state(forward);
+            State *s = main_solver->get_state(forward);
             // NOTE: if it is the last state, it will be set last-inputs later.
             clear_defer(s);
             return s;
@@ -939,11 +935,11 @@ namespace car
         {
             if(partial)
             {
-                Assignment full = solver->get_state_full_assignment(forward);
+                Assignment full = main_solver->get_state_full_assignment(forward);
                 return get_partial_state(full, prior);
             }
             else{
-                State *s = solver->get_state(forward);
+                State *s = main_solver->get_state(forward);
                 clear_defer(s);
                 return s;
             }
@@ -1003,21 +999,21 @@ namespace car
         
 
         if (dst_level_plus_one < O->size())
-            bi_main_solver->add_clause_from_cube(uc, dst_level_plus_one, O, !backward_first);
+            main_solver->add_clause_from_cube(uc, dst_level_plus_one, O, !backward_first);
         else if (dst_level_plus_one == O->size())
         {
             if (!backward_first)
             {
                 // FIXME: test me later.
                 // Not always. Only if the start state is ~p.
-                bi_start_solver->add_clause_with_flag(uc);
+                start_solver->add_clause_with_flag(uc);
             }
         }
     }
 
     void Checker::updateO(OSequence *O, int dst, OFrame &Otmp, bool &safe_reported)
     {
-        Cube uc = bi_main_solver->get_conflict(!backward_first);
+        Cube uc = main_solver->get_conflict(!backward_first);
 
         if (uc.empty())
         {
@@ -1052,7 +1048,7 @@ namespace car
 
                     // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
                     // construct an abstract state
-                    updateU(Uf, negp,nullptr);
+                    updateU(negp,nullptr);
                     pickStateLastIndex = Uf.size();
                     
                     // O_I
@@ -1069,7 +1065,7 @@ namespace car
                 if (backward_first)
                 {
                     // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
+                    updateU(init, nullptr);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1098,7 +1094,7 @@ namespace car
                 if (backward_first)
                 {
                     // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
+                    updateU(init, nullptr);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1144,7 +1140,7 @@ namespace car
                 if (backward_first)
                 {
                     // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
+                    updateU(init, nullptr);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1174,7 +1170,7 @@ namespace car
                 if (backward_first)
                 {
                     // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
+                    updateU(init, nullptr);
                     pickStateLastIndex = Ub.size();
 
                     Onp = last_chker->Onp;
@@ -1188,7 +1184,7 @@ namespace car
                         {
                             ImplySolver::add_uc(frame[index],findex);
                         }
-                        bi_main_solver->add_new_frame(Onp[0], Onp.size() - 1, &Onp, false);
+                        main_solver->add_new_frame(Onp[0], Onp.size() - 1, &Onp, false);
                     }
 
                     if(get_rotate())
@@ -1211,7 +1207,7 @@ namespace car
                 if (immediateCheck(init, bad_, res, O0))
                     return true;
 
-                updateU(Ub, init, nullptr);
+                updateU(init, nullptr);
                 // backward inits.
                 // Ub[0] = I;   
                 for(car::State *st: last_chker->Ub){
@@ -1222,7 +1218,7 @@ namespace car
                     {
                         State* s = new State(st->get_inputs(), st->get_latches());
                         clear_defer(s);
-                        updateU(Ub, s, init);
+                        updateU(s, init);
                     }
                 }
 
@@ -1252,7 +1248,7 @@ namespace car
 
                 // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
                 // construct an abstract state
-                updateU(Uf, negp,nullptr);
+                updateU(negp,nullptr);
 
                 // O_I
                 // NOTE: O stores the UC, while we actually use negations.
@@ -1268,7 +1264,7 @@ namespace car
             if (backward_first)
             {
                 // Ub[0] = I;
-                updateU(Ub, init, nullptr);
+                updateU(init, nullptr);
 
                 // Ob[0] = uc0.
                 // clauses will be added by immediate_satisfible.
@@ -1294,9 +1290,9 @@ namespace car
         }
 
         if (backward_first)
-            bi_main_solver->add_new_frame(Onp[0], Onp.size() - 1, &Onp, false);
+            main_solver->add_new_frame(Onp[0], Onp.size() - 1, &Onp, false);
         if (!backward_first)
-            bi_main_solver->add_new_frame(OI[0], OI.size() - 1, &OI, true);
+            main_solver->add_new_frame(OI[0], OI.size() - 1, &OI, true);
 
 
 
@@ -1334,8 +1330,8 @@ namespace car
     // This is used in sequence initialization
     bool Checker::immediateCheck(State *from, int target, bool &res, OFrame &O0)
     {
-        // bi_main_solver.
-        auto &solver = bi_main_solver;
+        // main_solver.
+        auto &solver = main_solver;
         // NOTE: init may not be already set.
         vector<int> latches = from->get_latches();
 
@@ -1343,7 +1339,7 @@ namespace car
         do
         {
             CARStats.count_main_solver_original_time_start();
-            if (solver->solve_with_assumption(latches, target))
+            if (solver->badcheck(latches, target))
             {
                 CARStats.count_main_solver_original_time_end(true,0);
                 // if sat. already find the cex.
@@ -1404,11 +1400,11 @@ namespace car
         // in backward car, we use uc0 instead of ~P to initialize Ob[0]. This makes it possible to return false, because uc0 is necessary but not essential.
         {
             // check whether it's in it.
-            bool res = bi_main_solver->solve_with_assumption(from->get_latches(), bad_);
+            bool res = main_solver->badcheck(from->get_latches(), bad_);
             if (res)
             {
                 // OK. counter example is found.
-                State *s = bi_main_solver->get_state(direction);
+                State *s = main_solver->get_state(direction);
                 clear_defer(s);
                 whichPrior()[s] = from;
                 whichCEX() = s;
