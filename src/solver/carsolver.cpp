@@ -15,13 +15,6 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-/* 
- * File:   carsolver.cpp
- * Author: Jianwen Li
- * Note: An inheritance class from Minisat::Solver for CAR use 
- * Created on October 4, 2017
- */
- 
 #include "carsolver.h"
 #include <iostream>
 #include <vector>
@@ -91,7 +84,6 @@ namespace car
 	 * 
 	 * @return std::vector<int> : the result from Solver.
 	 */
-    // FIXME: do we need the whole? or just the original ones (excluding the labels and so on)
 	std::vector<int> CARSolver::get_model () const
 	{
 		std::vector<int> res;
@@ -176,7 +168,6 @@ namespace car
             int tmp = assumptions[i].x;
             assumptions[i].x = assumptions[sz-i].x;
             assumptions[sz-i].x = tmp;
-            
         }
         
         solve_();
@@ -207,7 +198,6 @@ namespace car
             return get_uc_fp();
         }
         
-
         case 1: // LO_Random
         {
             return get_uc_rand();
@@ -226,37 +216,10 @@ namespace car
             break;
         }
         }
-        
-        
-        
-
-        // clever method? idk
-
-        // Next, we try to identify between <taken> and <rest>
-        // The distinction lies in that, whether they have been taken.
-        // Though, if the decision level that finally triggered a conflict is larger than assumption size, there is no such rest.
-
-        // The first lit in UC that comes after flag, is the splitter.
-        // Let's see where it is in the assumptions.
-        /*
-        int index_taken = 0;
-        for(; index_taken < assumptions.size(); ++index_taken)
-        {
-            // conflict[1], is the conflict literal.
-            if(assumptions[index_taken] == conflict[1])
-                break;
-        }
-        assert(index_taken < assumptions.size()); 
-
-        // ...
-        
-        // <rest> <ignored> <UC>
-        return std::vector<int>({});
-        */
     }
 	 	
 	/**
-	 * @brief 把cube中的每个元素作为一个clause加入。
+	 * @brief for each literal in the cube, make it a seperate clause 
 	 * 
 	 * @param cu 
 	 */
@@ -267,7 +230,7 @@ namespace car
  	}
 
 	/**
-	 * @brief 把cube中的每个元素取反，合并为一个clause。表示的是该cube的否定。
+	 * @brief negate each literal in the cube and make it one clause, representing its negation.
 	 * 
 	 * @param cu 
 	 */

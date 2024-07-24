@@ -27,26 +27,43 @@
 
 namespace car
 {
-	extern Statistics CARStats;
-
 	class MainSolver : public CARSolver
 	{
+    public:
+        const Problem *_model;
+        const bool rotate_is_on;
+        const bool uc_no_sort;
+		int max_flag;
+		int unroll_level;
+
 	public:
-		MainSolver(Problem *, int rotate_is_on, bool uc_no_sort);
-		MainSolver (Problem* m, int unroll_level) ;
+		MainSolver(Problem *m, bool rotate_is_on, bool uc_no_sort);
+		MainSolver(Problem* m, bool rotate_is_on, bool uc_no_sort, int unroll_level) ;
 		~MainSolver() {}
 
-		void set_assumption(const Assignment &, const int);
-		
-		// set assumption = { s->get_latches() , flag_of(Os[frame_level]) }
+        /**
+         * @brief check SAT(_s_ /\ ~p).
+         * used in:
+         * * initial condition
+         * * last check in backward CAR(forward search), where ~p is represented by an apprixmation.
+         */
+		void set_assumption(const Assignment &st, const int bad);
+
+        /**
+         * @brief check SAT(_s_  /\ T  /\ O_l' ) in backward CAR, or
+         *              SAT(_s_' /\ T  /\ O_l  ) in forward CAR.
+         */
 		void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward);
-		void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
+		// same as ↑, with `prefers` flattened and placed in the front.
+        void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
 		
         // if assumptions are already set, just solve.
-		inline bool solve_with_assumption(){return CARSolver::solve_assumption();};
-		bool solve_with_assumption(const Assignment &assump, const int p);
+        inline bool solve_with_assumption() { return CARSolver::solve_assumption(); }
+        // otherwise, set assumption, then solve.
+        bool solve_with_assumption(const Assignment &assump, const int bad);
 
         // here we could like to reuse the data-structure for phase-saving within Minisat, in order to guide it when SAT.
+        // FIXME: cause false SAFE now.
         inline void set_expectation(const std::vector<int>& expectations, const bool forward)
         {
             assert(!forward && "temporarily not avaiable for forward-car");
@@ -55,9 +72,9 @@ namespace car
                 bool sgn = (id > 0 ? true : false);
                 int var = sgn ? id : -id;
                 // see whether they are state literals
-                assert(model_->latch_var(var));
+                assert(_model->latch_var(var));
                 // get the prime version of the literals
-                auto id_prime = model_->prime(var);
+                auto id_prime = _model->prime(var);
                 // it shall already be encoded.
                 assert(nVars() >= id_prime);
                 
@@ -70,10 +87,9 @@ namespace car
             
         }
 
-		// @note: can only be used if the unroll level is 1
+		// @note: can only be used if the unroll level is 1. For unroll level>1, use `get_states`.
 		State* get_state(const bool forward);
 
-		void get_states(std::vector<State*>& states, const bool forward);
 		Assignment get_state_full_assignment(const bool forward);
 
 		// this version is used for bad check only
@@ -93,50 +109,35 @@ namespace car
 		void shrink_model(Assignment &model);
 
 	public:
-		// This section is for bi-car
-
-		// silly method: clear the main solver when seraching with the O sequence ends.
-		// clever method: record flag of different levels in each O sequence.
-		
-		static std::unordered_map<OSequence*,std::vector<int>> flag_of_O;
+		std::vector<int> flags;
 
 		inline int flag_of(OSequence *o, const int frame_level)
 		{
 			assert(frame_level >= 0);
-			while(frame_level >= flag_of_O[o].size())
+			while(frame_level >= flags.size())
 			{
-				flag_of_O[o].push_back(max_flag++);
+				flags.push_back(max_flag++);
 			}
-			return flag_of_O[o][frame_level];
+			return flags.at(frame_level);
 		}
 		
-		void bi_record_O(OSequence *o, bool dir)
-		{
-			// should not have met before.
-			assert(flag_of_O.count(o) == 0); 
-			flag_of_O[o] = {};
-		}
 
-	public:
-		// unroll relevant functions
-		inline int lits_per_round()
+
+    public: 
+        // unroll for BMC:
+        void enable_level(int level);
+		void enable_max();
+
+		inline int lits_per_round() const
 		{
 			// flag for each level, with the first layer's flag remaining unused
-			return model_->max_id() + 1;
+			return _model->max_id() + 1;
 		}
 		
         // NOTE: this is deprecated for now, because we only pop one frame flag at present.
 		void unroll();
 
-		void enable_level(int level);
-		void enable_max();
-
-		int unroll_level;
-	private:
-		Problem *model_;
-		int max_flag;
-        bool rotate_is_on;
-        bool uc_no_sort;
+        void get_states(std::vector<State*>& states, const bool forward);
 	};
 
 }

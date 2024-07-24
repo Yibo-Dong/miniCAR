@@ -256,7 +256,6 @@ void check_aiger(int argc, char **argv)
             ++opt.convParam;
             ImplySolver::reset_all();
             CARStats.reset_imply_cnter();
-            MainSolver::flag_of_O.clear();
             // TODO: check whether we need to clean sth else?
 
             // check, with information of last check avaiable.
