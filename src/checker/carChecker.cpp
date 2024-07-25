@@ -175,7 +175,7 @@ namespace car
         // NOTE: can eliminate initialization.
         auto& O = whichO();
         safe_reported = false;
-        OFrame Otmp;
+        refreshOtmp();
         CARStats.count_enter_new_ronud();
         /**
          * this procedure is like the old car procedure, but the OSequence is not bound to be OI or Onegp.
@@ -187,21 +187,21 @@ namespace car
              * build a stack <state, depth, target_level>
              */
             stack<Obligation> stk;
-            stk.push(Obligation(missionary, 0, O.size() - 1));
+            stk.push(Obligation(missionary, 0, OSize() - 1));
             while (!stk.empty())
             {
                 CARStats.count_enter_new_try_by();
                 State *s;
                 int dst, depth;
                 std::tie(s, depth, dst) = stk.top();
-                if (blockedIn(s, dst + 1, Otmp))
+                if (blockedIn(s, dst + 1))
                 {
                     // TODO: memorize state's blocking status. Since we do not remove UC, once blocked, forever blocked.
                     stk.pop();
                     CARStats.count_tried_before();
 
-                    int new_level = minNOTBlocked(s, dst + 2, O.size() - 1, Otmp);
-                    if (new_level <= O.size())
+                    int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
+                    if (new_level <= OSize())
                     {
                         stk.push(Obligation(s, depth, new_level - 1));
                     }
@@ -220,7 +220,7 @@ namespace car
                     }
                 }
 
-                if (satAssume(s, dst, Otmp, safe_reported))
+                if (satAssume(s, dst, safe_reported))
                 {
                     if (dst == -1)
                     {
@@ -231,7 +231,7 @@ namespace car
                     updateU(tprime, s);
 
                     // NOTE: why here calculate minNOTBLOCKED, rather than next time when pop?
-                    int new_level = minNOTBlocked(tprime, 0, dst - 1, Otmp);               
+                    int new_level = minNOTBlocked(tprime, 0, dst - 1);               
                     if (new_level <= dst) // if even not one step further, should not try it
                     {
                         stk.push(Obligation(tprime, depth + 1, new_level - 1));
@@ -243,8 +243,8 @@ namespace car
                     if (safe_reported)
                         return true;
 
-                    int new_level = minNOTBlocked(s, dst + 2, O.size() - 1, Otmp);
-                    if (new_level <= O.size())
+                    int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
+                    if (new_level <= OSize())
                     {
                         stk.push(Obligation(s, depth, new_level - 1));
                     }
@@ -257,7 +257,7 @@ namespace car
 
         if (rotate_enabled)
             rotates.push_back(rotate);
-        main_solver->add_new_frame(Otmp, O.size() - 1, !backward_first);
+        main_solver->add_new_frame(Otmp, OSize() - 1, !backward_first);
         return false;
     }
 
@@ -304,11 +304,11 @@ namespace car
          * 		Each time a modification of low-level frame will possibly modify this minimal level.
          *
          */
-        for (int i = 0; i < O.size(); ++i)
+        for (int i = 0; i < OSize(); ++i)
         {
             if (InvFoundAt(i, fresh_levels))
             {
-                while (O.size() > i)
+                while (OSize() > i)
                     O.pop_back();
                 res = true;
                 // already found invariant.
@@ -316,8 +316,8 @@ namespace car
                 break;
             }
         }
-        // NOTE: not O.size()-1. because that level is also checked.
-        fresh_levels = O.size();
+        // NOTE: not OSize()-1. because that level is also checked.
+        fresh_levels = OSize();
         delete (inv_solver);
         inv_solver = nullptr;
         return res;
@@ -511,7 +511,7 @@ namespace car
         return pref;
     }
 
-    bool Checker::satAssume(State *s, int level, OFrame &Otmp, bool& safe_reported)
+    bool Checker::satAssume(State *s, int level, bool& safe_reported)
     {
         auto& O = whichO();
         bool forward = !backward_first;
@@ -540,7 +540,7 @@ namespace car
                 if (get_inter_cnt())
                 {
                     // NOTE: the meaning of inter_cnt is not consistent as to ni > 1
-                    const OFrame &frame = level + 1 < O.size() ? O[level + 1] : Otmp;
+                    const OFrame &frame = whichFrame(level + 1);
  
                     // this index is which iCube we want to create.
                     int index = 1;
@@ -697,7 +697,7 @@ namespace car
             }
             CARStats.count_main_solver_original_time_end(res,uc.size());
 
-            addUCtoSolver(uc, level + 1, Otmp);
+            addUCtoSolver(uc, level + 1);
         }
 
         if (get_rotate() && !res)
@@ -734,14 +734,14 @@ namespace car
                         trigger = true;
                         break;
                     }
-                    if(level > 0 && level > O.size() - (O.size() / convParam))
+                    if(level > 0 && level > OSize() - (OSize() / convParam))
                     {
                         trigger = true;
                     }
                     else{
                         trigger = false;
                     }
-                    // cerr<<"conv mode = High, res = "<<trigger<<" level="<<level<<"/"<<O.size()<<endl;
+                    // cerr<<"conv mode = High, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
                     break;
                 }
                 case ConvModeLow:
@@ -769,14 +769,14 @@ namespace car
                         break;
                     }
 
-                    if (level < 0 || level <  1 + (O.size() / convParam))
+                    if (level < 0 || level <  1 + (OSize() / convParam))
                     {
                         trigger = true;
                     }
                     else{
                         trigger = false;
                     }
-                    // cerr<<"conv mode = Low, res = "<<trigger<<" level="<<level<<"/"<<O.size()<<endl;
+                    // cerr<<"conv mode = Low, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
                     break;
                 }
                 case ConvModeRand:
@@ -838,7 +838,7 @@ namespace car
                 CARStats.count_main_solver_convergence_time_end(nextuc.size());
                 //TODO: analyse, whether imply or implied.
 
-                addUCtoSolver(nextuc, level + 1, Otmp);
+                addUCtoSolver(nextuc, level + 1);
                 }
                 // TODO: subsumption test is not cost-effective as we tested before, but we may use it to illustrate the diminishing effects.
                 
@@ -870,22 +870,22 @@ namespace car
         }
     }
 
-    void Checker::addUCtoSolver(Cube &uc, int dst_level_plus_one, OFrame &Otmp)
+    void Checker::addUCtoSolver(Cube &uc, int dst_level_plus_one)
     {
         OSequence &O = whichO();
         if (dst_level_plus_one < fresh_levels)
             fresh_levels = dst_level_plus_one;
 
-        OFrame &frame = (dst_level_plus_one < int(O.size())) ? O[dst_level_plus_one] : Otmp;
+        OFrame &frame = whichFrame(dst_level_plus_one);
 
         frame.push_back(uc);
 
         ImplySolver::add_uc(uc,dst_level_plus_one);
         
 
-        if (dst_level_plus_one < O.size())
+        if (dst_level_plus_one < OSize())
             main_solver->add_clause_from_cube(uc, dst_level_plus_one, !backward_first);
-        else if (dst_level_plus_one == O.size())
+        else if (dst_level_plus_one == OSize())
         {
             if (!backward_first)
             {
@@ -1283,11 +1283,10 @@ namespace car
      * @param s
      * @param frame_level
      * @param O
-     * @param Otmp
      * @return true
      * @return false
      */
-    bool Checker::blockedIn(State *s, const int frame_level, OFrame &Otmp)
+    bool Checker::blockedIn(State *s, const int frame_level)
     {
         OSequence &O = whichO();
         bool res = false;
@@ -1295,7 +1294,7 @@ namespace car
         {
             case(Imp_Manual):
             {
-                OFrame &frame = (frame_level < O.size()) ? O[frame_level] : Otmp;
+                OFrame &frame = whichFrame(frame_level);
                 for (const auto &uc : frame)
                 {
                     res = s->imply(uc);
@@ -1334,7 +1333,7 @@ namespace car
                 {
                     if(imply_decision == -1)
                         CARStats.count_imply_dec_begin();
-                    OFrame &frame = (frame_level < O.size()) ? O[frame_level] : Otmp;
+                    OFrame &frame = whichFrame(frame_level);
                     for (const auto &uc : frame)
                     {
                         res = s->imply(uc);
@@ -1368,7 +1367,7 @@ namespace car
                 // manual
                 begin = steady_clock::now();
                 
-                OFrame &frame = (frame_level < O.size()) ? O[frame_level] : Otmp;
+                OFrame &frame = whichFrame(frame_level);
                 for (const auto &uc : frame)
                 {
                     res = s->imply(uc);
@@ -1387,7 +1386,7 @@ namespace car
 
             case (Imp_Thresh):
             {
-                OFrame &frame = (frame_level < O.size()) ? O[frame_level] : Otmp;
+                OFrame &frame = whichFrame(frame_level);
                 if(frame.size() > 10000)
                 {
                     res = ImplySolver::is_blocked(s,frame_level);
@@ -1419,16 +1418,15 @@ namespace car
      * @param min 
      * @param max 
      * @param O 
-     * @param Otmp 
      * @return int 
      */
-    int Checker::minNOTBlocked(State *s, const int min, const int max,  OFrame &Otmp)
+    int Checker::minNOTBlocked(State *s, const int min, const int max)
     {
         CARStats.count_imply_begin();
         int start = min;
         while (start <= max)
         {
-            if (!blockedIn(s, start, Otmp))
+            if (!blockedIn(s, start))
             {
                 break;
             }

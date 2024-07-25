@@ -163,6 +163,7 @@ namespace car
         OSequence Onp, OI;
         OFrame Otmp;
         inline void refreshOtmp() {Otmp.clear();}
+        inline OFrame& whichFrame(int index){return (index < OSize())? whichO().at(index) : Otmp;}
         inline int OSize() {return whichO().size();}
         // used in picking state randomly
         std::vector<std::pair<State *, int>> Uset;
@@ -263,7 +264,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool satAssume(State *, int, OFrame &Otmp, bool &safe_reported);
+        bool satAssume(State *, int, bool &safe_reported);
 
         /**
          * @brief Interface for cleaning.
@@ -278,7 +279,7 @@ namespace car
          * @param O
          * @param dst_level
          */
-        void addUCtoSolver(Cube &uc, int dst_level, OFrame &Otmp);
+        void addUCtoSolver(Cube &uc, int dst_level);
 
         /**
          * @brief init special sequences: Uf, Ub, Oi, Onp
@@ -318,11 +319,10 @@ namespace car
          * @param s
          * @param frame_level
          * @param O
-         * @param Otmp
          * @return true
          * @return false
          */
-        bool blockedIn(State *s, const int frame_level, OFrame &Otmp);
+        bool blockedIn(State *s, const int frame_level);
 
         /**
          * @brief Use `blocked in` to iterate, from min to max, to find the minimal level where this state is not blocked.
@@ -331,10 +331,9 @@ namespace car
          * @param min
          * @param max
          * @param O
-         * @param Otmp
          * @return int
          */
-        int minNOTBlocked(State *s, const int min, const int max, OFrame &Otmp);
+        int minNOTBlocked(State *s, const int min, const int max);
 
     private:
         /**
