@@ -187,7 +187,6 @@ namespace car
     /**
      * @brief Get another UC.
      * @pre Prior UC has been retrieved already.
-     * @param forward 
      * @return Cube 
      */
     std::vector<int> CARSolver::get_uc_another(int option, int nth)

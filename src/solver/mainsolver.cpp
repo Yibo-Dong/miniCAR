@@ -25,7 +25,7 @@ namespace car
 	 * @brief put all the clauses generated into SAT solver.
 	 * 		
 	 */
-    MainSolver::MainSolver(Problem *m, bool rotate_is_on, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), unroll_level(1)
+    MainSolver::MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), unroll_level(1), reverseT(forward)
     {
         max_flag = m->max_id() + 1;
         // (1) create clauses for constraints encoding
@@ -57,21 +57,20 @@ namespace car
 	 * 
 	 * @param s 
 	 * @param frame_level 
-	 * @param forward 
 	 */
-    void MainSolver::set_assumption(State*s,  const int frame_level, const bool forward)
+    void MainSolver::set_assumption(State*s,  const int frame_level)
     {
         assumptions.clear();
         if (frame_level > -1)
 			assumptions.push (SAT_lit (flag_of(frame_level)));
 		for (const int &id :s->get_latches())
 		{
-			int target = forward ? _model->prime (id) : id;
+			int target = reverseT ? _model->prime (id) : id;
 			assumptions.push (SAT_lit (target));
 		}
     }
 
-	void MainSolver::set_assumption(State*s,  const int frame_level, const bool forward, const std::vector<Cube> & prefers)
+	void MainSolver::set_assumption(State*s,  const int frame_level, const std::vector<Cube> & prefers)
     {
         assumptions.clear();
         if (frame_level > -1) // should always satisfy
@@ -81,7 +80,7 @@ namespace car
 			auto &vec = prefers[i];
 			for(auto &id : vec)
 			{
-				int target = forward?_model->prime(id) : id;
+				int target = reverseT?_model->prime(id) : id;
 				assumptions.push(SAT_lit(target));
 			}
 		}
@@ -91,15 +90,15 @@ namespace car
             // therefore, no need to add the rest part.
             for (const int &id :s->get_latches())
             {
-                int target = forward ? _model->prime (id) : id;
+                int target = reverseT ? _model->prime (id) : id;
                 assumptions.push (SAT_lit (target));
             }
         }
     }
 
-    void MainSolver::set_expectation(const std::vector<int>& expectations, const bool forward)
+    void MainSolver::set_expectation(const std::vector<int>& expectations)
     {
-        assert(!forward && "temporarily not avaiable for forward-car");
+        assert(!reverseT && "temporarily not avaiable for forward-car");
         for(auto& id : expectations)
         {
             bool sgn = (id > 0 ? true : false);
@@ -112,7 +111,7 @@ namespace car
             assert(nVars() >= id_prime);
             
             // set the polarity. It will work by default.
-            if(forward)
+            if(reverseT)
                 setPolarity(var, sgn);
             else
                 setPolarity(id_prime, sgn);
@@ -122,11 +121,11 @@ namespace car
 
 
 	//NOTE: this State* is not owned by this solver, but the checker. It should be immediately added into clear duty.	
-	State* MainSolver::get_state (const bool forward)
+	State* MainSolver::get_state()
 	{
 		assert(unroll_level == 1);
 		Assignment model = get_model();
-		if(!forward)
+		if(!reverseT)
 			shrink_model (model);
 		Assignment inputs(model.begin(),model.begin() + _model->num_inputs());
 		Assignment latches(model.begin() + _model->num_inputs(),model.begin() + _model->num_inputs()+_model->num_latches());
@@ -155,32 +154,16 @@ namespace car
 	}
 	
 	/**
-	 * @brief get unsat core, get latch, shrink to previous if forward. 
+	 * @brief get unsat core, get latch, shrink to previous if reverseT. 
 	 * @note the last lit is pushed again.
-	 * @param forward 
 	 * @return Cube 
 	 */
-	Cube MainSolver::get_conflict (const bool forward)
+	Cube MainSolver::get_conflict ()
 	{
 		Cube conflict = get_uc ();
-        if(_model->latch_var(conflict.back()))
-        {
-            // should not enter. For debug only.
-            cout<<"This is interesting"<<endl;
-            cout<<"State is";
-            for(auto l: get_assumption())
-            {
-                cout<<l<<", ";
-            }
-            cout<<"uc is ";
-            for(auto l:conflict)
-            {
-                cout<<l<<", ";
-            }
-        }
 
 		assert(!conflict.empty());
-		if (forward)
+		if (reverseT)
 		{
 		    _model->shrink_to_previous_vars (conflict);
 		}
@@ -188,15 +171,6 @@ namespace car
 		{
 		    _model->shrink_to_latch_vars (conflict);
 		}
-        if(conflict.empty())
-        {
-            // should not enter. For debug only.
-            cout<<"error. conflict is empty."<<endl;
-            Cube conf = get_uc();
-            for(auto l:conf)
-                cout<<l<<", ";
-            cout<<endl;
-        }
 
         if(!uc_no_sort)
         {
@@ -205,11 +179,11 @@ namespace car
 		return std::move(conflict);
 	}
 
-    Cube MainSolver::get_conflict_another (const bool forward,int option, int nth)
+    Cube MainSolver::get_conflict_another (int option, int nth)
 	{
 		Cube conflict = get_uc_another (option, nth);
 		assert(!conflict.empty());
-		if (forward)
+		if (reverseT)
 		{
 		    _model->shrink_to_previous_vars (conflict);
 		}
@@ -225,23 +199,23 @@ namespace car
         return std::move(conflict);
 	}
 	
-	void MainSolver::add_new_frame(const OFrame& frame, const int frame_level,const bool forward)
+	void MainSolver::add_new_frame(const OFrame& frame, const int frame_level)
 	{
 		for (int i = 0; i < frame.size (); i ++)
 		{
-			add_clause_from_cube (frame[i], frame_level, forward);
+			add_clause_from_cube (frame[i], frame_level);
 		}
 	}
 
 	// Actually, each center_state should only exist in O sequence in one direction.
 	// Should we just record this?
-	void MainSolver::add_clause_from_cube(const Cube &cu, const int frame_level, const bool forward)
+	void MainSolver::add_clause_from_cube(const Cube &cu, const int frame_level)
 	{
 		int flag = flag_of(frame_level);
 		vector<int> cl = {-flag};
 		for (int i = 0; i < cu.size (); i ++)
 		{
-			if (!forward)
+			if (!reverseT)
 				cl.push_back (-_model->prime (cu[i]));
 			else
 				cl.push_back (-cu[i]);
@@ -310,7 +284,7 @@ namespace car
 	 * @param m 
 	 * @param unroll_level 
 	 */
-	MainSolver::MainSolver (Problem* m, bool rotate_is_on, bool uc_no_sort, int unroll_level): rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m)
+	MainSolver::MainSolver (Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level): rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), reverseT(forward)
 	{
 		// no need to unroll if level == 1.
 		assert(unroll_level >=1);
@@ -407,7 +381,7 @@ namespace car
 	}
 
     // the states in ret is not owned by MainSolver
-	void MainSolver::get_states(std::vector<State*>& ret, const bool forward)
+	void MainSolver::get_states(std::vector<State*>& ret)
 	{
 		Assignment model = get_model();
 		assert(model.size() == unroll_level * lits_per_round());
@@ -417,7 +391,7 @@ namespace car
 
 			Assignment model_for_this_level(offset + model.begin(), offset + model.begin() + _model->num_inputs() + _model->num_latches());
 			//TODO: this needs to be tested.
-			if(forward)
+			if(reverseT)
 				shrink_model(model_for_this_level);
 			for(auto &i : model_for_this_level)
 			{

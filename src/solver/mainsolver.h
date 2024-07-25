@@ -35,10 +35,11 @@ namespace car
         const bool uc_no_sort;
 		int max_flag;
 		int unroll_level;
+        bool reverseT;
 
 	public:
-		MainSolver(Problem *m, bool rotate_is_on, bool uc_no_sort);
-		MainSolver(Problem* m, bool rotate_is_on, bool uc_no_sort, int unroll_level) ;
+		MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort);
+		MainSolver(Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level) ;
 		~MainSolver() {}
 
         /**
@@ -68,32 +69,32 @@ namespace car
          * @brief check SAT(_s_  /\ T  /\ O_l' ) in backward CAR, or
          *              SAT(_s_' /\ T  /\ O_l  ) in forward CAR.
          */
-		void set_assumption(State *s, const int frame_level, const bool forward);
+		void set_assumption(State *s, const int frame_level);
 		// same as ↑, with `prefers` flattened and placed in the front.
-        void set_assumption(State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
+        void set_assumption(State *s, const int frame_level, const std::vector<Cube>& prefers);
 		
 
         // here we could like to reuse the data-structure for phase-saving within Minisat, in order to guide it when SAT.
         // FIXME: cause false SAFE now.
-        void set_expectation(const std::vector<int>& expectations, const bool forward);
+        void set_expectation(const std::vector<int>& expectations);
 
 
 		// @note: can only be used if the unroll level is 1. For unroll level>1, use `get_states`.
-		State* get_state(const bool forward);
+		State* get_state();
 
 		// this version is used for bad check only
 		Cube get_conflict_no_bad(const int bad);
-		Cube get_conflict(const bool forward);
-        Cube get_conflict_another(const bool forward,int option, int nth);
+		Cube get_conflict();
+        Cube get_conflict_another(int option, int nth);
 
 		inline void add_cube_negate(const Cube &cu)
 		{
 			CARSolver::add_cube_negate(cu);
 		}
 
-		void add_new_frame(const OFrame& frame, const int frame_level, const bool forward);
+		void add_new_frame(const OFrame& frame, const int frame_level);
 
-		void add_clause_from_cube(const Cube &cu, const int frame_level, const bool forward);
+		void add_clause_from_cube(const Cube &cu, const int frame_level);
 
 		void shrink_model(Assignment &model);
 
@@ -125,7 +126,7 @@ namespace car
         // NOTE: this is deprecated for now, because we only pop one frame flag at present.
 		void unroll();
 
-        void get_states(std::vector<State*>& states, const bool forward);
+        void get_states(std::vector<State*>& states);
 	};
 
 }

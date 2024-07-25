@@ -17,7 +17,7 @@ namespace bmc{
             explicit BMCChecker(Problem *model) : model_(model), lev(0)
             {
                 // FIXME: should not be true, ture here. change it.
-                solver = new MainSolver(model, true, true, 1);
+                solver = new MainSolver(model,false, true, true, 1);
                 // the initial state
                 init = new State(model->init());
                 cex.clear();

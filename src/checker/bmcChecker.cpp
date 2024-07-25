@@ -20,7 +20,7 @@ void BMCChecker::check()
         // unroll once ~
         solver->unroll();
     }
-    solver->get_states(cex, false);
+    solver->get_states(cex);
 }
 
 void BMCChecker::printEvidence(std::ostream& res_file)
