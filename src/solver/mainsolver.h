@@ -15,6 +15,15 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+/**
+ * @file mainsolver.h
+ * @author yibodong (prodongf@gmail.com), jianwenli(lijwen2748@gmail.com)
+ * @brief The main solver.
+ * @version 0.1.0
+ * 
+ * 
+ */
+
 #ifndef NEW_MAIN_SOLVER_H
 #define NEW_MAIN_SOLVER_H
 

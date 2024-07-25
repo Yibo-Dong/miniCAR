@@ -28,6 +28,15 @@
 #include "definition.h"
 #include "statistics.h"
 
+/**
+ * @file startsolver.h
+ * @author jianwenli (lijwen2748@gmail.com)
+ * @brief A variant of solver, for enumerating start states from \neg p.
+ * @version 0.1.0
+ * 
+ * 
+ */
+
 namespace car {
     extern Statistics CARStats;
     class StartSolver : public CARSolver {

@@ -1,3 +1,13 @@
+/**
+ * @file statistics.h
+ * @author yibodong (prodongf@gmail.com)
+ * @brief The statistics we would like to collect
+ * @version 0.1.0
+ * @date 2024-07-25
+ * 
+ * 
+ */
+
 #ifndef STATISTICS_H
 #define STATISTICS_H
 
@@ -14,22 +24,26 @@ using duration_high = std::chrono::duration<double,std::milli>;
 
 namespace car {
 
+/**
+ * @brief The statistic collector
+ * 
+ */
 class Statistics 
 {
     public:
         Statistics () {}
         ~Statistics () {}
-        // main solver's information:
-        
-        // how many are original ones
+        // main solver's information.
+
+        /// how many are original ones
         int num_main_solver_original_calls_total = 0;
-        // how many succeeded
+        /// how many succeeded
         int num_main_solver_original_calls_success = 0;
-        // how many failed
+        /// how many failed
         int num_main_solver_original_calls_failed = 0;
-        // time spent
+        /// time spent
         double time_main_solver_original_calls_ = 0.0;
-        // uc's length in total.
+        /// uc's length in total.
         int sum_main_solver_original_uc_length_ = 0;
         clock_high main_solver_original_begin_, main_solver_original_end_;
 
@@ -65,7 +79,7 @@ class Statistics
             
         }
 
-        // convergence information:
+        /// convergence information:
         int num_main_solver_convergnece_calls_ = 0;
         int num_main_solver_convergence_shorter = 0;
         double time_main_solver_convergence_calls_ = 0.0;
@@ -92,7 +106,7 @@ class Statistics
                 ++num_main_solver_convergence_shorter;
         }
 
-        // search progress information:
+        /// search progress information:
         int num_rounds = 0;
         int num_try_by = 0;
         clock_high time_enter_new_try_by;
@@ -104,7 +118,7 @@ class Statistics
             time_enter_new_try_by = steady_clock::now();
         }
 
-        // global time
+        /// global time
         clock_high global_begin_, global_end_;
         double time_global = 0.0;
         inline void count_whole_begin() { 
@@ -117,7 +131,7 @@ class Statistics
             time_global = elapsed.count();
         }
 
-        // tried before
+        /// tried before
         int num_tried_before = 0;
         inline void count_tried_before() { 
             clock_high tried_before_end = steady_clock::now();
@@ -126,7 +140,7 @@ class Statistics
             ++num_tried_before; 
         }
 
-        // time for implication calculation
+        /// time for implication calculation
         clock_high imply_begin_, imply_end_;
         int count_imply = 0;
         double time_imply = 0.0;
@@ -179,15 +193,15 @@ class Statistics
 
         inline int imply_dec_decide(){
             imply_dec_cnter--;
-            // not the decision time
+            /// not the decision time
             if(imply_dec_cnter!=0)
                 return -1;
-            // sample too few            
+            /// sample too few            
             if(std::max(time_imply_dec_sol,time_imply_dec_man*10) < 100)
             {
                 imply_dec_cnter = 100;
                 return -1;
-            }// decide.
+            }/// decide.
             
             imply_decision = time_imply_dec_sol > (time_imply_dec_man*10) ? 1 : 0;
             return imply_decision;
@@ -217,7 +231,7 @@ class Statistics
             std::cout<<"},"<<std::endl;
         }
 
-        // statistics about subsumption.
+        /// statistics about subsumption.
         int nUC = 0, nSubUC = 0;
         inline void recordUC(bool sub)
         {
@@ -225,7 +239,7 @@ class Statistics
             nSubUC += sub;
         }
 
-        // helper for debug.
+        /// helper for debug.
         clock_high begin_1, end_1;
         double time_1_1 = 0.0;
         double time_1_2 = 0.0;
@@ -273,7 +287,7 @@ class Statistics
             time_2 += time_delay;
         }
 
-        // status
+        /// status
         std::string status = "cex found";
 
         inline void stop_everything(){

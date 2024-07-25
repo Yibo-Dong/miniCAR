@@ -9,6 +9,16 @@
 #include <assert.h>
 using namespace car; // This is strange! remember to change later pls!
 
+
+/**
+ * @file carChecker.h
+ * @author yibodong (prodongf@gmail.com)
+ * @brief A checker, using Bounded Model Checking algorithm.
+ * @version 0.1.0
+ * 
+ * 
+ */
+
 namespace bmc{
     // BMC is just: keep unrolling until reach the bad state.(Sure, may not stop on safe cases.)
     class BMCChecker

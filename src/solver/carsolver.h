@@ -14,6 +14,15 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+/**
+ * @file carsolver.h
+ * @author jianwenli(lijwen2748@gmail.com), yibodong (prodongf@gmail.com)
+ * @brief A wrapper outside SAT solver.
+ * @version 0.1.0
+ * 
+ * 
+ */
  
 #ifndef CAR_SOLVER_H
 #define	CAR_SOLVER_H

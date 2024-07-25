@@ -31,67 +31,59 @@ extern "C" {
 
 namespace car
 {
-    // ##################################################
-    // #####           Basic Data Strucutre        ######
-    // ##################################################
+    /// ##################################################
+    /// #####           Basic Data Strucutre        ######
+    /// ##################################################
 
 
-    // Problem ::= {Model, Property, (Optional) Constraints }
-    // where:
-    //      Model ::= BTS(Boolean Transition System) === {V, I, T}, where
-    //          V = All the Variables
-    //          I = Initial States
-    //          T = Transition Relationship.
-    //      Property ::= CNF to be satisfied
-    //      Constraints ::= CNF that are always satisfied
+    /// Problem to be check
     class Problem;
-    // state ::= {inputs, latches}
+    /// state ::= {inputs, latches}
     class State;
-
-    // full assignment of a state
-    // TODO: change to std::array.
-    using Assignment = std::vector<int>;
-    // a CNF of literals
-    using Cube = std::vector<int>; // TODO: change to LIT?
-    // a DNF of literals
+    
+    /// full assignment of a state
+    using Assignment = std::vector<int>;/// TODO: change to std::array.
+    /// a CNF of literals
+    using Cube = std::vector<int>; /// TODO: change to LIT?
+    /// a DNF of literals
     using Clause = std::vector<int>; 
-    // Many Cubes, representing an Over-Approximation
+    /// Many Cubes, representing an Over-Approximation
 	using OFrame = std::vector<Cube>;
-    // Many OFrames, representing a trial of Over-Appriximations, where O_{i+1} is the Over-appximation of R{O_i} (or R^{-1}). 
+    /// Many OFrames, representing a trial of Over-Appriximations, where O_{i+1} is the Over-appximation of R{O_i} (or R^{-1}). 
     using OSequence = std::vector<OFrame>;
-    // Many States, representing an Under-Approximation.
+    /// Many States, representing an Under-Approximation.
 	using USequence = std::vector<State *>;
-    // <state, depth, target level> to be verified.
+    /// <state, depth, target level> to be verified.
 	using Obligation = std::tuple<car::State *, int, std::size_t>;
-	// how to compare.
+	/// how to compare.
     struct CompareItem {
 		bool operator()(const Obligation &a, const Obligation &b) const {
-            // use the third member to sort.
+            /// use the third member to sort.
 			return int(std::get<2>(a)) >= int(std::get<2>(b)); 
 		}
 	};
 
-    // ##################################################
-    // #####                State                  ######
-    // ##################################################
+    /// ##################################################
+    /// #####                State                  ######
+    /// ##################################################
 
 	class State
 	{
-        // members of a state
+        /// members of a state
         private:
-            // latch values
+            /// latch values
             Assignment _latches;
-            // input values
+            /// input values
 			Assignment _inputs;
         
         public:
-			// whether it is the special state 'neg P'. 
-            // NOTE: At present, we do not unfold 'neg P', but use SAT solver to retrieve it's approximation (Follow simpleCAR). So we use one special state to represent it.
+			/// whether it is the special state 'neg P'. 
+            /// NOTE: At present, we do not unfold 'neg P', but use SAT solver to retrieve it's approximation (Follow simpleCAR). So we use one special state to represent it.
             const bool _isnegp = false;
 			static const State* negp_state;
 
             
-            // size information about the problem
+            /// size information about the problem
 			static int num_inputs_;
 			static int num_latches_;
             static void set_num_inputs_and_latches (const int n1, const int n2) 
@@ -101,18 +93,18 @@ namespace car
 			}
 
 		public:
-            // Construct a special state 'neg P', whose id is -1.
+            /// Construct a special state 'neg P', whose id is -1.
 			explicit State(bool _isnegp) : _isnegp(_isnegp) { assert(_isnegp); negp_state=this; }
             const State *get_negp() const { return negp_state; }
 
-            // Construct a state with only latches, inputs to be set later.
+            /// Construct a state with only latches, inputs to be set later.
 			explicit State(const Assignment &latches) : _latches(latches), _isnegp(false) {}
             inline void set_inputs(const Assignment &st) { _inputs = st; }
 
-            // Construct a state with inputs and latches.
+            /// Construct a state with inputs and latches.
 			State(const Assignment &inputs , const Assignment &latches): _latches(latches), _inputs(inputs), _isnegp(false) {}
 
-            // do nothing.
+            /// do nothing.
 			~State() {}
 
 			inline const Assignment& get_latches() const { return _latches; }
@@ -122,24 +114,37 @@ namespace car
 			std::string get_inputs_str() const;
 			std::string get_latches_str() const;
 
-            // whether current state is blocked by this UC.
-            // this is a basic subsumption test: check whether each literal in this UC appears in this state.
-            // NOTE: latch values are stored in order ==> we could fetch-by-index.
+            /// whether current state is blocked by this UC.
+            /// this is a basic subsumption test: check whether each literal in this UC appears in this state.
+            /// NOTE: latch values are stored in order ==> we could fetch-by-index.
 			bool imply(const Cube &cu) const;
 
-			// get the intersection with `cu`.
+			/// get the intersection with `cu`.
 			Cube intersect(const Cube &cu) const;
 
 		public:
-			// calculate what is already known about next latches according to present latch values.
-            // TODO: implement it.
+			/// calculate what is already known about next latches according to present latch values.
+            /// TODO: implement it.
 			Cube probe();
 	};
 
 
-    // ##################################################
-    // #####                 Problem               ######
-    // ##################################################
+    /// ##################################################
+    /// #####                 Problem               ######
+    /// ##################################################
+
+/**
+ * @brief     
+ *  Problem ::= {Model, Property, (Optional) Constraints }
+ *  where:
+ *      Model ::= BTS(Boolean Transition System) === {V, I, T}, where
+ *          V = All the Variables,
+ *          I = Initial States,
+ *          T = Transition Relationship;
+ *      Property ::= CNF to be satisfied,
+ *      Constraints ::= CNF that are always satisfied.
+ * 
+ */
 class Problem {
 private:
     int num_inputs_;
@@ -148,32 +153,41 @@ private:
 	int num_constraints_;
 	int num_outputs_;
 
-    int max_id_;    // maximum used id in the model. Also preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
-	int true_;      // id for true
-	int false_;     // id for false
+    /// maximum used id in the model. Also preserve two more ids for TRUE (max_id_ - 1) and FALSE (max_id_)
+    int max_id_;    
+    /// id for true
+	int true_;      
+    /// id for false
+	int false_;     
 	
 	typedef std::vector<int> vect;
 	typedef std::vector<vect> Clauses;
 
-	std::unordered_set<unsigned> trues_;  //vars evaluated to be true, and their negation is false
-	vect init_;   //initial values for latches
-	vect outputs_; //output ids
-	vect constraints_; //constraint ids
+    ///vars evaluated to be true, and their negation is false
+	std::unordered_set<unsigned> trues_;  
+    ///initial values for latches
+	vect init_;   
+    ///output ids
+	vect outputs_; 
+    ///constraint ids
+	vect constraints_; 
 
 public:
     typedef std::unordered_map<int, int> nextMap;
 	typedef std::unordered_map<int, std::vector<int> > reverseNextMap;
-	nextMap next_map_;  // map from latches to their next values
-	reverseNextMap reverse_next_map_;  // map from the next values of latches to latches
+    /// map from latches to their next values
+	nextMap next_map_;  
+    /// map from the next values of latches to latches
+	reverseNextMap reverse_next_map_;  
 	                                   
 public:
-    // construct from an AIGER.
+    /// construct from an AIGER.
 	explicit Problem (aiger*);
 	~Problem () {}
 	
-    // get the 'next' of this literal.
+    /// get the 'next' of this literal.
 	int prime (const int) const;
-    // get those literals whose next is this.
+    /// get those literals whose next is this.
 	std::vector<int> previous (const int) const;
 	
 	bool state_var (const int id) const {return (id >= 1) && (id <= num_inputs_+num_latches_);}
@@ -196,23 +210,29 @@ public:
     inline int latches_start()      const { return latches_start_; }
     
     inline const std::vector<int> &element(const int id) const { return cls_.at(id); }
-    // return initial values for latches
+    /// return initial values for latches
     inline const std::vector<int> &init() const { return init_; }
 
     void shrink_to_previous_vars    (Cube &cu) const;
     void shrink_to_latch_vars       (Cube &cu) const;
 	
 public:
-	Clauses cls_;   //set of clauses, it contains several parts:
-	                //(1) clauses for constraints, i.e. those before position outputs_start_;
-	                //(2) same next have same previous, initialized to 0.
-					//(3) clauses for outputs, i.e. those before position latches_start_;
-	                //(4) clauses for latches 
-					//(5) clause for encoding our FALSE / TRUE
+    /**
+     * set of clauses, it contains several parts: 
+     * (1) clauses for constraints, i.e. those before position outputs_start_;
+     * (2) same next have same previous, initialized to 0.
+     * (3) clauses for outputs, i.e. those before position latches_start_;
+     * (4) clauses for latches 
+     * (5) clause for encoding our FALSE / TRUE
+     * 
+     */
+	Clauses cls_;   
 	
 	int common_next_start_;
-	int outputs_start_; //the index of cls_ to point the start position of outputs
-	int latches_start_; //the index of cls_ to point the start position of latches
+    ///the index of cls_ to point the start position of outputs
+	int outputs_start_; 
+    ///the index of cls_ to point the start position of latches
+	int latches_start_; 
 
 	inline bool is_true (const unsigned id) const
 	{
@@ -264,11 +284,11 @@ public:
 	void set_constraints (const aiger* aig);
 	void set_outputs (const aiger* aig);
 
-    // collect those that are trivially constant
+    /// collect those that are trivially constant
 	void collect_trues (const aiger* aig);
-    // previous -> next
+    /// previous -> next
 	void create_next_map (const aiger* aig);
-    // next -> previous(s)
+    /// next -> previous(s)
 	void insert_to_reverse_next_map (const int index, const int val);
 
 	void collect_necessary_gates (const aiger* aig, const aiger_symbol* as, const int as_size, std::set<unsigned>& exist_gates, std::set<unsigned>& gates, bool next = false);
@@ -281,9 +301,9 @@ public:
 };
 
 
-    // ##################################################
-    // #####            Tool Functions             ######
-    // ##################################################
+    /// ##################################################
+    /// #####            Tool Functions             ######
+    /// ##################################################
 
     /**
      * @brief whether v2 is contained in v1
@@ -298,14 +318,23 @@ public:
         return true;
     }
 
+    /**
+     * @brief Sort according to abs value.
+     */
     inline bool absIncr (int i, int j) {return abs (i) < abs(j);}
 
+    /**
+     * @brief Get the negation of a CNF, which is a DNF.
+     */
     inline std::vector<int> negateCube(const std::vector<int>& cu) {
         std::vector<int> res(cu.size());
         std::transform(cu.begin(), cu.end(), res.begin(), [](int i) { return -i; });
         return res;
     }
 
+    /**
+     * @brief Shuffle std::vector, using Mersenne Twister.
+     */
     template <typename T>
     void shuffle(std::vector<T>& vec) {
         #ifdef RANDSEED
@@ -318,42 +347,43 @@ public:
     }
 
 
-    // ##################################################
-    // #####               CLI OPTIONS             ######
-    // ##################################################
+    /// ##################################################
+    /// #####               CLI OPTIONS             ######
+    /// ##################################################
+    /// Options of the checker.
     struct OPTIONS{
-        // use BMC rather than CAR
+        /// use BMC rather than CAR
         bool bmc = false;
-        // forward CAR / backward CAR
+        /// forward CAR / backward CAR
         bool forward = false;
-        // use propagation
+        /// use propagation
         bool propagate = false;
-        // partial state enabled during forward-CAR.
+        /// partial state enabled during forward-CAR.
         bool partial = false;
-        // enable rotate
+        /// enable rotate
         bool enable_rotate = false;
-        // do not check INVARIANT ==> incomplete
+        /// do not check INVARIANT ==> incomplete
         bool inv_incomplete = false;
-        // keep UC not sorted
+        /// keep UC not sorted
         bool raw_uc = false;
-        // #(UC) for intersection
+        /// #(UC) for intersection
         int inter_cnt = 0;
 
-        // mUC mode
+        /// mUC mode
         int convMode = -1;
-        // mUC param
+        /// mUC param
         int convParam = 0;
-        // #(UC)
+        /// #(UC)
         int convAmount = 0;
-        // time limit to restart
+        /// time limit to restart
         int time_limit_to_restart = -1;
-        // remember option during restart
+        /// remember option during restart
         int rememOption = 0;
-        // literal ordering strategy
+        /// literal ordering strategy
         int LOStrategy = 0;
-        // method for calculate imply
+        /// method for calculate imply
         int impMethod = 0;
-        // option for subsumption. NOTE: this is heavy!
+        /// option for subsumption. NOTE: this is heavy!
         bool subStat = false;
 
         std::string inputPath;

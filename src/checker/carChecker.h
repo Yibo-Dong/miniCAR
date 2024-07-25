@@ -14,6 +14,15 @@
 #include <fstream>
 #include <map>
 
+/**
+ * @file carChecker.h
+ * @author yibodong (prodongf@gmail.com) , jianwenli (lijwen2748@gmail.com)
+ * @brief A checker, using Complementary Approximate Reachability algorithm.
+ * @version 0.1.0
+ * 
+ * 
+ */
+
 namespace car
 {
     extern Statistics CARStats; // defined in main.cpp

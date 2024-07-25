@@ -1,6 +1,15 @@
 #ifndef ImplySolver_H
 #define ImplySolver_H
 
+/**
+ * @file implysolver.h
+ * @author yibodong (prodongf@gmail.com)
+ * @brief A variant of solver, for checking implication.
+ * @version 0.1.0
+ * 
+ * 
+ */
+
 #include "carsolver.h"
 #include "definition.h"
 #include "statistics.h"

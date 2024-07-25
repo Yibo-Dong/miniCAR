@@ -49,4 +49,7 @@ clean:
 	rm -f *.o
 	rm -f miniCAR
 
+doc:$(SOURCES) doc/Doxyfile
+	cd doc && doxygen Doxyfile
+
 .PHONY: miniCAR clean

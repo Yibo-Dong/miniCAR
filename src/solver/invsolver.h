@@ -21,6 +21,15 @@
 	Invariant Solver in CAR
 */
 
+/**
+ * @file invsolver.h
+ * @author jianwenli (lijwen2748@gmail.com)
+ * @brief A variant of solver, for checking invariants.
+ * @version 0.1.0
+ * 
+ * 
+ */
+
 #ifndef INV_SOLVER_H
 #define INV_SOLVER_H
 

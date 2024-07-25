@@ -35,6 +35,15 @@ namespace car
 {
 	extern Statistics CARStats;
 
+/**
+ * @file newpartialsolver.h
+ * @author jianwenli (lijwen2748@gmail.com)
+ * @brief A variant of solver, for checking partial states.
+ * @version 0.1.0
+ * 
+ * 
+ */
+
 	/**
 	 * @brief this is used in forward-car, which means backward search.
 	 * When searching backward, such occasion exists:
