@@ -159,7 +159,7 @@ namespace car
          */
 
         // <flag>. This is the flag of the target frame. It's easy.
-        Lit flag = assumptions[0];
+        // Lit flag = assumptions[0];
         int sz = assumptions.size();
 
         for(int i = 1; i <= sz/2; ++i)
@@ -256,30 +256,6 @@ namespace car
  		bool res = addClause (lits);
 		assert(res && "Warning: Adding clause does not success\n");
  	}
-
-	/**
-	 * @brief helper function, print last 3 clauses in the Solver.
-	 * 
-	 */
-	void CARSolver::print_last_3_clauses()
-	{
-		cout << "Last 3 clauses in SAT solver: \n";
-		int cnt = 0;
-		for (int i = clauses.size () -1 ; i >=0; i--)
-		{
-			if(++cnt == 4)
-				break;
-			Clause& c = ca[clauses[i]];
-			std::vector<int> vec;
-			for (int j = 0; j < c.size (); j ++)
-				vec.push_back(lit_id(c[j]));
-			std::sort(vec.begin(),vec.end(),[](int a, int b){return abs(a) < abs(b);});
-			for (int j = 0; j < vec.size (); j ++)
-				cout<<vec[j]<<" ";
-			
-			cout << "0 " << endl;
-		}
-	}
 
 	/**
 	 * @brief helper function, print all the clauses in the Solver.

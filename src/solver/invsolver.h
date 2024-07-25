@@ -106,9 +106,6 @@ namespace car
  				{
  					add_uc_and(frame[i],level);
  				}
-				#ifdef PRINT_INV
-				std::cout<<"[flag] new and-frame flag: "<<frame_flag<<std::endl;
- 				#endif
 				update_assumption_for_constraint (frame_flag);
 			}
 
@@ -159,9 +156,6 @@ namespace car
 					{
 						// negate it
 						old_flags[i] = -old_flag;
-						#ifdef PRINT_INV
-						std::cout<<"[flag] block old or-frame flag: "<<-or_flag[level]<<std::endl;
-						#endif
 						break;
 					}
 				}
@@ -184,9 +178,6 @@ namespace car
 				frame_clause.push_back(-or_flag[level]);
  				add_clause (frame_clause);
 				
-				#ifdef PRINT_INV
-				std::cout<<"[flag] new flag for or-frame: "<<or_flag[level]<<std::endl;
-				#endif
 				old_flags.push_back(or_flag[level]);
 				set_assumptions(old_flags);				
 			}

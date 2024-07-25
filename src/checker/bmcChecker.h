@@ -14,7 +14,7 @@ namespace bmc{
     class BMCChecker
     {
         public:
-            BMCChecker(Problem *model) : model_(model), lev(0)
+            explicit BMCChecker(Problem *model) : model_(model), lev(0)
             {
                 // FIXME: should not be true, ture here. change it.
                 solver = new MainSolver(model, true, true, 1);
@@ -22,6 +22,10 @@ namespace bmc{
                 init = new State(model->init());
                 cex.clear();
             }
+
+            BMCChecker(const BMCChecker&)=delete;
+            
+            const BMCChecker& operator=(const BMCChecker&)=delete;
 
             ~BMCChecker()
             {

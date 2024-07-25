@@ -244,7 +244,7 @@ namespace car {
 		// ============================================================================
 		collect_necessary_gates(aig, aig->constraints, aig->num_constraints, exist_gates, gates);
 
-		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); it++)
+		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
 			assert(aa != NULL);
@@ -272,7 +272,7 @@ namespace car {
 		gates.clear();
 		//  Use Outputs as the start point, recursively add all the rhs lits.
 		collect_necessary_gates(aig, aig->outputs, aig->num_outputs, exist_gates, gates);
-		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); it++)
+		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
 			assert(aa != NULL);
@@ -289,7 +289,7 @@ namespace car {
 		//  Use Next value of Latches as the start point, recursively add all the rhs lits.
 		gates.clear();
 		collect_necessary_gates(aig, aig->latches, aig->num_latches, exist_gates, gates, true);
-		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); it++)
+		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
 			assert(aa != NULL);
@@ -314,7 +314,7 @@ namespace car {
 		int flag1 = ++max_id_;
 
 		bool exist = false;
-		for (reverseNextMap::iterator it = reverse_next_map_.begin(); it != reverse_next_map_.end(); it++)
+		for (reverseNextMap::iterator it = reverse_next_map_.begin(); it != reverse_next_map_.end(); ++it)
 		{
 			vector<int> &v = it->second;
 			if (v.size() <= 1)

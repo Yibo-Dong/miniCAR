@@ -379,15 +379,6 @@ namespace car
 		}
 	}
 
-	void MainSolver::enable_max()
-	{
-		for(int i = 1; i <= unroll_level; ++i)
-		{
-			int flag_for_this_level = i * lits_per_round();
-			assumptions.push (SAT_lit (flag_for_this_level));
-		}
-	}
-
 	void MainSolver::unroll()
 	{
 		int level = unroll_level+1;

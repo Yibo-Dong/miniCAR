@@ -68,6 +68,7 @@ namespace car
             remem_Uk = 4,
         };
         // last checker, which we can get information from.
+        // TODO: rewrite using copy-constructors
         Checker* last_chker;
 
 
@@ -117,7 +118,10 @@ namespace car
         
 
     public:
-        Checker(Problem *model, const OPTIONS& opt, std::ostream &out, Checker* last_chker);
+        explicit Checker(Problem *model, const OPTIONS& opt, std::ostream &out, Checker* last_chker);
+
+        Checker(const Checker&) = delete;
+        const Checker& operator=(const Checker&) = delete;
 
         /**
          * @brief Destroy the Checker object
@@ -158,15 +162,13 @@ namespace car
         int bad_;
         StartSolver *start_solver;
 
-        // mapping from state to its corresponding o sequence.
-        std::unordered_map<const State *, OSequence *> SO_map;
         // the main solver shared.
         MainSolver *main_solver;
         // the partial solver shared.
         PartialSolver *partial_solver;
 
         // the map from O sequence to its minimal_level
-        std::unordered_map<const OSequence *, int> fresh_levels;
+        int fresh_levels;
         USequence Uf, Ub; // Uf[0] is not explicitly constructed
         OSequence Onp, OI;
         // used in picking state randomly
@@ -235,13 +237,6 @@ namespace car
          * @section Basic methods
          *
          */
-        /**
-         * @brief Create a O with given state object as its level 0.
-         *
-         * @param s
-         * @return OSequence&
-         */
-        OSequence *createOWith(State *s);
 
         int pickStateLastIndex = -1;
         /**
@@ -279,16 +274,6 @@ namespace car
         bool updateU(State *, State *prior_in_trail);
 
         /**
-         * @brief Update O sequence
-         *
-         * @param O
-         * @param dst_level
-         * @param Otmp
-         * @param safe_reported
-         */
-        void updateO(OSequence *O, int dst_level, OFrame &Otmp, bool &safe_reported);
-
-        /**
          * @brief SAT_Assume(assum, clauses)
          *
          * @return true
@@ -301,14 +286,6 @@ namespace car
          *
          */
         void clean();
-
-        /**
-         * @brief When Os finds an invariant, clear Os and erase s from Os.
-         *
-         * @param s
-         * @param Os
-         */
-        void clearO(State *s, OSequence *Os);
 
         /**
          * @brief first create a clause with target uc and flag of the corresponding O[dst], then add this clause to main solver or start solver, depending on the level.
@@ -376,20 +353,6 @@ namespace car
          */
         int minNOTBlocked(State *s, const int min, const int max, OSequence *O, OFrame &Otmp);
 
-    public:
-        /**
-         * @brief Helper function to print SAT query.
-         *
-         * @param solver
-         * @param s
-         * @param o
-         * @param level
-         * @param res
-         * @param out
-         */
-        void print_sat_query(MainSolver *solver, State *s, OSequence *o, int level, bool res, std::ostream &out);
-        // count of tried before
-
     private:
         /**
          * invariant section
@@ -408,6 +371,7 @@ namespace car
         bool InvFoundAt(OSequence &O, int check_level, int minimal_update_level, InvSolver *inv_solver);
     };
 
+    // TODO: merge them into CAR namespace.
     namespace inv
     {
         void InvAddOR(OFrame &frame, int level, InvSolver *inv_solver_);
@@ -415,8 +379,6 @@ namespace car
         void InvAddAND(OFrame &frame, int level, InvSolver *inv_solver_);
 
         void InvRemoveAND(InvSolver *inv_solver_, int level);
-
-        bool InvFoundAt(OSequence &F_, const int frame_level, InvSolver *inv_solver_, int minimal_update_level_);
     }
 }
 

@@ -14,7 +14,7 @@ namespace car
     class ImplySolver : public CARSolver
     {
     public:
-        ImplySolver(int lvl) : level(lvl){};
+        explicit ImplySolver(int lvl) : level(lvl){};
         ~ImplySolver(){};
 
         static std::shared_ptr<ImplySolver> getSolver(int lvl)

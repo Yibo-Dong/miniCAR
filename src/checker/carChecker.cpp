@@ -36,7 +36,7 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    model_(model), out(out), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker)
+    model_(model), out(out), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0)
     {
         backward_first = !opt.forward;
         bad_ = model->output(0);
@@ -197,7 +197,6 @@ namespace car
 
     bool Checker::trySAT(OSequence *O, bool forward, bool &safe_reported)
     {
-        auto& U = whichU();
         // NOTE: can eliminate initialization.
         safe_reported = false;
         OFrame Otmp;
@@ -330,61 +329,20 @@ namespace car
          */
         for (int i = 0; i < O.size(); ++i)
         {
-            if (InvFoundAt(O, i, fresh_levels[o], inv_solver))
+            if (InvFoundAt(O, i, fresh_levels, inv_solver))
             {
-#ifdef INV_PRINT
-                cout << "invariant found at " << i << endl;
-                for (int j = 0; j <= i; ++j)
-                {
-                    cout << "level = " << j << endl;
-                    cout << "uc := " << endl;
-                    for (auto uc : O[j])
-                    {
-                        cout << "(";
-                        for (int k : uc)
-                            cout << k << ", ";
-                        cout << ")" << endl;
-                    }
-                }
-#endif
                 while (O.size() > i)
                     O.pop_back();
                 res = true;
                 // already found invariant.
-                fresh_levels[o] = -1;
+                fresh_levels = -1;
                 break;
             }
         }
         // NOTE: not O.size()-1. because that level is also checked.
-        fresh_levels[o] = o->size();
+        fresh_levels = o->size();
         delete (inv_solver);
-#ifdef PRINT_INV
-        cout << "END OF ONE ROUND" << endl
-             << endl;
-#endif
         return res;
-    }
-
-    OSequence *Checker::createOWith(State *s)
-    {
-        OSequence *o;
-        if (SO_map.find(s) != SO_map.end())
-        {
-            o = SO_map[s];
-        }
-        else
-        {
-            OFrame f;
-            for (auto i : s->get_latches())
-                f.push_back({-i});
-            o = new OSequence({f});
-            SO_map[s] = o;
-            fresh_levels[o] = 0;
-            // FIXME: When is the right time to add to solver? And when to set the flag?
-            main_solver->add_new_frame(f, o->size() - 1, o, !backward_first);
-        }
-        assert(o);
-        return o;
     }
 
     // NOTE: when we try to pick a guide state, it is not used as part of the assumption but the target. Therefore, uc is not generated according to it, and therefore will not be updated.
@@ -656,42 +614,41 @@ namespace car
                     break;
                 }
 
-                // calculate intersection and put the others behind.
-                for (int i = 0; i < rcu.size(); ++i)
+                // a full state
+                if (s->latch_size() == model_->num_latches())
                 {
-                    // full state
-                    if (s->latch_size() == model_->num_latches())
+                    // calculate intersection and put the others behind.
+                    for (int i = 0; i < rcu.size(); ++i)
                     {
                         if (s->latch_at(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
                             rres.push_back(rcu[i]);
                         else
                             rtmp.push_back(-rcu[i]);
                     }
-                    else
-                    // TODO: merge with "intersection"
-                    // a partial state
-                    {
-                        int i = 0, j = 0;
-                        while (i < s->latch_size() && j < rcu.size())
-                        {
-                            if (rcu[j] == s->latch_at(i))
-                            {
-                                rres.push_back(rcu[j]);
-                                i++;
-                                j++;
-                            }
-                            else
-                            {
-                                rtmp.push_back(s->latch_at(i));
-                                if (rcu[j] < s->latch_at(i))
-                                    j++;
-                                else
-                                    i++;
-                            }
-                        }
-                    }
                 }
-                // inter ++ (s ∩ rcu) ++ (s - rcu) ++ s
+                else
+                {
+                    // a partial state
+                    // TODO: test me!
+                    int i = 0, j = 0;
+                    while (i < s->latch_size() && j < rcu.size())
+                    {
+                        if (rcu[j] == s->latch_at(i))
+                        {
+                            rres.push_back(rcu[j]);
+                            i++;
+                            j++;
+                        }
+                        else
+                        {
+                            rtmp.push_back(s->latch_at(i));
+                            if (rcu[j] < s->latch_at(i))
+                                j++;
+                            else
+                                i++;
+                        }
+                    }                    
+                }
                 }
             } while (0);
 
@@ -964,32 +921,12 @@ namespace car
                 solver = nullptr;
             }
         }
-        for (auto &os : SO_map)
-        {
-            if (os.second)
-            {
-                if (os.second == &Onp || os.second == &OI)
-                    continue;
-                delete os.second;
-                os.second = nullptr;
-            }
-        }
     }
-
-    void Checker::clearO(State *s, OSequence *Os)
-    {
-        assert(s);
-        assert(Os);
-        Os->clear();
-        delete (Os);
-        SO_map.erase(s);
-    }
-
 
     void Checker::addUCtoSolver(Cube &uc, OSequence *O, int dst_level_plus_one, OFrame &Otmp)
     {
-        if (dst_level_plus_one < fresh_levels[O])
-            fresh_levels[O] = dst_level_plus_one;
+        if (dst_level_plus_one < fresh_levels)
+            fresh_levels = dst_level_plus_one;
 
         OFrame &frame = (dst_level_plus_one < int(O->size())) ? (*O)[dst_level_plus_one] : Otmp;
 
@@ -1009,21 +946,6 @@ namespace car
                 start_solver->add_clause_with_flag(uc);
             }
         }
-    }
-
-    void Checker::updateO(OSequence *O, int dst, OFrame &Otmp, bool &safe_reported)
-    {
-        Cube uc = main_solver->get_conflict(!backward_first);
-
-        if (uc.empty())
-        {
-            // this state is not reachable?
-            // FIXME: fix here. It is not really blocked forever.
-            safe_reported = true;
-        }
-
-        addUCtoSolver(uc, O, dst + 1, Otmp);
-
     }
 
     bool Checker::initSequence(bool &res)
@@ -1059,7 +981,6 @@ namespace car
                         frame.push_back({-lit});
                     }
                     OI = {frame};
-                    SO_map[init] = &OI;
                 }
                 // backward inits.
                 if (backward_first)
@@ -1079,7 +1000,6 @@ namespace car
                         ImplySolver::add_uc(O0[index],0);
                     }
                     Onp = OSequence({O0});
-                    SO_map[negp] = &Onp;
                 }
                 break;
             }
@@ -1109,7 +1029,6 @@ namespace car
                         ImplySolver::add_uc(O0[index],0);
                     }
                     Onp = OSequence({O0});
-                    SO_map[negp] = &Onp;
                 }
                 break;
             }
@@ -1155,14 +1074,13 @@ namespace car
                         ImplySolver::add_uc(O0[index],0);
                     }
                     Onp = OSequence({O0});
-                    SO_map[negp] = &Onp;
                 }
                 break;
             }    
 
             case(remem_Ok):
             {
-                int boundK = 3;
+                const int boundK = 3;
                 // If we remember all, it will be too many.
                 // NOTE: sonly implement backward now.
                 assert(backward_first);
@@ -1175,7 +1093,6 @@ namespace car
 
                     Onp = last_chker->Onp;
                     Onp.resize(boundK);
-                    SO_map[negp] = &Onp;
 
                     for(int findex = 0; findex < Onp.size(); ++findex)
                     {
@@ -1201,7 +1118,7 @@ namespace car
                 assert(backward_first);
                 delete init;
                 auto *&last_init = last_chker->Ub[0];
-                auto * init = new State(last_init->get_inputs(), last_init->get_latches());
+                init = new State(last_init->get_inputs(), last_init->get_latches());
                 clear_defer(init);
 
                 if (immediateCheck(init, bad_, res, O0))
@@ -1235,7 +1152,6 @@ namespace car
                     ImplySolver::add_uc(O0[index],0);
                 }
                 Onp = OSequence({O0});
-                SO_map[negp] = &Onp;
                 break;
             }
 
@@ -1258,7 +1174,6 @@ namespace car
                     frame.push_back({-lit});
                 }
                 OI = {frame};
-                SO_map[init] = &OI;
             }
             // backward inits.
             if (backward_first)
@@ -1277,7 +1192,6 @@ namespace car
                     ImplySolver::add_uc(uc0,0);
                 }
                 Onp = OSequence({O0});
-                SO_map[negp] = &Onp;
             }
             break;
         }
@@ -1387,8 +1301,6 @@ namespace car
 
     bool Checker::lastCheck(State *from, OSequence *O)
     {
-        // if(SO_map[State::negp_state] != O)
-        // 	return true;
         bool direction = !backward_first;
         if (direction)
         // in forward CAR, last target state is Init. Initial state is a concrete state, therefore it is bound to be reachable (within 0 steps). Here we only need to update the cex structure.
@@ -1412,24 +1324,6 @@ namespace car
             }
         }
         return false;
-    }
-
-    void Checker::print_sat_query(MainSolver *solver, State *s, OSequence *o, int level, bool res, ostream &out)
-    {
-        static int sat_cnt = 0;
-        out << endl;
-        out << "[SAT] times: " << ++sat_cnt << "\tlevel=" << level << endl;
-        //<<"\tflag="<<solver->flag_of(o,level)<<endl;
-        out << "SAT solver clause size: " << solver->size() << endl;
-        out << "State: ";
-        for (int i : s->get_latches())
-            out << i << ", ";
-        out << endl;
-        // cout<<"state: \n\tlatches: "<<s->latches()<<"\n\tinputs: "<<s->inputs()<<endl;
-        // solver->print_clauses();
-        solver->print_assumption(out);
-        out << "res: " << (res ? "SAT" : "UNSAT") << endl;
-        out << "-----End of printing-------" << endl;
     }
 
     /**
@@ -1623,47 +1517,6 @@ namespace car
         void InvRemoveAND(InvSolver *inv_solver_, int level)
         {
             inv_solver_->release_constraint_and(level);
-        }
-
-        bool InvFoundAt(OSequence &F_, const int frame_level, InvSolver *inv_solver_, int minimal_update_level_)
-        {
-            if (frame_level <= minimal_update_level_)
-            {
-                InvAddOR(F_[frame_level], frame_level, inv_solver_);
-                return false;
-            }
-            InvAddAND(F_[frame_level], frame_level, inv_solver_);
-            bool res = !inv_solver_->solve_with_assumption();
-            InvRemoveAND(inv_solver_, frame_level);
-            InvAddOR(F_[frame_level], frame_level, inv_solver_);
-            return res;
-        }
-
-        // -1 for not found.
-        // >=0 for level
-        int InvFound(Problem *model_, OSequence &F_, int &minimal_update_level_, int frame_level)
-        {
-            if (frame_level == 0)
-                return -1;
-            int res = -1;
-            InvSolver *new_inv_solver_ = new InvSolver(model_);
-            for (int i = 0; i < frame_level; i++)
-            {
-                if (InvFoundAt(F_, i, new_inv_solver_, minimal_update_level_))
-                {
-                    res = i;
-                    std::cerr<<"inv found at"<<res<<std::endl;
-                    // delete frames after i, and the left F_ is the invariant
-                    // NOTE: this is temporarily blocked for testing incremental-enumratiing-start-solver.
-                    // while (F_.size() > i + 1)
-                    // {
-                    // 	F_.pop_back();
-                    // }
-                    break;
-                }
-            }
-            delete new_inv_solver_;
-            return res;
         }
     };
 }

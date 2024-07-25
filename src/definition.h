@@ -102,11 +102,11 @@ namespace car
 
 		public:
             // Construct a special state 'neg P', whose id is -1.
-			State(bool _isnegp) : _isnegp(_isnegp) { assert(_isnegp); negp_state=this; }
+			explicit State(bool _isnegp) : _isnegp(_isnegp) { assert(_isnegp); negp_state=this; }
             const State *get_negp() const { return negp_state; }
 
             // Construct a state with only latches, inputs to be set later.
-			State(const Assignment &latches) : _latches(latches), _isnegp(false) {}
+			explicit State(const Assignment &latches) : _latches(latches), _isnegp(false) {}
             inline void set_inputs(const Assignment &st) { _inputs = st; }
 
             // Construct a state with inputs and latches.
@@ -168,7 +168,7 @@ public:
 	                                   
 public:
     // construct from an AIGER.
-	Problem (aiger*);
+	explicit Problem (aiger*);
 	~Problem () {}
 	
     // get the 'next' of this literal.

@@ -56,7 +56,7 @@ namespace car
 	class PartialSolver : public CARSolver
 	{
 	public:
-		PartialSolver(Problem *);
+		explicit PartialSolver(Problem *);
 		~PartialSolver() {}
 
 		// add clause with flag

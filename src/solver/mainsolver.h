@@ -88,7 +88,7 @@ namespace car
 		Cube get_conflict(const bool forward);
         Cube get_conflict_another(const bool forward,int option, int nth);
 
-		inline void add_cube_negate(Cube &cu)
+		inline void add_cube_negate(const Cube &cu)
 		{
 			CARSolver::add_cube_negate(cu);
 		}
@@ -117,7 +117,6 @@ namespace car
     public: 
         // unroll for BMC:
         void enable_level(int level);
-		void enable_max();
 
 		inline int lits_per_round() const
 		{

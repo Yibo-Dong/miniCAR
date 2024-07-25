@@ -229,9 +229,6 @@ void check_aiger(int argc, char **argv)
         return;
     }
 
-    // clean duties
-    std::set<car::Checker *> to_clean;
-
     // if Restart NOT enabled, use one checker to check.
     if (opt.time_limit_to_restart <= 0)
     {
@@ -250,7 +247,10 @@ void check_aiger(int argc, char **argv)
 
         chk = new Checker(model, opt, res_file, nullptr);
         auto clear_delay = chk;
-        bool res = chk->check(); // the first check
+        
+        // FIXME: split safe/unsafe and unknown
+        chk->check(); // the first check
+        
         while (chk->ppstoped)
         {
             ++opt.convParam;
@@ -260,7 +260,7 @@ void check_aiger(int argc, char **argv)
 
             // check, with information of last check avaiable.
             chk = new Checker(model, opt, res_file, clear_delay);
-            res = chk->check();
+            chk->check();
             delete clear_delay;
             clear_delay = chk;
         }

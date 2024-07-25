@@ -73,7 +73,6 @@ namespace car
 			}
 
 			// printers
-			void print_last_3_clauses();
 			void print_clauses(std::ostream & out_stream);
 			void print_assumption(std::ostream & out_stream);
 		};
