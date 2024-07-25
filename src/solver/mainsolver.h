@@ -68,9 +68,9 @@ namespace car
          * @brief check SAT(_s_  /\ T  /\ O_l' ) in backward CAR, or
          *              SAT(_s_' /\ T  /\ O_l  ) in forward CAR.
          */
-		void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward);
+		void set_assumption(State *s, const int frame_level, const bool forward);
 		// same as ↑, with `prefers` flattened and placed in the front.
-        void set_assumption(OSequence *O, State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
+        void set_assumption(State *s, const int frame_level, const bool forward, const std::vector<Cube>& prefers);
 		
 
         // here we could like to reuse the data-structure for phase-saving within Minisat, in order to guide it when SAT.
@@ -80,8 +80,6 @@ namespace car
 
 		// @note: can only be used if the unroll level is 1. For unroll level>1, use `get_states`.
 		State* get_state(const bool forward);
-
-		Assignment get_state_full_assignment(const bool forward);
 
 		// this version is used for bad check only
 		Cube get_conflict_no_bad(const int bad);
@@ -93,16 +91,16 @@ namespace car
 			CARSolver::add_cube_negate(cu);
 		}
 
-		void add_new_frame(const OFrame& frame, const int frame_level, OSequence *O, const bool forward);
+		void add_new_frame(const OFrame& frame, const int frame_level, const bool forward);
 
-		void add_clause_from_cube(const Cube &cu, const int frame_level, OSequence *O, const bool forward);
+		void add_clause_from_cube(const Cube &cu, const int frame_level, const bool forward);
 
 		void shrink_model(Assignment &model);
 
 	public:
 		std::vector<int> flags;
 
-		inline int flag_of(OSequence *o, const int frame_level)
+		inline int flag_of(const int frame_level)
 		{
 			assert(frame_level >= 0);
 			while(frame_level >= flags.size())

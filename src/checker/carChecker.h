@@ -96,12 +96,7 @@ namespace car
         // corresponding to Otmp
         Cube rotate;
 
-
-
-         
         clock_high sat_timer;
-
-        
 
         inline void set_inter_cnt(int cnt) { inter_cnt = cnt; }
         inline int get_inter_cnt() { return inter_cnt; }
@@ -109,10 +104,7 @@ namespace car
         inline int get_rotate() { return rotate_enabled; }
 
         bool restart_enabled = false;
-
-        bool importO = false;
         
-
     public:
         bool ppstoped = false;
         
@@ -149,28 +141,29 @@ namespace car
         /**
          * @brief Searching procedure of bi-car. Enumerate states in U and use the OSequence as the guide.
          *
-         * @param O the O sequence with a singleton (a state that is picked from the U sequence) making up its level 0.
-         * @param forward whether the Transformation relationship should be used forward or backward
          * @return true : successfully reached O[0]. which means a cex is found.
          * @return false : all states in present U has been checked. No cex is found.
          */
-        bool trySAT(OSequence *O, bool forward, bool &safe_reported);
+        bool trySAT(bool &safe_reported);
 
     public:
         Problem *model_;
-        bool backward_first;
-        int bad_;
+        const bool backward_first;
+        const int bad_;
         StartSolver *start_solver;
-
         // the main solver shared.
         MainSolver *main_solver;
         // the partial solver shared.
         PartialSolver *partial_solver;
+        InvSolver *inv_solver;
 
         // the map from O sequence to its minimal_level
         int fresh_levels;
         USequence Uf, Ub; // Uf[0] is not explicitly constructed
         OSequence Onp, OI;
+        OFrame Otmp;
+        inline void refreshOtmp() {Otmp.clear();}
+        inline int OSize() {return whichO().size();}
         // used in picking state randomly
         std::vector<std::pair<State *, int>> Uset;
 
@@ -180,15 +173,11 @@ namespace car
          *
          */
 
-        inline USequence &whichU() 
-        {
-            return backward_first ? Ub : Uf;
-        }
+        inline USequence &whichU() { return backward_first ? Ub : Uf;}
 
-        inline USequence &otherU()
-        {
-            return backward_first ? Uf : Ub;
-        }
+        inline USequence &otherU() { return backward_first ? Uf : Ub;}
+
+        inline OSequence &whichO() { return backward_first ? Onp :OI;}
 
         // record the prior state in this trail. This will be used in counter example printing.
         std::map<State *, State *> prior_in_trail_f;
@@ -227,10 +216,6 @@ namespace car
         std::unordered_set<State *> clear_duties;
         // add into clear duty, waiting for clear in the end.
         inline void clear_defer(State *s) { clear_duties.insert(s); };
-        // the main solver to be cleared
-        std::unordered_set<MainSolver *> clear_duties_mainsolver;
-        // add into clear duty, waiting for clear in the end.
-        inline void clear_defer(MainSolver *s) { clear_duties_mainsolver.insert(s); };
 
     private:
         /**
@@ -264,7 +249,6 @@ namespace car
          * @return State* : the state representing the solution, which is to be added to the U sequence.
          */
         State *getModel();
-        State *getModel(State *);
 
         /**
          * @brief Update U sequence, and push into cex vector
@@ -279,7 +263,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool satAssume(OSequence *O, State *, int, OFrame &Otmp, bool &safe_reported);
+        bool satAssume(State *, int, OFrame &Otmp, bool &safe_reported);
 
         /**
          * @brief Interface for cleaning.
@@ -294,7 +278,7 @@ namespace car
          * @param O
          * @param dst_level
          */
-        void addUCtoSolver(Cube &uc, OSequence *O, int dst_level, OFrame &Otmp);
+        void addUCtoSolver(Cube &uc, int dst_level, OFrame &Otmp);
 
         /**
          * @brief init special sequences: Uf, Ub, Oi, Onp
@@ -304,10 +288,9 @@ namespace car
         /**
          * @brief Use start solver to get a state. Usually in ~p.
          *
-         * @param start_solver
          * @return State*
          */
-        State *enumerateStartStates(StartSolver *start_solver);
+        State *enumerateStartStates();
 
         /**
          * @brief Check SAT_ASSUME(I, ~P).
@@ -317,7 +300,7 @@ namespace car
          * use uc to initialize O[0] is suitable.
          *
          */
-        bool immediateCheck(State *from, int target, bool &res, OFrame &O0);
+        bool immediateCheck(State *from, bool &res, OFrame &UCs);
 
         /**
          * @brief Check whether this in O[0] is actually a CEX.
@@ -327,7 +310,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool lastCheck(State *from, OSequence *O);
+        bool finalCheck(State *from);
 
         /**
          * @brief Whether this state is blocked in this O frame, namely O[frame_level] (or Otmp, if frame_level == O.size)
@@ -339,7 +322,7 @@ namespace car
          * @return true
          * @return false
          */
-        bool blockedIn(State *s, const int frame_level, OSequence *O, OFrame &Otmp);
+        bool blockedIn(State *s, const int frame_level, OFrame &Otmp);
 
         /**
          * @brief Use `blocked in` to iterate, from min to max, to find the minimal level where this state is not blocked.
@@ -351,7 +334,7 @@ namespace car
          * @param Otmp
          * @return int
          */
-        int minNOTBlocked(State *s, const int min, const int max, OSequence *O, OFrame &Otmp);
+        int minNOTBlocked(State *s, const int min, const int max, OFrame &Otmp);
 
     private:
         /**
@@ -366,20 +349,10 @@ namespace car
          * @return true : invariant is found
          * @return false : no invariant is found
          */
-        bool InvFound(OSequence *O);
+        bool InvFound();
+        bool InvFoundAt(int check_level, int minimal_update_level);
 
-        bool InvFoundAt(OSequence &O, int check_level, int minimal_update_level, InvSolver *inv_solver);
     };
-
-    // TODO: merge them into CAR namespace.
-    namespace inv
-    {
-        void InvAddOR(OFrame &frame, int level, InvSolver *inv_solver_);
-
-        void InvAddAND(OFrame &frame, int level, InvSolver *inv_solver_);
-
-        void InvRemoveAND(InvSolver *inv_solver_, int level);
-    }
 }
 
 #endif

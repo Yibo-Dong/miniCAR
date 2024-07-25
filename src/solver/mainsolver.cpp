@@ -59,11 +59,11 @@ namespace car
 	 * @param frame_level 
 	 * @param forward 
 	 */
-    void MainSolver::set_assumption(OSequence* O, State*s,  const int frame_level, const bool forward)
+    void MainSolver::set_assumption(State*s,  const int frame_level, const bool forward)
     {
         assumptions.clear();
         if (frame_level > -1)
-			assumptions.push (SAT_lit (flag_of(O,frame_level)));
+			assumptions.push (SAT_lit (flag_of(frame_level)));
 		for (const int &id :s->get_latches())
 		{
 			int target = forward ? _model->prime (id) : id;
@@ -71,11 +71,11 @@ namespace car
 		}
     }
 
-	void MainSolver::set_assumption(OSequence* O, State*s,  const int frame_level, const bool forward, const std::vector<Cube> & prefers)
+	void MainSolver::set_assumption(State*s,  const int frame_level, const bool forward, const std::vector<Cube> & prefers)
     {
         assumptions.clear();
         if (frame_level > -1) // should always satisfy
-			assumptions.push (SAT_lit (flag_of(O,frame_level)));
+			assumptions.push (SAT_lit (flag_of(frame_level)));
         for(int i = 0; i < prefers.size(); ++i)
 		{
 			auto &vec = prefers[i];
@@ -134,16 +134,6 @@ namespace car
 		return s;
 	}
 
-	
-
-	Assignment MainSolver::get_state_full_assignment (const bool forward)
-	{
-		Assignment model = get_model();
-		if(!forward)
-			shrink_model (model);
-		return std::move(model);
-	}
-	
 	/**
 	 * @brief get unsat core, and remove bad from it if exists.
 	 * 
@@ -235,19 +225,19 @@ namespace car
         return std::move(conflict);
 	}
 	
-	void MainSolver::add_new_frame(const OFrame& frame, const int frame_level,OSequence *O, const bool forward)
+	void MainSolver::add_new_frame(const OFrame& frame, const int frame_level,const bool forward)
 	{
 		for (int i = 0; i < frame.size (); i ++)
 		{
-			add_clause_from_cube (frame[i], frame_level, O, forward);
+			add_clause_from_cube (frame[i], frame_level, forward);
 		}
 	}
 
 	// Actually, each center_state should only exist in O sequence in one direction.
 	// Should we just record this?
-	void MainSolver::add_clause_from_cube(const Cube &cu, const int frame_level, OSequence *O, const bool forward)
+	void MainSolver::add_clause_from_cube(const Cube &cu, const int frame_level, const bool forward)
 	{
-		int flag = flag_of(O,frame_level);
+		int flag = flag_of(frame_level);
 		vector<int> cl = {-flag};
 		for (int i = 0; i < cu.size (); i ++)
 		{

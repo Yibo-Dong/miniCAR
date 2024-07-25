@@ -264,12 +264,6 @@ namespace car
 				prior[s] = prior_state_in_trail;
 			}
 
-			void addUCtoSolver(Cube&uc, OSequence* O ,int level)
-			{
-				OFrame&frame = (*O)[level];
-				//FIXME: add clause from cube.
-			}
-
 		public:
 			std::map<State *, State*> prior;
 

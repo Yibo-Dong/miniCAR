@@ -15,6 +15,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include "definition.h"
 #include "carsolver.h"
 #include <iostream>
 #include <vector>
@@ -236,10 +237,7 @@ namespace car
 	 */
 	void CARSolver::add_cube_negate (const std::vector<int>&cu)
 	{
-		vector<int> v = cu;
-		for(int& i:v)
-			i = -i;
-		add_clause (v);
+		add_clause (negateCube(cu));
 	}
 
 	/**
@@ -266,7 +264,7 @@ namespace car
 		out << "clauses in SAT solver: \n";
 		for (int i = 0; i < clauses.size (); i ++)
 		{
-			Clause& c = ca[clauses[i]];
+			Glucose::Clause& c = ca[clauses[i]];
 			for (int j = 0; j < c.size (); j ++)
 				out << lit_id (c[j]) << " ";
 			out << "0 " << endl;

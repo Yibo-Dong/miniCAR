@@ -300,10 +300,9 @@ public:
 
     inline bool absIncr (int i, int j) {return abs (i) < abs(j);}
 
-    inline std::vector<int> negate(const std::vector<int>& cu) {
-        std::vector<int> res = cu;
-        for (auto &i : res)
-            i = -i;
+    inline std::vector<int> negateCube(const std::vector<int>& cu) {
+        std::vector<int> res(cu.size());
+        std::transform(cu.begin(), cu.end(), res.begin(), [](int i) { return -i; });
         return res;
     }
 
