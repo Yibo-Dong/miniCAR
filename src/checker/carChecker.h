@@ -25,11 +25,12 @@
 
 namespace car
 {
-    extern Statistics CARStats; // defined in main.cpp
+    extern Statistics CARStats; /// defined in main.cpp
     class Checker;
 
     class Checker
     {
+    private:
         /**
          * @section options
          *
@@ -48,10 +49,20 @@ namespace car
         int convParam=0;
         bool subStat = false;
         bool partial = false;
+        bool restart_enabled = false;
 
-        // we need to record whether it used another UC in the history.
-        // level -> array[INT_MAX]
-        // we use the bit to record whether it pushed another UC.
+    public:
+        /**
+         * @section auxiliary data structures.
+         */
+
+        ///////////////////////////////////
+        /// @subsection mUC             ///
+        ///////////////////////////////////
+
+        /// we need to record whether it used another UC in the history.
+        /// level -> array[INT_MAX]
+        /// we use the bit to record whether it pushed another UC.
         std::unordered_map<int, unsigned short> conv_record;
         enum convModeEnum{
             ConvModeAlways = 0,
@@ -60,15 +71,14 @@ namespace car
             ConvModeStuck = 3,
             ConvModeRand = 4
         };
+        
+        ///////////////////////////////////
+        /// @subsection restart         ///
+        ///////////////////////////////////
 
-        enum LiteralOrderingEnum{
-            LO_Classic = 0,     // Intersection + Rotation for (1), Reverse it for (2), Random for the subsequent ones.
-            LO_Rand = 1,        // Just do random test.
-            LO_Fixpoint = 2,    // Rotation for (1), {not_used, used} for later
-            LO_Exp = 3,         // Reuse the phase-saving strategy to implement a biased-SAT instead.
-        };
-
-        // remember Option: whether we shall remember something during restart
+        /// whether this phase has reached its time limit.
+        bool ppstoped = false;
+        /// remember Option: whether we shall remember something during restart
         enum rememberEnum{
             remem_None = 0,
             remem_O0 = 1,
@@ -76,65 +86,115 @@ namespace car
             remem_Ok = 3,
             remem_Uk = 4,
         };
-        // last checker, which we can get information from.
-        // TODO: rewrite using copy-constructors
+
+        /// last checker, which we can get information from.
+        /// TODO: rewrite using copy-constructors
         Checker* last_chker;
 
+        /// timer to calculate time consumption.
+        clock_high sat_timer;
 
-        // how to calculate imply.
+        ///////////////////////////////////
+        /// @subsection assum ordering  ///
+        ///////////////////////////////////
+        enum LiteralOrderingEnum{
+            LO_Classic = 0,     /// Intersection + Rotation for (1), Reverse it for (2), Random for the subsequent ones.
+            LO_Rand = 1,        /// Just do random test.
+            LO_Fixpoint = 2,    /// Rotation for (1), {not_used, used} for later
+            LO_Exp = 3,         /// Reuse the phase-saving strategy to implement a biased-SAT instead.
+        };
+
+        inline void set_inter_cnt(int cnt)      { inter_cnt = cnt; }
+        inline int  get_inter_cnt()             { return inter_cnt; }
+        inline void set_rotate(bool rtt)        { rotate_enabled = rtt; }
+        inline bool get_rotate()                { return rotate_enabled; }
+
+        /// rotation calculation:
+        std::vector<Cube> rotates;  /// corresponding to O[i]
+        Cube rotate;                /// corresponding to Otmp
+
+        ///////////////////////////////////
+        /// @subsection Implication     ///
+        ///////////////////////////////////
+
+        /// how to calculate imply.
         enum ImpHowEnum{
             Imp_Manual = 0,
             Imp_Solver = 1,
             Imp_Sample = 2,
-            // Imp_Sort = 3, // proved not to be useful. depricated.
+            /// Imp_Sort = 3, /// proved not to be useful. depricated.
             Imp_Exp = 4,
             Imp_Thresh = 5,
-            // Imp_MOM = 6, // proved not to be useful. depricated.
+            /// Imp_MOM = 6, /// proved not to be useful. depricated.
             Imp_Fresh = 7,
         };
 
-        // level -> id -> freshIndex
+        /// level -> id -> freshIndex
         std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;
 
-        /**
-         * @section rotation technique
-         *
-         */
-        // corresponding to O[i]
-        std::vector<Cube> rotates;
-        // corresponding to Otmp
-        Cube rotate;
 
-        clock_high sat_timer;
-
-        inline void set_inter_cnt(int cnt) { inter_cnt = cnt; }
-        inline int get_inter_cnt() { return inter_cnt; }
-        inline void set_rotate(bool rtt) { rotate_enabled = rtt; }
-        inline int get_rotate() { return rotate_enabled; }
-
-        bool restart_enabled = false;
+        ///////////////////////////////////
+        /// @subsection Garbage Collect ///
+        ///////////////////////////////////
+        /// the states to be cleared
+        std::unordered_set<State *> clear_duties;
+        /// add into clear duty, waiting for clear in the end.
+        inline void clear_defer(State *s) { clear_duties.insert(s); };
         
-    public:
-        bool ppstoped = false;
-        
+        ///////////////////////////////////
+        /// @subsection Invariant Check ///
+        ///////////////////////////////////
+        /// the map from O sequence to its minimal_level
+        int fresh_levels;
+
+    public:     
+        /// @section counter-example
+        std::ostream &out;
+        /// record the prior state in this trail. This will be used in counter example printing.
+        std::map<State *, State *> prior_in_trail_f;
+        std::map<State *, State *> prior_in_trail_b;
+        inline std::map<State *, State *> &whichPrior() { return backwardCAR ? prior_in_trail_b : prior_in_trail_f; }
+        State *counter_start_f = nullptr;
+        State *counter_start_b = nullptr;
+        inline State *&whichCEX() { return backwardCAR ? counter_start_b : counter_start_f; }
+        inline State *&otherCEX() { return backwardCAR ? counter_start_f : counter_start_b; }
 
     public:
+        /// init all the solvers.
         explicit Checker(Problem *model, const OPTIONS& opt, std::ostream &out, Checker* last_chker);
-
-        Checker(const Checker&) = delete;
-        const Checker& operator=(const Checker&) = delete;
-
-        /**
-         * @brief Destroy the Checker object
-         * delete all the solvers.
-         */
+        /// delete all the solvers.
         ~Checker();
 
-        // entrance for CAR checking
+        Checker(const Checker &) = delete;
+        const Checker &operator=(const Checker &) = delete;
+
+        /// entrance for CAR checking
         bool check();
 
+    public:
+        const bool backwardCAR;
+        const int bad_;
+        Problem         *model_;
+        StartSolver     *start_solver;
+        MainSolver      *main_solver;
+        PartialSolver   *partial_solver;
+        InvSolver       *inv_solver;
+
+        USequence Uf, Ub; /// Uf[0] is not explicitly constructed
+        OSequence Onp, OI;
+        inline USequence &whichU() { return backwardCAR ? Ub : Uf;}
+        inline USequence &otherU() { return backwardCAR ? Uf : Ub;}
+        inline OSequence &whichO() { return backwardCAR ? Onp :OI;}
+
+        OFrame Otmp;
+        inline void refreshOtmp() {Otmp.clear();}
+        inline OFrame& whichFrame(int index){return (index < OSize())? whichO().at(index) : Otmp;}
+        inline int OSize() {return whichO().size();}
+        /// used in picking state randomly
+        std::vector<std::pair<State *, int>> Uset;
+
     private:
-        // entrance for CAR
+        /// entrance for CAR
         bool car();
 
         /**
@@ -155,85 +215,9 @@ namespace car
          */
         bool trySAT(bool &safe_reported);
 
-    public:
-        Problem *model_;
-        const bool backward_first;
-        const int bad_;
-        StartSolver *start_solver;
-        // the main solver shared.
-        MainSolver *main_solver;
-        // the partial solver shared.
-        PartialSolver *partial_solver;
-        InvSolver *inv_solver;
-
-        // the map from O sequence to its minimal_level
-        int fresh_levels;
-        USequence Uf, Ub; // Uf[0] is not explicitly constructed
-        OSequence Onp, OI;
-        OFrame Otmp;
-        inline void refreshOtmp() {Otmp.clear();}
-        inline OFrame& whichFrame(int index){return (index < OSize())? whichO().at(index) : Otmp;}
-        inline int OSize() {return whichO().size();}
-        // used in picking state randomly
-        std::vector<std::pair<State *, int>> Uset;
-
-    public:
-        /**
-         * @section Counter Example
-         *
-         */
-
-        inline USequence &whichU() { return backward_first ? Ub : Uf;}
-
-        inline USequence &otherU() { return backward_first ? Uf : Ub;}
-
-        inline OSequence &whichO() { return backward_first ? Onp :OI;}
-
-        // record the prior state in this trail. This will be used in counter example printing.
-        std::map<State *, State *> prior_in_trail_f;
-        std::map<State *, State *> prior_in_trail_b;
-        inline std::map<State *, State *> &whichPrior()
-        {
-            return backward_first ? prior_in_trail_b : prior_in_trail_f;
-        }
-
-        State *counter_start_f = nullptr;
-        State *counter_start_b = nullptr;
-        inline State *&whichCEX()
-        {
-            return backward_first ? counter_start_b : counter_start_f;
-        }
-        inline State *&otherCEX()
-        {
-            return backward_first ? counter_start_f : counter_start_b;
-        }
-        std::ostream &out;
-
-        /**
-         * @brief print evidence to out.
-         *
-         * @param out
-         */
+        /// @brief print evidence.
         void print_evidence() const;
 
-    private:
-        /**
-         * @section Clear duties
-         *
-         */
-
-        // the states to be cleared
-        std::unordered_set<State *> clear_duties;
-        // add into clear duty, waiting for clear in the end.
-        inline void clear_defer(State *s) { clear_duties.insert(s); };
-
-    private:
-        /**
-         * @section Basic methods
-         *
-         */
-
-        int pickStateLastIndex = -1;
         /**
          * @brief iteratively pick state from the given sequence.
          * @return State*
@@ -243,6 +227,7 @@ namespace car
          * @post Anytime it ends the iterative round earlier(before nullptr), it must has found the counter example in trySAT. Therefore, there will be no picking in the future.
          */
         State *pickState();
+        int pickStateLastIndex = -1;
 
         /**
          * @brief Get the partial state with assignment s. This is used in forward CAR.
@@ -343,12 +328,6 @@ namespace car
          * @return int
          */
         int minNOTBlocked(State *s, const int min, const int max);
-
-    private:
-        /**
-         * invariant section
-         *
-         */
 
         /**
          * @brief Check whether there exists an invariant in this sequence. Which means the center state of this OSequence is not reachable, and should be later blocked

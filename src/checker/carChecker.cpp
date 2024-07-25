@@ -19,10 +19,10 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    model_(model), out(out), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backward_first(!opt.forward), bad_(model->output(0)), inv_solver(nullptr)
+    model_(model), out(out), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr)
     {
         main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
-        if (!backward_first)
+        if (!backwardCAR)
         {
             // only forward needs these
             partial_solver = new PartialSolver(model);
@@ -437,7 +437,7 @@ namespace car
     }
 
     /**
-     * @brief print the evidence. reuse backward_first, which exactly reveals present searching direciton.
+     * @brief print the evidence. reuse backwardCAR, which exactly reveals present searching direciton.
      * @pre counterexmple is met already.
      * @param 
      */
@@ -514,7 +514,7 @@ namespace car
     bool Checker::satAssume(State *s, int level, bool& safe_reported)
     {
         auto& O = whichO();
-        bool forward = !backward_first;
+        bool forward = !backwardCAR;
         vector<Cube> inter;
         Cube rres, rtmp;
         vector<Cube> ucs; // this is used for subsumption test, will cause low-efficiency, do not turn it on in practical scenarios.
@@ -886,7 +886,7 @@ namespace car
             main_solver->add_clause_from_cube(uc, dst_level_plus_one);
         else if (dst_level_plus_one == OSize())
         {
-            if (!backward_first)
+            if (!backwardCAR)
             {
                 // FIXME: test me later.
                 // Not always. Only if the start state is ~p.
@@ -911,7 +911,7 @@ namespace car
                     return true;
 
                 // forward inits.
-                if (!backward_first)
+                if (!backwardCAR)
                 {
                     // Uf[0] = ~p;
 
@@ -931,7 +931,7 @@ namespace car
                     OI = {frame};
                 }
                 // backward inits.
-                if (backward_first)
+                if (backwardCAR)
                 {
                     // Ub[0] = I;
                     updateU(init, nullptr);
@@ -956,10 +956,10 @@ namespace car
             {
                 // If we remember all, it will be too many.
                 // NOTE: sonly implement backward now.
-                assert(backward_first);
+                assert(backwardCAR);
                 O0 = last_chker->Onp[0];
                 
-                if (backward_first)
+                if (backwardCAR)
                 {
                     // Ub[0] = I;
                     updateU(init, nullptr);
@@ -984,7 +984,7 @@ namespace car
             {
                 // If we remember all, it will be too many.
                 // NOTE: sonly implement backward now.
-                assert(backward_first);
+                assert(backwardCAR);
                 O0 = last_chker->Onp[0];
                 
                 sort(O0.begin(),O0.end(),[](const vector<int>& a, const vector<int>& b){return a.size() < b.size();});
@@ -1004,7 +1004,7 @@ namespace car
 
                 // cerr<<"after: sz = "<<O0.size()<<", avg = "<<after_len/O0.size()<<endl;
 
-                if (backward_first)
+                if (backwardCAR)
                 {
                     // Ub[0] = I;
                     updateU(init, nullptr);
@@ -1031,9 +1031,9 @@ namespace car
                 const int boundK = 3;
                 // If we remember all, it will be too many.
                 // NOTE: sonly implement backward now.
-                assert(backward_first);
+                assert(backwardCAR);
                 
-                if (backward_first)
+                if (backwardCAR)
                 {
                     // Ub[0] = I;
                     updateU(init, nullptr);
@@ -1063,7 +1063,7 @@ namespace car
 
             case(remem_Uk):
             {
-                assert(backward_first);
+                assert(backwardCAR);
                 delete init;
                 auto *&last_init = last_chker->Ub[0];
                 init = new State(last_init->get_inputs(), last_init->get_latches());
@@ -1106,7 +1106,7 @@ namespace car
         default:
             if (immediateCheck(init, res, O0))
                 return true;
-            if (!backward_first)
+            if (!backwardCAR)
             {
                 // Uf[0] = ~p;
 
@@ -1125,7 +1125,7 @@ namespace car
                 OI = {frame};
             }
             // backward inits.
-            if (backward_first)
+            if (backwardCAR)
             {
                 // Ub[0] = I;
                 updateU(init, nullptr);
@@ -1152,9 +1152,9 @@ namespace car
             rotates.push_back(init->get_latches());
         }
 
-        if (backward_first)
+        if (backwardCAR)
             main_solver->add_new_frame(Onp[0], Onp.size() - 1);
-        if (!backward_first)
+        if (!backwardCAR)
             main_solver->add_new_frame(OI[0], OI.size() - 1);
 
 
@@ -1249,7 +1249,7 @@ namespace car
 
     bool Checker::finalCheck(State *from)
     {
-        bool direction = !backward_first;
+        bool direction = !backwardCAR;
         if (direction)
         // in forward CAR, last target state is Init. Initial state is a concrete state, therefore it is bound to be reachable (within 0 steps). Here we only need to update the cex structure.
         {
