@@ -34,7 +34,7 @@ namespace car {
  	bool State::imply (const Cube& uc) const
 	{
         // TODO: use bit-operation to compare multiple bits at the same time?
-		for(size_t i = uc.size() - 1 ; i >= 0; --i)
+		for(int i = uc.size() - 1 ; i >= 0; --i)
 		{
             // get the offset of this literal.
 			int index = abs(uc[i]) - num_inputs_ - 1;

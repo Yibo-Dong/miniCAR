@@ -640,7 +640,7 @@ namespace car
                 std::random_device rd;
                 std::mt19937 gen(rd());
                 vector<int> shuff_helper = s->get_latches();
-                for(size_t i = shuff_helper.size() - 1; i > 0; --i) {
+                for(int i = shuff_helper.size() - 1; i > 0; --i) {
                     // starting from 1, because 0 is the flag.
                     std::uniform_int_distribution<int> dis(0, i);
                     int j = dis(gen);
@@ -1386,7 +1386,7 @@ namespace car
                     res = ImplySolver::is_blocked(s,frame_level);
                 }
                 else{
-                    for(size_t i = frame.size()-1; i>=0; --i)
+                    for(int i = frame.size()-1; i>=0; --i)
                     {
                         const auto &uc = frame[i];
                         res = s->imply(uc);
