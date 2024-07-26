@@ -75,6 +75,11 @@ namespace car
             Assignment _latches;
             /// input values
 			Assignment _inputs;
+
+        public:
+            /// ID, used to mark during blockedIn().
+            int id;
+            static int maxid;
         
         public:
 			/// whether it is the special state 'neg P'. 
@@ -94,15 +99,15 @@ namespace car
 
 		public:
             /// Construct a special state 'neg P', whose id is -1.
-			explicit State(bool _isnegp) : _isnegp(_isnegp) { assert(_isnegp); negp_state=this; }
+			explicit State(bool _isnegp) : _isnegp(_isnegp),id(-1) { assert(_isnegp); negp_state=this; }
             const State *get_negp() const { return negp_state; }
 
             /// Construct a state with only latches, inputs to be set later.
-			explicit State(const Assignment &latches) : _latches(latches), _isnegp(false) {}
+			explicit State(const Assignment &latches) : _latches(latches),id(++maxid), _isnegp(false) {}
             inline void set_inputs(const Assignment &st) { _inputs = st; }
 
             /// Construct a state with inputs and latches.
-			State(const Assignment &inputs , const Assignment &latches): _latches(latches), _inputs(inputs), _isnegp(false) {}
+			State(const Assignment &inputs , const Assignment &latches): _latches(latches), _inputs(inputs),id(++maxid), _isnegp(false) {}
 
             /// do nothing.
 			~State() {}
@@ -301,6 +306,8 @@ public:
 	void add_clauses_from_equation (const aiger_and* aa);
 	void create_constraints_for_latches ();
 	void create_clauses (const aiger* aig);
+
+    void unfold_bad(const aiger* aig, std::vector<std::vector<int>>& res);
 };
 
 

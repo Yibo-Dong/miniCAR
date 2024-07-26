@@ -22,6 +22,7 @@ namespace car {
     // TODO: try unfold negp instead of this.
     const State* State::negp_state;
 
+	int State::maxid = 0;
     int State::num_inputs_ = 0;
  	int State::num_latches_ = 0;
  	
@@ -304,7 +305,7 @@ namespace car {
 		cls_.push_back(clause(-false_));
 	}
 
-	/**
+    /**
 	 * @brief 
 	 * flag1: All latches that share a common next have same value 
 	 * flag2: All latches are initialized to 0

@@ -1399,6 +1399,44 @@ namespace car
                 break;
             }
 
+            case (Imp_Fresh):
+            {
+                /**
+                 * @brief Record what has been tested as to each state
+                 * 
+                 */
+                // get its fresh index!
+                if(impFreshRecord.find(frame_level) == impFreshRecord.end())
+                {
+                    // this level has not been tested before.
+                    impFreshRecord[frame_level] = std::unordered_map<int,int>({});
+                }
+                auto &this_level_map = impFreshRecord[frame_level];
+
+                // fresh index: the index we should start testing
+                int freshIndex = 0;
+                if(this_level_map.find(s->id) != this_level_map.end())
+                {
+                    // found the fresh index! We could start from the last time
+                    freshIndex = this_level_map[s->id];
+                }
+
+                auto &frame = whichFrame(frame_level);
+                for (int i = frame.size()-1; i>= freshIndex; --i)
+                {
+                    auto& uc = frame[i];
+                    res = s->imply(uc);
+                    if (res)
+                    {
+                        break;
+                    }
+                }
+                // reach here, then we can update!
+                this_level_map[s->id] = frame.size();
+
+                break;
+            }
+
             default:
                 break;
         }
