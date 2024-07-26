@@ -113,7 +113,7 @@ namespace car
 		inline int flag_of(const int frame_level)
 		{
 			assert(frame_level >= 0);
-			while(frame_level >= flags.size())
+			while(size_t(frame_level) >= flags.size())
 			{
 				flags.push_back(max_flag++);
 			}

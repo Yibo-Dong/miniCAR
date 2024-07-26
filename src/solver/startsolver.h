@@ -48,7 +48,7 @@ namespace car {
             else
             {
                 // FIXME: what does here mean?
-                for (int i = 0; i < const_cast<Problem*>(m)->latches_start (); i ++)
+                for(int i = 0; i < const_cast<Problem*>(m)->latches_start (); i ++)
                     add_clause (const_cast<Problem*>(m)->element (i));
                 assumptions.push (SAT_lit (bad));
             }
@@ -87,7 +87,7 @@ namespace car {
         inline void add_clause_with_flag (const Cube& cu)
         {
             std::vector<int> cl = {-flag_};
-            for (int i = 0; i < cu.size (); i ++)
+            for(size_t i = 0; i < cu.size (); i ++)
                 cl.push_back (-cu[i]);
             add_clause (cl);
         }
@@ -108,14 +108,14 @@ namespace car {
             int ninputs = model_->num_inputs();
             int nlatches = model_->num_latches();
             Assignment inputs(ninputs), latches(nlatches);
-            for (int i = 0; i <ninputs ; i ++)
+            for(int i = 0; i <ninputs ; i ++)
             {
                 if (model[i] == l_True)
                     inputs[i] = i+1;
                 else if (model[i] == l_False)
                     inputs[i] = -(i+1);
             }
-            for (int i = 0; i < nlatches ; i ++)
+            for(int i = 0; i < nlatches ; i ++)
             {
                 if (model[i+ninputs] == l_True)
                     latches[i] = i+1+ninputs;

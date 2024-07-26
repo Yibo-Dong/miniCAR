@@ -34,7 +34,7 @@ namespace car {
  	bool State::imply (const Cube& uc) const
 	{
         // TODO: use bit-operation to compare multiple bits at the same time?
-		for (int i = uc.size() - 1 ; i >= 0; --i)
+		for(size_t i = uc.size() - 1 ; i >= 0; --i)
 		{
             // get the offset of this literal.
 			int index = abs(uc[i]) - num_inputs_ - 1;
@@ -59,7 +59,7 @@ namespace car {
 	{
 		Cube res;
         res.reserve(cu.size());
-		for (int i = 0; i < cu.size (); i ++)
+		for(size_t i = 0; i < cu.size (); i ++)
 		{
 			int index = abs(cu[i]) - num_inputs_ - 1;
 			assert (index >= 0);
@@ -77,7 +77,7 @@ namespace car {
 	string State::get_inputs_str() const
 	{
 		string res = "";
-		for (int i = 0; i < _inputs.size(); i++)
+		for(size_t i = 0; i < _inputs.size(); i++)
 			res += (_inputs.at(i) > 0) ? "1" : "0";
 		return res;
 	}
@@ -90,8 +90,8 @@ namespace car {
 	string State::get_latches_str() const
 	{
 		string res = "";
-		int j = 0;
-		for (int i = 0; i < num_latches_; i++)
+		size_t j = 0;
+		for(int i = 0; i < num_latches_; i++)
 		{
 			if (j == _latches.size())
 				res += "x";
@@ -134,7 +134,7 @@ namespace car {
 	// collect those that are trivially constant
 	void Problem::collect_trues (const aiger* aig)
 	{
-		for (int i = 0; i < aig->num_ands; i ++)
+		for(size_t i = 0; i < aig->num_ands; i ++)
 		{
 			aiger_and& aa = aig->ands[i];
 			// lhs of an and gate is always even in aiger
@@ -156,7 +156,7 @@ namespace car {
 
 	void Problem::set_constraints (const aiger* aig)
 	{
-		for (int i = 0; i < aig->num_constraints; i++)
+		for(size_t i = 0; i < aig->num_constraints; i++)
 		{
 			int lit = (int)aig->constraints[i].lit;
 			constraints_.push_back(car_var(lit));
@@ -165,7 +165,7 @@ namespace car {
 	
 	void Problem::set_outputs (const aiger* aig)
 	{
-		for (int i = 0; i < aig->num_outputs; i++)
+		for(size_t i = 0; i < aig->num_outputs; i++)
 		{
 			int lit = (int)aig->outputs[i].lit;
 			outputs_.push_back(car_var(lit));
@@ -174,7 +174,7 @@ namespace car {
 
 	void Problem::set_init (const aiger* aig)
 	{
-		for (int i = 0; i < aig->num_latches; i ++)
+		for(size_t i = 0; i < aig->num_latches; i ++)
 		{
 			if (aig->latches[i].reset == 0)
 				init_.push_back (-(num_inputs_+1+i));
@@ -190,7 +190,7 @@ namespace car {
 	
 	void Problem::create_next_map (const aiger* aig)
 	{
-		for (int i = 0; i < aig->num_latches; i ++)
+		for(size_t i = 0; i < aig->num_latches; i ++)
 		{
 			int val = (int)aig->latches[i].lit;
 			//a latch should not be a negative number
@@ -327,7 +327,7 @@ namespace car {
 			 */
 			// TODO: Try to record this equivalence relationship using a map and simplify the model.
 			exist = true;
-			for (int i = 0; i < v.size() - 1; i++)
+			for(size_t i = 0; i < v.size() - 1; i++)
 			{
 				cls_.push_back({v[i], -v[i + 1], -flag1});
 				cls_.push_back({-v[i], v[i + 1], -flag1});
@@ -341,7 +341,7 @@ namespace car {
 
 		// add initial state
 		int flag2 = ++max_id_;
-		for (int i = 0; i < init_.size(); i++)
+		for(size_t i = 0; i < init_.size(); i++)
 		{
 			cls_.push_back({init_[i], -flag2});
 		}
@@ -353,7 +353,7 @@ namespace car {
 	void Problem::collect_necessary_gates (const aiger* aig, const aiger_symbol* as, const int as_size, 
 	                                        std::set<unsigned>& exist_gates, std::set<unsigned>& gates, bool next)
 	{
-		for (int i = 0; i < as_size; i ++)
+		for(int i = 0; i < as_size; i ++)
 		{
 			aiger_and* aa;
 			if (next) 
@@ -466,7 +466,7 @@ namespace car {
 		res = it->second;
 		if (id < 0)
 		{
-		    for (int i = 0; i < res.size (); i ++)
+		    for(size_t i = 0; i < res.size (); i ++)
 		        res[i] = -res[i];
 		}
 		return res;
@@ -480,13 +480,13 @@ namespace car {
 	void Problem::shrink_to_previous_vars (Cube& uc) const
 	{
 		Cube tmp;
-		for (int i = 0; i < uc.size (); i ++)
+		for(size_t i = 0; i < uc.size (); i ++)
 		{
 		    vector<int> ids = previous (abs (uc[i]));
 			if (ids.empty ())
 			    continue;
 			// 每一个pre都放进去。
-			for (int j = 0; j < ids.size (); j ++)
+			for(size_t j = 0; j < ids.size (); j ++)
 				tmp.push_back ((uc[i] > 0) ? ids[j] : (-ids[j]));	
 		}
 		uc = tmp;

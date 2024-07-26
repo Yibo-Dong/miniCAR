@@ -77,7 +77,7 @@ namespace car
 		{
 			res.push_back(lit_id(assumptions[i]));
 		}
-		return std::move(res);
+		return res;
 	}
 
 	/**
@@ -89,14 +89,14 @@ namespace car
 	{
 		std::vector<int> res;
 		res.resize (nVars (), 0);
-   		for (int i = 0; i < nVars (); i ++)
+   		for(int i = 0; i < nVars (); i ++)
    		{
      		if (model[i] == l_True)
        			res[i] = i+1;
      		else
        			res[i] = -(i+1);
    		}
-   		return std::move(res);
+   		return res;
 	}
 
 	/**
@@ -110,12 +110,12 @@ namespace car
  		std::vector<int> reason;
 		reason.resize(conflict.size(),0);
 		// 
- 		for (int k = 0; k < conflict.size(); k++) 
+ 		for(int k = 0; k < conflict.size(); k++) 
  		{
         	Lit l = conflict[k];
         	reason[k] = -lit_id (l);
     	}
-    	return std::move(reason);
+    	return reason;
   	}
 		
 	/**
@@ -126,14 +126,14 @@ namespace car
 	std::vector<int> CARSolver::get_uc_no_bad (int bad) const
  	{
  		std::vector<int> reason;
- 		for (int k = 0; k < conflict.size(); k++) 
+ 		for(int k = 0; k < conflict.size(); k++) 
  		{
         	Lit l = conflict[k];
 			int id = -lit_id (l);
 			if(id!=bad)
 	        	reason.push_back (id);
     	}
-    	return std::move(reason);
+    	return reason;
   	}
 
     std::vector<int> CARSolver::get_uc_rand()
@@ -142,7 +142,7 @@ namespace car
         std::mt19937 gen(rd());
         // if std::vector:
         // std::shuffle(vec.begin(), vec.end(), gen); 
-        for (int i = assumptions.size() - 1; i > 0; --i) {
+        for(int i = assumptions.size() - 1; i > 0; --i) {
             // starting from 1, because 0 is the flag.
             std::uniform_int_distribution<int> dis(1, i);
             int j = dis(gen);
@@ -225,7 +225,7 @@ namespace car
 	 */
  	void CARSolver::add_cube (const std::vector<int>& cu)
  	{
- 	    for (int i = 0; i < cu.size (); i ++)
+ 	    for(size_t i = 0; i < cu.size (); i ++)
  	        add_clause (cu[i]);
  	}
 
@@ -248,7 +248,7 @@ namespace car
  	{
  		vec<Lit> lits(v.size());
 		int index = 0;
-		for (int id : v)
+		for(int id : v)
 			lits[index++] = SAT_lit(id);
  		bool res = addClause (lits);
 		assert(res && "Warning: Adding clause does not success\n");
@@ -261,10 +261,10 @@ namespace car
  	void CARSolver::print_clauses(ostream & out)
 	{
 		out << "clauses in SAT solver: \n";
-		for (int i = 0; i < clauses.size (); i ++)
+		for(int i = 0; i < clauses.size (); i ++)
 		{
 			Glucose::Clause& c = ca[clauses[i]];
-			for (int j = 0; j < c.size (); j ++)
+			for(int j = 0; j < c.size (); j ++)
 				out << lit_id (c[j]) << " ";
 			out << "0 " << endl;
 		}
@@ -279,7 +279,7 @@ namespace car
 	    out << "assumptions in SAT solver: \n";
 		if (!assumptions.size())
 			out<<" Empty ";
-	    for (int i = 0; i < assumptions.size (); i ++)
+	    for(int i = 0; i < assumptions.size (); i ++)
 	        out << lit_id (assumptions[i]) << " ";
 	    out << endl;
 	}

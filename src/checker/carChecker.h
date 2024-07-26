@@ -174,11 +174,11 @@ namespace car
     public:
         const bool backwardCAR;
         const int bad_;
-        Problem         *model_;
-        StartSolver     *start_solver;
-        MainSolver      *main_solver;
-        PartialSolver   *partial_solver;
-        InvSolver       *inv_solver;
+        Problem         *model_         = nullptr;
+        StartSolver     *start_solver   = nullptr;
+        MainSolver      *main_solver    = nullptr;
+        PartialSolver   *partial_solver = nullptr;
+        InvSolver       *inv_solver     = nullptr;
 
         USequence Uf, Ub; /// Uf[0] is not explicitly constructed
         OSequence Onp, OI;

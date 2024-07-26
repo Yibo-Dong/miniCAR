@@ -29,23 +29,23 @@ namespace car
     {
         max_flag = m->max_id() + 1;
         // (1) create clauses for constraints encoding
-        for (int i = 0; i < m->common_next_start(); ++i)
+        for(int i = 0; i < m->common_next_start(); ++i)
         {
             add_clause(m->element(i));
         }
         // (2) same next have same previous, initialized to 0.
-        for (int i = m->common_next_start(); i < m->outputs_start(); ++i)
+        for(int i = m->common_next_start(); i < m->outputs_start(); ++i)
         {
             add_clause(m->element(i));
         }
         // (3) clause for encoding outputs.
-        for (int i = m->outputs_start(); i < m->latches_start(); ++i)
+        for(int i = m->outputs_start(); i < m->latches_start(); ++i)
         {
             add_clause(m->element(i));
         }
         // (4) clause for encoding latches's mapping relation
         // (5) create clauses for true and false
-        for (int i = m->latches_start(); i < m->size(); ++i)
+        for(int i = m->latches_start(); i < m->size(); ++i)
         {
             add_clause(m->element(i));
         }
@@ -75,7 +75,7 @@ namespace car
         assumptions.clear();
         if (frame_level > -1) // should always satisfy
 			assumptions.push (SAT_lit (flag_of(frame_level)));
-        for(int i = 0; i < prefers.size(); ++i)
+        for(size_t i = 0; i < prefers.size(); ++i)
 		{
 			auto &vec = prefers[i];
 			for(auto &id : vec)
@@ -150,7 +150,7 @@ namespace car
         {
     		sort(res.begin(),res.end(),car::absIncr);
         }
-		return std::move(res);
+		return res;
 	}
 	
 	/**
@@ -176,7 +176,7 @@ namespace car
         {
             std::sort (conflict.begin (), conflict.end (), car::absIncr);
         }
-		return std::move(conflict);
+		return conflict;
 	}
 
     Cube MainSolver::get_conflict_another (int option, int nth)
@@ -196,12 +196,12 @@ namespace car
         {
             std::sort(conflict.begin(), conflict.end(), car::absIncr);
         }
-        return std::move(conflict);
+        return conflict;
 	}
 	
 	void MainSolver::add_new_frame(const OFrame& frame, const int frame_level)
 	{
-		for (int i = 0; i < frame.size (); i ++)
+		for(size_t i = 0; i < frame.size (); i ++)
 		{
 			add_clause_from_cube (frame[i], frame_level);
 		}
@@ -213,7 +213,7 @@ namespace car
 	{
 		int flag = flag_of(frame_level);
 		vector<int> cl = {-flag};
-		for (int i = 0; i < cu.size (); i ++)
+		for(size_t i = 0; i < cu.size (); i ++)
 		{
 			if (!reverseT)
 				cl.push_back (-_model->prime (cu[i]));
@@ -230,13 +230,13 @@ namespace car
 		int num_inputs = _model->num_inputs();
 		int num_latches = _model->num_latches();
 		
-		for (int i = num_inputs + 1; i <= num_inputs + num_latches; i++)
+		for(int i = num_inputs + 1; i <= num_inputs + num_latches; i++)
 		{
 			int p = _model->prime(i);
 			assert(p != 0);
 			
 			int abs_p = abs(p);
-			assert(model.size() >= abs_p);
+			assert(model.size() >= size_t(abs_p));
 			
 			int val = model[abs_p - 1];
 			
@@ -295,7 +295,7 @@ namespace car
 			
 		// BASIC STEP:
 		// (1) create clauses for constraints encoding
-		for (int i = 0; i < m->common_next_start(); ++i)
+		for(int i = 0; i < m->common_next_start(); ++i)
 		{
 			add_clause (m->element (i));
 		}
@@ -305,13 +305,13 @@ namespace car
 			add_clause(m->element(i));
 		}
 		// (3) clause for encoding outputs.
-		for (int i = m->outputs_start (); i < m->latches_start (); ++i)
+		for(int i = m->outputs_start (); i < m->latches_start (); ++i)
 		{
 			add_clause (m->element (i));
 		}
 		// (4) clause for encoding latches's mapping relation
 		// (5) create clauses for true and false
-		for (int i = m->latches_start (); i < m->size (); ++i)
+		for(int i = m->latches_start (); i < m->size (); ++i)
 		{
 			add_clause (m->element (i));
 		}
@@ -351,7 +351,7 @@ namespace car
 		int flag_for_this_level = level * lits_each_round;
 		// copy clauses.
 		// @note: last 2: true & false. The two lits reserved.
-		for (int i = 0; i < _model->size(); ++i)
+		for(int i = 0; i < _model->size(); ++i)
 		{
 			// copy it first
 			vector<int> unrolled_clause = _model->element(i);
@@ -369,7 +369,7 @@ namespace car
 
 		// add equivalent relation between levels
 		// prior's next is present!
-		for (int i = _model->num_inputs() + 1; i < _model->num_inputs() + _model->num_latches() + 1; ++i)
+		for(int i = _model->num_inputs() + 1; i < _model->num_inputs() + _model->num_latches() + 1; ++i)
 		{
 			int present = (level - 1) * lits_each_round + i;
 			int prior_next = (level - 2) * lits_each_round * (_model->next_map_.at(i) > 0 ? 1 : -1) + _model->next_map_.at(i);
@@ -384,7 +384,7 @@ namespace car
 	void MainSolver::get_states(std::vector<State*>& ret)
 	{
 		Assignment model = get_model();
-		assert(model.size() == unroll_level * lits_per_round());
+		assert(model.size() == size_t(unroll_level * lits_per_round()));
 		for(int level = 0 ; level < unroll_level; ++level)
 		{
 			int offset = level * lits_per_round();

@@ -48,7 +48,7 @@ namespace car
 			{
 				model_ = const_cast<Problem*> (m);
 			    int end =  model_->outputs_start ();
-			    for (int i = 0; i < end ; i ++)
+			    for(int i = 0; i < end ; i ++)
                     add_clause (model_->element (i));
 			}
 			~InvSolver () {}
@@ -83,12 +83,12 @@ namespace car
 
 				// uc_flags: at least one uc should be true.
 				std::vector<int>& uc_flags = or_ucflags[level];
- 				for (int i = 0; i < frame.size (); i ++)
+ 				for (size_t i = 0; i < frame.size (); i ++)
  				{
 					// flag for this uc.
  					int clause_flag = new_var ();
  					uc_flags.push_back (clause_flag);
- 					for (int j = 0; j < frame[i].size (); j ++)
+ 					for (size_t j = 0; j < frame[i].size (); j ++)
  					{
  						int id = frame[i][j];
  						add_clause (-clause_flag, id);
@@ -111,7 +111,7 @@ namespace car
 				//	~uc1, ~uc2, ...
 				// flag = 0 : Not enabled
 				int frame_flag = inv_and_flag_of(level);
- 				for (int i = 0; i < frame.size (); i ++)
+ 				for (size_t i = 0; i < frame.size (); i ++)
  				{
  					add_uc_and(frame[i],level);
  				}
@@ -121,7 +121,7 @@ namespace car
 			inline void add_uc(const Cube&uc, int level, int state_level)
 			{
 				// cout<<"update inv: level = "<<level <<" uc = ";
-				// for(int i:uc)
+				// for(size_t i:uc)
 				// cout<<i<<", ";
 				// cout<<endl;
 
@@ -137,7 +137,7 @@ namespace car
 				int frame_flag = inv_and_flag_of(level);
 				// v := ~l1 \/ ~l2 \/ ... \/ ~flag
 				std::vector<int> v;
-				for (int j = 0; j < uc.size (); ++j)
+				for (size_t j = 0; j < uc.size (); ++j)
 				{
 					int id = uc[j];
 					v.push_back (-id);
@@ -159,7 +159,7 @@ namespace car
 				// invalidate old frame flag.
 				int old_flag = or_flag[level];
 				assert(old_flag!=0);
-				for(int i = 0; i < old_flags.size(); ++i)
+				for(size_t i = 0; i < old_flags.size(); ++i)
 				{
 					if(old_flags[i] == old_flag)
 					{
@@ -174,7 +174,7 @@ namespace car
 				// generate a new clause flag for new uc.
 				int clause_flag = new_var ();
 				// add clause for this uc.
-				for (int j = 0; j < uc.size (); j ++)
+				for (size_t j = 0; j < uc.size (); j ++)
 				{
 					add_clause (-clause_flag, uc[j]);
 				}
@@ -218,7 +218,7 @@ namespace car
 			{
 				// invalidate old and_flag
 				std::vector<int> old_assumptions = get_assumption();
-				for(int i = 0; i < old_assumptions.size();++i)
+				for(size_t i = 0; i < old_assumptions.size();++i)
 				{
 					if(old_assumptions[i] == and_flag[level])
 					{
@@ -248,7 +248,7 @@ namespace car
 			void shrink_model (Assignment& model)
 			{
 				Assignment res=model;
-				for (int i = model_->num_inputs ()+1; i <= model_->num_inputs () + model_->num_latches (); i ++)
+				for(int i = model_->num_inputs ()+1; i <= model_->num_inputs () + model_->num_latches (); i ++)
 				{
 					int p = model_->prime (i);
 					assert (p != 0);
@@ -266,7 +266,7 @@ namespace car
 			void inv_update_U(USequence &U, State *s, int level, State * prior_state_in_trail)
 			{
                 
-				while(U.size() <= level)
+				while(U.size() <= size_t(level))
 					U.push_back({});
 				
 				U.push_back(s);

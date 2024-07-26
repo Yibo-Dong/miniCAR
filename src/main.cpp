@@ -78,7 +78,7 @@ string get_file_name(string &s)
 OPTIONS parse_args(int argc, char **argv)
 {
     OPTIONS opt;
-    for (int i = 1; i < argc; i++)
+    for(int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "--vb") == 0)
         {

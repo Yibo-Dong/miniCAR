@@ -252,17 +252,17 @@ public:
 	
 	inline vect clause (int id) const
 	{
-		return (vect){id};
+		return vect{id};
 	}
 	
 	inline vect clause (int id1, int id2) const
 	{
-		return (vect){id1, id2};
+		return vect{id1, id2};
 	}
 	
 	inline vect clause (int id1, int id2, int id3) const
 	{
-		return (vect){id1, id2, id3};
+		return vect{id1, id2, id3};
 	}
 	
 	inline void set_outputs_start ()

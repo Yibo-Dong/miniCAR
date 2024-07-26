@@ -35,7 +35,7 @@ namespace car
         // no flag. forever added.
         vec<Lit> lits(uc.size());
         int index = 0;
-        for (int id : uc)
+        for(size_t id : uc)
             lits[index++] = solver->SAT_lit(-id);
         solver->addClause(lits);
     }
