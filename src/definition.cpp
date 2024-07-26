@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
+#include <stack>
 #include "definition.h"
 
 using namespace std;
@@ -369,7 +370,7 @@ namespace car {
 			    		outputs_[i] = false_;
 			    }
 			}
-			recursively_add (aa, aig, exist_gates, gates);	
+			iteratively_add (aa, aig, exist_gates, gates);	
 		}
 		
 	}
@@ -382,6 +383,7 @@ namespace car {
 		return NULL;
 	}
 	
+	// deprecated. Recursion causes stack overflow on large cases.
 	void Problem::recursively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates)
 	{
 		if (aa == NULL)
@@ -396,6 +398,33 @@ namespace car {
 		
 		aiger_and* aa1 = necessary_gate (aa->rhs1, aig);
 		recursively_add (aa1, aig, exist_gates, gates);
+	}
+
+	void Problem::iteratively_add(const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates)
+	{
+		if(aa == NULL)
+			return;
+		std::stack<const aiger_and*> stk;
+		stk.push(aa);
+		while (!stk.empty())
+		{
+			const aiger_and* current = stk.top();
+			stk.pop();
+
+			if (exist_gates.find(current->lhs) != exist_gates.end())
+				continue;
+
+			gates.insert(current->lhs);
+			exist_gates.insert(current->lhs);
+
+			aiger_and* aa0 = necessary_gate(current->rhs0, aig);
+			if (aa0 != NULL)
+				stk.push(aa0);
+
+			aiger_and* aa1 = necessary_gate(current->rhs1, aig);
+			if (aa1 != NULL)
+				stk.push(aa1);
+		}
 	}
 	
 	/**

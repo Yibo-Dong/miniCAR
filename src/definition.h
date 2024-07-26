@@ -293,7 +293,10 @@ public:
 
 	void collect_necessary_gates (const aiger* aig, const aiger_symbol* as, const int as_size, std::set<unsigned>& exist_gates, std::set<unsigned>& gates, bool next = false);
 	aiger_and* necessary_gate (const unsigned id, const aiger* aig);
+    
+    // deprecated. Recursion causes stack overflow on large cases.
 	void recursively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates);
+    void iteratively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates);
 
 	void add_clauses_from_equation (const aiger_and* aa);
 	void create_constraints_for_latches ();
