@@ -1422,7 +1422,8 @@ namespace car
                 }
 
                 auto &frame = whichFrame(frame_level);
-                for (int i = frame.size()-1; i>= freshIndex; --i)
+                int i = freshIndex;
+                for (; i<frame.size(); ++i)
                 {
                     auto& uc = frame[i];
                     res = s->imply(uc);
@@ -1431,8 +1432,11 @@ namespace car
                         break;
                     }
                 }
-                // reach here, then we can update!
-                this_level_map[s->id] = frame.size();
+                if(res)
+                    this_level_map[s->id] = i;          // the one that blocks it
+                else
+                    this_level_map[s->id] = frame.size();  // end of the frame.
+                // cerr<<s->id<<"@"<<frame_level<<":"<<this_level_map[s->id]<<" ";
 
                 break;
             }
