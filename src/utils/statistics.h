@@ -373,8 +373,16 @@ class Statistics
             std::cout << "      \"SubUCRate\": "     << float(nSubUC) / float(nUC) <<","<<std::endl;
             std::cout << "      \"Rounds of iteration\": "  << num_rounds <<","<<std::endl;
             std::cout << "      \"Counts of try_by\": "     << num_try_by <<","<<std::endl;
+            /// for test uses.
+            if(time_1_1> 0 )
+                std::cout << "      \"T1\": "     << time_1_1/ 1000.0 <<","<<std::endl;
+            if(time_1_2> 0 )
+                std::cout << "      \"T2\": "     << time_1_2/ 1000.0 <<","<<std::endl;
+            if(time_1_3> 0 )
+                std::cout << "      \"T3\": "     << time_1_3/ 1000.0 <<","<<std::endl;
             std::cout << "      \"Global Time\": "     << time_global/ 1000.0 <<""<<std::endl;
-            
+
+
             std::cout<<"}"<<std::endl;
 
         }

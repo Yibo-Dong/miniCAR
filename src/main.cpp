@@ -165,6 +165,10 @@ OPTIONS parse_args(int argc, char **argv)
         {
             opt.subStat = true;
         }
+        else if (strcmp(argv[i], "--ms") == 0)
+        {
+            opt.multi_solver = true;
+        }
         else if (opt.inputPath.empty())
         {
             opt.inputPath = string(argv[i]);

@@ -19,9 +19,10 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver)
     {
-        main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
+        if(!multi_solver)
+            main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
         if (!backwardCAR)
         {
             // only forward needs these
@@ -47,6 +48,14 @@ namespace car
         {
             delete main_solver;
             main_solver = nullptr;
+        }
+        if(!main_solvers.empty())
+        {
+            for(auto& slv: main_solvers)
+            {
+                delete slv;
+                slv = nullptr;
+            }
         }
         if (start_solver)
         {
@@ -90,6 +99,31 @@ namespace car
         } while (false);
 
         return res;
+    }
+
+    MainSolver *Checker::getMainSolver(int level)
+    {
+        if(!multi_solver)
+            return main_solver;
+        else
+        {
+            CARStats.count_1_begin();
+            if(level >= main_solvers.size())
+            {
+                int needs = level - main_solvers.size() + 1;
+                while(needs > 0)
+                {
+                    auto *new_slv = new MainSolver(model_, !backwardCAR, get_rotate(), uc_no_sort);
+                    main_solvers.push_back(new_slv);                        
+                    --needs;
+                }
+            }
+            CARStats.count_1_end(1);
+            if(level <=0)
+                return main_solvers.at(0);
+            else
+                return main_solvers.at(level);
+        }
     }
 
     bool Checker::car()
@@ -226,7 +260,7 @@ namespace car
                     {
                         return true;
                     }
-                    State *tprime = getModel();
+                    State *tprime = getModel(dst);
                     
                     updateU(tprime, s);
 
@@ -257,7 +291,7 @@ namespace car
 
         if (rotate_enabled)
             rotates.push_back(rotate);
-        main_solver->add_new_frame(Otmp, OSize() - 1);
+        getMainSolver(OSize() - 1)->add_new_frame(Otmp, OSize() - 1);
         return false;
     }
 
@@ -517,6 +551,7 @@ namespace car
         Cube rres, rtmp;
         vector<Cube> ucs; // this is used for subsumption test, will cause low-efficiency, do not turn it on in practical scenarios.
 
+        MainSolver* ms = getMainSolver(level);
         bool res = false;
         if (level == -1)
         {
@@ -629,7 +664,7 @@ namespace car
                 }
             } while (0);
 
-            
+
             vector<Cube> pref = reorderAssum(inter, rres, rtmp);
             
 
@@ -646,7 +681,7 @@ namespace car
                     int j = dis(gen);
                     std::swap(shuff_helper[i], shuff_helper[j]);
                 }
-                main_solver->set_assumption(s, level,  {shuff_helper});
+                ms->set_assumption(s, level,  {shuff_helper});
                 break;
             }
 
@@ -654,8 +689,8 @@ namespace car
             {
                 // FIXME: implement this part to be a real decision procedure.
                 std::vector<int> exp = s->get_latches(); // tmp only.
-                main_solver->set_expectation(exp);
-                main_solver->set_assumption(s, level,  pref);
+                ms->set_expectation(exp);
+                ms->set_assumption(s, level,  pref);
                 break;
             }
 
@@ -663,14 +698,14 @@ namespace car
             case 0: // traditional one, no need to shuffel
             default:
             {
-                main_solver->set_assumption(s, level,  pref);
+                ms->set_assumption(s, level,  pref);
                 // do nothing
                 break;
             }
             }
             
             CARStats.count_main_solver_original_time_start();
-            res = main_solver->solve_assumption();
+            res = ms->solve_assumption();
             if(res)
             {
                 // if sat, no uc, we just update it here.
@@ -680,7 +715,7 @@ namespace car
         if(!res)
         {
             // update the UC.
-            Cube uc = main_solver->get_conflict();
+            Cube uc = ms->get_conflict();
 
             if(subStat)
             {
@@ -811,7 +846,7 @@ namespace car
 
                 CARStats.count_main_solver_convergence_time_start();
                 // get another conflict!
-                auto nextuc = main_solver->get_conflict_another(LOStrategy, amount);
+                auto nextuc = ms->get_conflict_another(LOStrategy, amount);
                 
                 if(subStat)
                 {
@@ -846,9 +881,9 @@ namespace car
         return res;
     }
 
-    State *Checker::getModel()
+    State *Checker::getModel(int level)
     {
-        State *s = main_solver->get_state();
+        State *s = getMainSolver(level)->get_state();
         // NOTE: if it is the last state, it will be set last-inputs later.
         clear_defer(s);
         return s;
@@ -880,7 +915,7 @@ namespace car
         
 
         if (dst_level_plus_one < OSize())
-            main_solver->add_clause_from_cube(uc, dst_level_plus_one);
+            getMainSolver(dst_level_plus_one)->add_clause_from_cube(uc, dst_level_plus_one);
         else if (dst_level_plus_one == OSize())
         {
             if (!backwardCAR)
@@ -1046,7 +1081,7 @@ namespace car
                         {
                             ImplySolver::add_uc(frame[index],findex);
                         }
-                        main_solver->add_new_frame(Onp[0], Onp.size() - 1);
+                        getMainSolver(0)->add_new_frame(Onp[0], Onp.size() - 1);
                     }
 
                     if(get_rotate())
@@ -1150,9 +1185,9 @@ namespace car
         }
 
         if (backwardCAR)
-            main_solver->add_new_frame(Onp[0], Onp.size() - 1);
+            getMainSolver(0)->add_new_frame(Onp[0], Onp.size() - 1);
         if (!backwardCAR)
-            main_solver->add_new_frame(OI[0], OI.size() - 1);
+            getMainSolver(0)->add_new_frame(OI[0], OI.size() - 1);
 
 
 
@@ -1190,7 +1225,7 @@ namespace car
     // This is used in sequence initialization
     bool Checker::immediateCheck(State *from, bool &res, OFrame &O0)
     {
-        auto &solver = main_solver;
+        MainSolver* ms = getMainSolver(0);
         // NOTE: init may not be already set.
         vector<int> latches = from->get_latches();
 
@@ -1198,11 +1233,11 @@ namespace car
         do
         {
             CARStats.count_main_solver_original_time_start();
-            if (solver->badcheck(latches, bad_))
+            if (ms->badcheck(latches, bad_))
             {
                 CARStats.count_main_solver_original_time_end(true,0);
                 // if sat. already find the cex.
-                State *s = solver->get_state(); // no need to shrink here
+                State *s = ms->get_state(); // no need to shrink here
                 clear_defer(s);
                 whichPrior()[s] = from;
                 whichCEX() = s;
@@ -1210,7 +1245,7 @@ namespace car
                 return true;
             }
             // NOTE: the last bit in uc is added in.
-            Cube cu = solver->get_conflict_no_bad(bad_); // filter 'bad'
+            Cube cu = ms->get_conflict_no_bad(bad_); // filter 'bad'
             CARStats.count_main_solver_original_time_end(false,cu.size());
             
             if (cu.empty())
@@ -1247,6 +1282,7 @@ namespace car
     bool Checker::finalCheck(State *from)
     {
         bool direction = !backwardCAR;
+        MainSolver *ms = getMainSolver(0);
         if (direction)
         // in forward CAR, last target state is Init. Initial state is a concrete state, therefore it is bound to be reachable (within 0 steps). Here we only need to update the cex structure.
         {
@@ -1257,11 +1293,11 @@ namespace car
         // in backward car, we use uc0 instead of ~P to initialize Ob[0]. This makes it possible to return false, because uc0 is necessary but not essential.
         {
             // check whether it's in it.
-            bool res = main_solver->badcheck(from->get_latches(), bad_);
+            bool res = ms->badcheck(from->get_latches(), bad_);
             if (res)
             {
                 // OK. counter example is found.    
-                State *s = main_solver->get_state();
+                State *s = ms->get_state();
                 clear_defer(s);
                 whichPrior()[s] = from;
                 whichCEX() = s;

@@ -395,6 +395,8 @@ public:
         int impMethod = 0;
         /// option for subsumption. NOTE: this is heavy!
         bool subStat = false;
+        /// use a seperate solver for each frame.
+        bool multi_solver = false;
 
         std::string inputPath;
         std::string outputPath;

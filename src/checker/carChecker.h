@@ -50,6 +50,7 @@ namespace car
         bool subStat = false;
         bool partial = false;
         bool restart_enabled = false;
+        bool multi_solver = false;
 
     public:
         /**
@@ -176,9 +177,17 @@ namespace car
         const int bad_;
         Problem         *model_         = nullptr;
         StartSolver     *start_solver   = nullptr;
-        MainSolver      *main_solver    = nullptr;
         PartialSolver   *partial_solver = nullptr;
         InvSolver       *inv_solver     = nullptr;
+        /// @brief if one solver shared among all the frames, use this
+        MainSolver      *main_solver    = nullptr;
+        /// else, use this.
+        std::vector<MainSolver*> main_solvers = {};
+        /**
+         * @brief Get the Main Solver of `level`. 
+         * @note if level < 0, reuse that of level 0.
+         */
+        MainSolver* getMainSolver(int level);
 
         USequence Uf, Ub; /// Uf[0] is not explicitly constructed
         OSequence Onp, OI;
@@ -243,7 +252,7 @@ namespace car
          *
          * @return State* : the state representing the solution, which is to be added to the U sequence.
          */
-        State *getModel();
+        State *getModel(int level);
 
         /**
          * @brief Update U sequence, and push into cex vector
