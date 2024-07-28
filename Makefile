@@ -22,6 +22,13 @@ else
 RANDOM_FLAG=-DRANDSEED=$(SEED)
 endif
 
+ifeq ($(OPT),NONE)
+OPT_LEVEL = 
+else
+OPT_LEVEL = -Ofast
+endif
+
+
 SOURCES = src/thirdParty/aiger/aiger.c \
 			src/checker/carChecker.cpp src/checker/bmcChecker.cpp \
 			src/solver/carsolver.cpp src/solver/mainsolver.cpp src/solver/newpartialsolver.cpp src/solver/implysolver.cpp\
@@ -32,7 +39,7 @@ OBJECTS = carsolver.o implysolver.o newpartialsolver.o mainsolver.o main.o aiger
 
 CFLAG = $(INCLUDE_DIRS) -D__STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -c -g
 LFLAG = -g -lz -lpthread 
-OPTFLAG = -Ofast -march=native -frename-registers -funroll-loops -fno-signed-zeros # consider using -fprofile-generate and -fprofile-use
+OPTFLAG = $(OPT_LEVEL) -march=native -frename-registers -funroll-loops -fno-signed-zeros # consider using -fprofile-generate and -fprofile-use
 
 GCC = gcc
 GXX = g++
