@@ -239,6 +239,24 @@ class Statistics
             nSubUC += sub;
         }
 
+        /// propagation time
+        clock_high prop_begin_, prop_end_;
+        double time_prop = 0.0;
+        int ntime_prop;
+        int ntime_prop_succ;
+        inline void count_prop_begin() { 
+            prop_begin_ = steady_clock::now(); 
+        }
+        inline void count_prop_end(bool succeed)
+        {
+            ++ntime_prop;
+            if(succeed)
+                ++ntime_prop_succ;
+            prop_end_ = steady_clock ::now();
+            duration_high elapsed = prop_end_ - prop_begin_;
+            time_prop = elapsed.count();
+        }
+
         /// helper for debug.
         clock_high begin_1, end_1;
         double time_1_1 = 0.0;
@@ -339,29 +357,29 @@ class Statistics
 
             std::cout << "      \"Status\": \""<<status <<"\","<<std::endl;
             std::cout << "      \"Original main solver SAT Calls\": {" <<std::endl;
-            std::cout << "      \"Total Time\": "    << time_main_solver_original_calls_ / 1000.0 <<","<<std::endl;
-            std::cout << "      \"Total Count\": "    << num_main_solver_original_calls_total <<","<<std::endl;            
-            std::cout << "      \"Success\": "  << num_main_solver_original_calls_success <<","<<std::endl;        
-            std::cout << "      \"Failed\": "   << num_main_solver_original_calls_failed <<","<<std::endl;
-            std::cout << "      \"Tried before\": "   << num_tried_before <<","<<std::endl;
+            std::cout << "      \t\"Total Time\": "    << time_main_solver_original_calls_ / 1000.0 <<","<<std::endl;
+            std::cout << "      \t\"Total Count\": "    << num_main_solver_original_calls_total <<","<<std::endl;            
+            std::cout << "      \t\"Success\": "  << num_main_solver_original_calls_success <<","<<std::endl;        
+            std::cout << "      \t\"Failed\": "   << num_main_solver_original_calls_failed <<","<<std::endl;
+            std::cout << "      \t\"Tried before\": "   << num_tried_before <<","<<std::endl;
             
             std::cout << "      \"UC length avergage\": "   << uc_len_original <<""<<std::endl; 
             std::cout << "      },"<<std::endl;
 
             std::cout << "      \"Convergence main solver SAT Calls\": {" <<std::endl;
-            std::cout << "      \"Total Time\": "    << time_main_solver_convergence_calls_ / 1000.0 <<","<<std::endl;
-            std::cout << "      \"Total Count\": "    << num_main_solver_convergnece_calls_ <<","<<std::endl; 
-            std::cout << "      \"shorter UC\": "   << num_main_solver_convergence_shorter <<","<<std::endl; 
-            std::cout << "      \"UC length avergage\": "   << uc_len_conv <<""<<std::endl; 
+            std::cout << "      \t\"Total Time\": "    << time_main_solver_convergence_calls_ / 1000.0 <<","<<std::endl;
+            std::cout << "      \t\"Total Count\": "    << num_main_solver_convergnece_calls_ <<","<<std::endl; 
+            std::cout << "      \t\"shorter UC\": "   << num_main_solver_convergence_shorter <<","<<std::endl; 
+            std::cout << "      \t\"UC length avergage\": "   << uc_len_conv <<""<<std::endl; 
             std::cout << "      },"<<std::endl;
 
             std::cout << "      \"Implication\": {" <<std::endl;
-            std::cout << "      \"Decision\": "    << imply_decision_str <<","<<std::endl;
-            std::cout << "      \"Solver\": "    << time_imply_dec_sol <<","<<std::endl;
-            std::cout << "      \"Manual\": "    << time_imply_dec_man <<","<<std::endl;
+            std::cout << "      \t\"Decision\": "    << imply_decision_str <<","<<std::endl;
+            std::cout << "      \t\"Solver\": "    << time_imply_dec_sol <<","<<std::endl;
+            std::cout << "      \t\"Manual\": "    << time_imply_dec_man <<","<<std::endl;
             
-            std::cout << "      \"Total Time\": "    << time_imply / 1000.0 <<","<<std::endl;
-            std::cout << "      \"Group Count\": "    << count_imply <<std::endl; 
+            std::cout << "      \t\"Total Time\": "    << time_imply / 1000.0 <<","<<std::endl;
+            std::cout << "      \t\"Group Count\": "    << count_imply <<std::endl; 
             std::cout << "      },"<<std::endl;
             if(!solverWin.empty() || !manualWin.empty())
             {
@@ -373,6 +391,11 @@ class Statistics
             std::cout << "      \"SubUCRate\": "     << float(nSubUC) / float(nUC) <<","<<std::endl;
             std::cout << "      \"Rounds of iteration\": "  << num_rounds <<","<<std::endl;
             std::cout << "      \"Counts of try_by\": "     << num_try_by <<","<<std::endl;
+            std::cout << "      \"Propagation\": {" <<std::endl;
+            std::cout << "      \t\"Amount\": "       << ntime_prop <<","<<std::endl;            
+            std::cout << "      \t\"Succeed\": "          << ntime_prop_succ <<","<<std::endl; 
+            std::cout << "      \t\"Total Time\": "    << time_prop / 1000.0 <<","<<std::endl;
+            std::cout << "      },"<<std::endl;
             /// for test uses.
             if(time_1_1> 0 )
                 std::cout << "      \"T1\": "     << time_1_1/ 1000.0 <<","<<std::endl;

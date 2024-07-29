@@ -51,6 +51,7 @@ namespace car
         bool partial = false;
         bool restart_enabled = false;
         bool multi_solver = false;
+        bool propagate = false;
 
     public:
         /**
@@ -183,6 +184,8 @@ namespace car
         MainSolver      *main_solver    = nullptr;
         /// else, use this.
         std::vector<MainSolver*> main_solvers = {};
+        // Propagation Solver.
+        MainSolver      *prop_solver    = nullptr;
         /**
          * @brief Get the Main Solver of `level`. 
          * @note if level < 0, reuse that of level 0.

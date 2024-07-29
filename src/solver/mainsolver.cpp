@@ -75,6 +75,8 @@ namespace car
         assumptions.clear();
         if (frame_level > -1) // should always satisfy
 			assumptions.push (SAT_lit (flag_of(frame_level)));
+        
+        /// TODO: deactivate other frames
         for(size_t i = 0; i < prefers.size(); ++i)
 		{
 			auto &vec = prefers[i];
@@ -223,8 +225,24 @@ namespace car
 		add_clause (cl);
 	}
 
-	void MainSolver::shrink_model(Assignment& model)
-	{
+    // for propagation use only.
+    void MainSolver::add_clause_from_cube(const Cube &cu, int flag, bool __placeholder)
+    {
+        vector<int> cl;
+        cl.reserve(cu.size() +1);
+        // flag
+        if(flag >= 0)
+            cl.push_back(flag);
+		// negate of cu.
+        for(size_t i = 0; i < cu.size (); i ++)
+		{
+            cl.push_back (-cu[i]);
+		}
+		add_clause (cl);
+    }
+
+    void MainSolver::shrink_model(Assignment& model)
+    {
 		Assignment res = model;
 
 		int num_inputs = _model->num_inputs();

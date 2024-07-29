@@ -81,6 +81,30 @@ namespace car
 		void set_assumption(State *s, const int frame_level);
 		// same as ↑, with `prefers` flattened and placed in the front.
         void set_assumption(State *s, const int frame_level, const std::vector<Cube>& prefers);
+        // set assumption used for prapagation:
+        inline void set_assumption_primed(Cube& uc_or_flags) {
+            for (auto& l : uc_or_flags)
+            {
+                // only the latch variables could get the primed version
+                if(_model->latch_var(l))
+                {
+                    int target = _model->prime(l);
+                    assumptions.push(SAT_lit(target));
+                }
+                else{
+                    // as to the flags, just push them.
+                    assumptions.push(SAT_lit(l));
+                }
+            }
+        }
+
+        inline void set_assumption(Cube& uc) {
+            for (auto& l : uc)
+            {
+                int target = l;
+                assumptions.push(SAT_lit(target));
+            }
+        }
 		
 
         // here we could like to reuse the data-structure for phase-saving within Minisat, in order to guide it when SAT.
@@ -105,6 +129,12 @@ namespace car
 
 		void add_clause_from_cube(const Cube &cu, const int frame_level);
 
+        // without the frame level, without prime.
+        // if flag > 0, a real flag : also add the flag
+        // if not, just ignore the flag.
+        // FIXME: this is ugly.
+		void add_clause_from_cube(const Cube &cu, int flag, bool __placeholder);
+
 		void shrink_model(Assignment &model);
 
 	public:
@@ -119,6 +149,16 @@ namespace car
 			}
 			return flags.at(frame_level);
 		}
+
+        // the # of prop flags.
+        int nPropFlags = 0;
+        //TODO: std::vector<int> PropFlags;
+        inline int getNewPropFlag()
+        {
+            ++nPropFlags;
+            return ++max_flag;
+        }
+
 		
 
 

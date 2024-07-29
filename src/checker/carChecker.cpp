@@ -19,10 +19,15 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propagate(opt.propagate)
     {
         if(!multi_solver)
+        {
             main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
+            // also initialize the prop solver.
+            prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
+        }    
+
         if (!backwardCAR)
         {
             // only forward needs these
@@ -66,6 +71,11 @@ namespace car
         {
             delete partial_solver;
             partial_solver = nullptr;
+        }
+        if (prop_solver)
+        {
+            delete prop_solver;
+            prop_solver = nullptr;
         }
     }
 
@@ -716,6 +726,61 @@ namespace car
         {
             // update the UC.
             Cube uc = ms->get_conflict();
+
+            /**
+             * @brief Check for UC propagation to lower frames(in Backward CAR)
+             * 
+             * basis: at level l+1: !uc
+             *     |= !uc /\ T -> (!uc')
+             * <=> UNSAT(!uc /\ T /\ (uc'))
+             */
+
+            /**
+             * @todo Play with it!
+             * 1. Only short UCs?
+             * 2. Only to particular Frames? (close ones, low-level ones, small-size ones)
+             * 3. Trigger time: Only if the 2nd UC == 1st UC? (It seems to be the unique UC?)
+             */
+            if (propagate)
+            {
+                CARStats.count_prop_begin();
+                prop_solver->clear_assumption();
+                
+                vector<int> assumption;
+                assumption.reserve(prop_solver->nPropFlags + uc.size() + 1);
+
+                int new_flag = prop_solver->getNewPropFlag();
+                for(int i = 1; i < prop_solver->nPropFlags; ++i)
+                {
+                    // deactivate all the previous ones.
+                    assumption.push_back( (new_flag - i) );
+                }
+                // activate the current one:
+                assumption.push_back(-new_flag);
+
+                // the UC:
+                assumption.insert(assumption.end(), uc.begin(), uc.end());
+
+                // assumption ::= <uc'>, - (previous flags), current flag.
+                prop_solver->set_assumption_primed(assumption); // uc'
+
+                // clause ::= !uc , current flag.
+                prop_solver->add_clause_from_cube(uc,new_flag, true);  // !uc
+                
+
+                // check if !uc is inductive
+                bool prop_res = prop_solver->solve_assumption();
+
+
+                if (!prop_res) { // !uc is inductive
+                    // add !uc to all frames *downwards*
+                
+                    // CHECKME: f>0 or f>=0 ?
+                    for (int f = level; f >= 0; --f)
+                        addUCtoSolver(uc, f);
+                }
+                CARStats.count_prop_end(!prop_res);
+            }
 
             if(subStat)
             {
