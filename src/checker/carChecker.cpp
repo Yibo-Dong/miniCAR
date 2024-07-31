@@ -745,41 +745,75 @@ namespace car
             if (propagate)
             {
                 CARStats.count_prop_begin();
-                prop_solver->clear_assumption();
-                
-                vector<int> assumption;
-                assumption.reserve(prop_solver->nPropFlags + uc.size() + 1);
+                bool prop_res = true;
+                vector<int> uc_to_shrink = uc; // heavy.
+                do{
+                    prop_solver->clear_assumption();
+                    
+                    vector<int> assumption;
+                    assumption.reserve(prop_solver->nPropFlags + uc_to_shrink.size() + 1);
 
-                int new_flag = prop_solver->getNewPropFlag();
-                for(int i = 1; i < prop_solver->nPropFlags; ++i)
+                    int new_flag = prop_solver->getNewPropFlag();
+                    for(int i = 1; i < prop_solver->nPropFlags; ++i)
+                    {
+                        // deactivate all the previous ones.
+                        assumption.push_back( (new_flag - i) );
+                    }
+                    // activate the current one:
+                    assumption.push_back(-new_flag);
+
+                    // the UC:
+                    assumption.insert(assumption.end(), uc_to_shrink.begin(), uc_to_shrink.end());
+
+                    // assumption ::= <uc'>, - (previous flags), current flag.
+                    prop_solver->set_assumption_primed(assumption); // uc'
+
+                    // clause ::= !uc , current flag.
+                    prop_solver->add_clause_from_cube(uc_to_shrink,new_flag, true);  // !uc
+                    
+                    // check if !uc is inductive
+                    prop_res = prop_solver->solve_assumption();
+
+                    // do minimization of UC:
+                    if(!prop_res)
+                    {
+                        auto upcoming_uc = prop_solver -> get_uc();
+                        
+                        if(upcoming_uc.size() < uc_to_shrink.size())
+                        {
+                            // map prop_uc -> 'previous' version.
+                            // note: not unique, just take the first one.
+                            model_->shrink_uc_to_previous(upcoming_uc);
+
+                            // cerr<<"shrink to:"<<endl;
+                            // for(int i:upcoming_uc)
+                            //     cerr<<i<<", ";
+                            // cerr<<endl;
+
+                            uc_to_shrink = upcoming_uc;
+                            if(upcoming_uc.size() <= 1)
+                            {
+                                break;
+                            }
+                        }
+                        else{
+                            break;
+                        }
+
+                        
+                    }
+                    else{
+                        assert(uc_to_shrink.size() == uc.size() && "It should be the original uc. Otherwise, it should be inducive.");
+                    }
+
+                }while(!prop_res);
+
+                if(!prop_res)
                 {
-                    // deactivate all the previous ones.
-                    assumption.push_back( (new_flag - i) );
-                }
-                // activate the current one:
-                assumption.push_back(-new_flag);
-
-                // the UC:
-                assumption.insert(assumption.end(), uc.begin(), uc.end());
-
-                // assumption ::= <uc'>, - (previous flags), current flag.
-                prop_solver->set_assumption_primed(assumption); // uc'
-
-                // clause ::= !uc , current flag.
-                prop_solver->add_clause_from_cube(uc,new_flag, true);  // !uc
-                
-
-                // check if !uc is inductive
-                bool prop_res = prop_solver->solve_assumption();
-
-
-                if (!prop_res) { // !uc is inductive
-                    // add !uc to all frames *downwards*
-                
-                    // CHECKME: f>0 or f>=0 ?
                     for (int f = level; f >= 0; --f)
-                        addUCtoSolver(uc, f);
+                        addUCtoSolver(uc_to_shrink, f);
                 }
+
                 CARStats.count_prop_end(!prop_res);
             }
 

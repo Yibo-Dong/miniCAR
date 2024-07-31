@@ -219,6 +219,9 @@ public:
     inline const std::vector<int> &init() const { return init_; }
 
     void shrink_to_previous_vars    (Cube &cu) const;
+    // shrink the uc to its 'previous' version.
+    // note: maybe not unique. just take the first one.
+    void shrink_uc_to_previous      (Cube& uc) const;
     void shrink_to_latch_vars       (Cube &cu) const;
 	
 public:
