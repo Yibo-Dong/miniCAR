@@ -195,8 +195,8 @@ public:
     /// get those literals whose next is this.
 	std::vector<int> previous (const int) const;
 	
-	bool state_var (const int id) const {return (id >= 1) && (id <= num_inputs_+num_latches_);}
-	bool latch_var (const int id) const {return (id >= num_inputs_+1) && (id <= num_inputs_+num_latches_);}
+	bool state_var (const int id) const {return (abs(id) >= 1) && (abs(id) <= num_inputs_+num_latches_);}
+	bool latch_var (const int id) const {return (abs(id) >= num_inputs_+1) && (abs(id) <= num_inputs_+num_latches_);}
 
     inline int num_inputs()         const { return num_inputs_; }
     inline int num_latches()        const { return num_latches_; }

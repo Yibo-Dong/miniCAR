@@ -254,7 +254,7 @@ class Statistics
                 ++ntime_prop_succ;
             prop_end_ = steady_clock ::now();
             duration_high elapsed = prop_end_ - prop_begin_;
-            time_prop = elapsed.count();
+            time_prop += elapsed.count();
         }
 
         /// helper for debug.

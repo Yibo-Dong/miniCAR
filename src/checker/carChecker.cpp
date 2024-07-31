@@ -726,6 +726,7 @@ namespace car
         {
             // update the UC.
             Cube uc = ms->get_conflict();
+            CARStats.count_main_solver_original_time_end(res,uc.size());
 
             /**
              * @brief Check for UC propagation to lower frames(in Backward CAR)
@@ -793,7 +794,6 @@ namespace car
                 cerr<<"uc is empty!"<<endl;
                 safe_reported = true;
             }
-            CARStats.count_main_solver_original_time_end(res,uc.size());
 
             addUCtoSolver(uc, level + 1);
         }
