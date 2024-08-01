@@ -51,7 +51,29 @@ namespace car
         bool partial = false;
         bool restart_enabled = false;
         bool multi_solver = false;
-        bool propagate = false;
+
+    public:
+        /**
+         * @section auxiliary data structures.
+         */
+
+        ///////////////////////////////////
+        /// @subsection Propagation     ///
+        ///////////////////////////////////
+
+        enum PropModeEnum
+        {
+            PropNone        = 0,    // not activate.
+            PropAlways      = 1,    // Do propagation check always
+            PropShort       = 2,    // Only Propagate when it's a short UC
+            PropContinue    = 3,    // If propagation succeed, continue for the next frame.
+            PropShortCont   = 4,    // Short && Continue
+        };
+        int propMode = 0;
+        int propParam = 0;
+
+        // should only call after an UNSAT main call.
+        void propagate(Cube& uc, int level);
 
     public:
         /**

@@ -93,8 +93,18 @@ OPTIONS parse_args(int argc, char **argv)
             opt.forward = true;
         else if (strcmp(argv[i], "-b") == 0)
             opt.forward = false;
-        else if (strcmp(argv[i], "--prop") == 0)
-            opt.propagate = true;
+        else if (strcmp(argv[i], "--propMode") == 0)
+        {
+            assert(i + 1 < argc);
+            ++i;
+            opt.propMode = atoi(argv[i]);
+        }
+        else if (strcmp(argv[i], "--propParam") == 0)
+        {
+            assert(i + 1 < argc);
+            ++i;
+            opt.propParam = atoi(argv[i]);
+        }
         else if (strcmp(argv[i], "--partial") == 0)
             opt.partial = true;
         else if (strcmp(argv[i], "-h") == 0)

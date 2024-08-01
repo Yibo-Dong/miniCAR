@@ -19,7 +19,7 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propagate(opt.propagate)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam)
     {
         if(!multi_solver)
         {
@@ -302,6 +302,8 @@ namespace car
         if (rotate_enabled)
             rotates.push_back(rotate);
         getMainSolver(OSize() - 1)->add_new_frame(Otmp, OSize() - 1);
+        if (propMode>0)
+            prop_solver->add_new_frame(Otmp, OSize() - 1);
         return false;
     }
 
@@ -727,94 +729,11 @@ namespace car
             // update the UC.
             Cube uc = ms->get_conflict();
             CARStats.count_main_solver_original_time_end(res,uc.size());
-
-            /**
-             * @brief Check for UC propagation to lower frames(in Backward CAR)
-             * 
-             * basis: at level l+1: !uc
-             *     |= !uc /\ T -> (!uc')
-             * <=> UNSAT(!uc /\ T /\ (uc'))
-             */
-
-            /**
-             * @todo Play with it!
-             * 1. Only short UCs?
-             * 2. Only to particular Frames? (close ones, low-level ones, small-size ones)
-             * 3. Trigger time: Only if the 2nd UC == 1st UC? (It seems to be the unique UC?)
-             */
-            if (propagate)
+            
+            if (uc.empty())
             {
-                CARStats.count_prop_begin();
-                bool prop_res = true;
-                vector<int> uc_to_shrink = uc; // heavy.
-                do{
-                    prop_solver->clear_assumption();
-                    
-                    vector<int> assumption;
-                    assumption.reserve(prop_solver->nPropFlags + uc_to_shrink.size() + 1);
-
-                    int new_flag = prop_solver->getNewPropFlag();
-                    for(int i = 1; i < prop_solver->nPropFlags; ++i)
-                    {
-                        // deactivate all the previous ones.
-                        assumption.push_back( (new_flag - i) );
-                    }
-                    // activate the current one:
-                    assumption.push_back(-new_flag);
-
-                    // the UC:
-                    assumption.insert(assumption.end(), uc_to_shrink.begin(), uc_to_shrink.end());
-
-                    // assumption ::= <uc'>, - (previous flags), current flag.
-                    prop_solver->set_assumption_primed(assumption); // uc'
-
-                    // clause ::= !uc , current flag.
-                    prop_solver->add_clause_from_cube(uc_to_shrink,new_flag, true);  // !uc
-                    
-                    // check if !uc is inductive
-                    prop_res = prop_solver->solve_assumption();
-
-                    // do minimization of UC:
-                    if(!prop_res)
-                    {
-                        auto upcoming_uc = prop_solver -> get_uc();
-                        
-                        if(upcoming_uc.size() < uc_to_shrink.size())
-                        {
-                            // map prop_uc -> 'previous' version.
-                            // note: not unique, just take the first one.
-                            model_->shrink_uc_to_previous(upcoming_uc);
-
-                            // cerr<<"shrink to:"<<endl;
-                            // for(int i:upcoming_uc)
-                            //     cerr<<i<<", ";
-                            // cerr<<endl;
-
-                            uc_to_shrink = upcoming_uc;
-                            if(upcoming_uc.size() <= 1)
-                            {
-                                break;
-                            }
-                        }
-                        else{
-                            break;
-                        }
-
-                        
-                    }
-                    else{
-                        assert(uc_to_shrink.size() == uc.size() && "It should be the original uc. Otherwise, it should be inducive.");
-                    }
-
-                }while(!prop_res);
-
-                if(!prop_res)
-                {
-                    for (int f = level; f >= 0; --f)
-                        addUCtoSolver(uc_to_shrink, f);
-                }
-
-                CARStats.count_prop_end(!prop_res);
+                cerr<<"uc is empty!"<<endl;
+                safe_reported = true;
             }
 
             if(subStat)
@@ -823,6 +742,16 @@ namespace car
                 CARStats.recordUC(false);
             }
 
+            if (propMode > 0 && level > 0 && level + 1 < OSize())
+                propagate(uc, level);
+
+
+            if (uc.empty())
+            {
+                cerr<<"uc is empty!"<<endl;
+                safe_reported = true;
+            }
+            
             if (uc.empty())
             {
                 cerr<<"uc is empty!"<<endl;
@@ -980,6 +909,158 @@ namespace car
         return res;
     }
 
+    /**
+     * @brief Check for UC propagation to lower frames(in Backward CAR)
+     * 
+     * basis: at level l+1: !uc
+     *     |= !uc /\ T -> (!uc')
+     * <=> UNSAT(!uc /\ T /\ (uc'))
+     */
+    void Checker::propagate(Cube& uc, int level)
+    {
+        if(level <= 0 ||  level + 1 >= OSize())
+            return;
+        /**
+         * @todo Play with it!
+         * 1. Only short UCs?
+         * 2. Only to particular Frames? (close ones, low-level ones, small-size ones)
+         * 3. Trigger time: Only if the 2nd UC == 1st UC? (It seems to be the unique UC?)
+         */
+
+        switch (propMode)
+        {
+        
+            case PropAlways:
+            {
+                // do it.
+                break;
+            }
+            case PropShortCont:
+            case PropShort:
+            {
+                if(uc.size() > propParam)
+                    return;
+                // do it.
+                break;
+            }
+
+            case PropContinue:
+            {
+                break;
+            }
+            
+            default: // fall through.
+            case PropNone:
+            {
+                return;
+            }
+        }
+
+        // should be right after an UNSAT call.
+        CARStats.count_prop_begin();
+        prop_solver->clear_assumption();
+        
+        vector<int> assumption;
+        assumption.reserve(prop_solver->PropFlags.size() + uc.size() + 2);
+
+        // two approches:
+        // 1): insert all the fresh clauses of current state here.
+        // 2): everytime we update the main solver, we also update the prop_solver.
+        // Choose 2) at present to avoid maintaining the indexes of 'fresh'.
+
+        int Oflag = prop_solver->flag_of(level+1);
+        assumption.push_back(Oflag);
+
+        // deactivate all the previous ones.
+        for(int flg: prop_solver->PropFlags)
+        {
+            assumption.push_back( flg );
+        }
+        int new_flag = prop_solver->getNewPropFlag();
+        // activate the current one:
+        assumption.push_back(-new_flag);
+
+        // the UC:
+        assumption.insert(assumption.end(), uc.begin(), uc.end());
+
+        // assumption ::= <uc'>, - (previous flags), current flag.
+        prop_solver->set_assumption_primed(assumption); // uc'
+
+        // clause ::= !uc , current flag.
+        prop_solver->add_clause_from_cube(uc,new_flag, true);  // !uc
+        
+        // check if !uc is inductive
+        bool prop_res = prop_solver->solve_assumption();
+
+        // do minimization of UC:
+        if(!prop_res)
+        {
+            auto upcoming_uc = prop_solver -> get_uc();
+
+            bool strongInductive = false;// regardless of the frame.
+            // assert: flag should only appear in the back, or not.
+            // assert: activating flags should not appear.
+            if(prop_solver->levelOfFlag(upcoming_uc.back()) == ILLEGAL_FLAG)
+            {
+                strongInductive = true;
+            }
+            else
+            {
+                upcoming_uc.pop_back();
+                strongInductive = false;
+            }
+            // // sanity check
+            // for(auto lit: upcoming_uc)
+            // {
+            //     if(prop_solver->levelOfFlag(lit) != ILLEGAL_FLAG)
+            //     {
+            //         cerr<<"flags:\n";
+            //         for(int i:prop_solver->flags)
+            //         cerr<<i<<", ";
+            //         cerr<<endl;
+                    
+            //         cerr<<"prop flags:\n";
+            //         for(int i:prop_solver->PropFlags)
+            //         cerr<<i<<", ";
+            //         cerr<<endl;
+                    
+            //         cerr<<"flag is:\n";
+            //         cerr<<lit<<endl;
+            //         assert(false && "should not have let it in");
+
+            //     }
+            // }
+            
+            if(upcoming_uc.size() < uc.size())
+            {
+                // map prop_uc -> 'previous' version.
+                // note: not unique, just take the first one.
+                model_->shrink_uc_to_previous(upcoming_uc);
+                uc = upcoming_uc;
+            }
+
+            if(strongInductive)
+            {
+                // propagate to all previous levels
+                for (int f = level; f >= 0; --f)
+                    addUCtoSolver(uc, f);
+                // cerr<<"-1";
+            }
+            else{
+                // propagate to only level l.
+                addUCtoSolver(uc, level);
+                if(propMode == PropContinue || propMode == PropShortCont)
+                    propagate(uc,level - 1);
+                // cerr<<level;
+                // we could check whether it is relative to others.
+            }
+
+            
+        }
+
+        CARStats.count_prop_end(!prop_res);
+    }
+
     State *Checker::getModel(int level)
     {
         State *s = getMainSolver(level)->get_state();
@@ -1014,7 +1095,14 @@ namespace car
         
 
         if (dst_level_plus_one < OSize())
+        {
             getMainSolver(dst_level_plus_one)->add_clause_from_cube(uc, dst_level_plus_one);
+            if(propMode > 0)
+            {
+                // also update the propagation solver
+                prop_solver->add_clause_from_cube(uc, dst_level_plus_one);
+            }
+        }
         else if (dst_level_plus_one == OSize())
         {
             if (!backwardCAR)
@@ -1287,7 +1375,8 @@ namespace car
             getMainSolver(0)->add_new_frame(Onp[0], Onp.size() - 1);
         if (!backwardCAR)
             getMainSolver(0)->add_new_frame(OI[0], OI.size() - 1);
-
+        if (propMode > 0 && backwardCAR)
+            prop_solver->add_new_frame(Onp[0], Onp.size() - 1);
 
 
         return false;

@@ -138,6 +138,7 @@ namespace car
 		void shrink_model(Assignment &model);
 
 	public:
+        // flags. Starting from O[0].
 		std::vector<int> flags;
 
 		inline int flag_of(const int frame_level)
@@ -145,19 +146,31 @@ namespace car
 			assert(frame_level >= 0);
 			while(size_t(frame_level) >= flags.size())
 			{
-				flags.push_back(max_flag++);
+                ++max_flag;
+				flags.push_back(max_flag);
 			}
 			return flags.at(frame_level);
 		}
 
-        // the # of prop flags.
-        int nPropFlags = 0;
-        //TODO: std::vector<int> PropFlags;
+        inline int levelOfFlag(const int flag)
+        {
+            int abs_flag = abs(flag);
+            for(size_t i = 0; i< flags.size(); ++i)
+            {
+                if(abs_flag == flags[i])
+                    return i;
+            }
+            return ILLEGAL_FLAG; // does not exists.
+        }
+
+        std::vector<int> PropFlags;
         inline int getNewPropFlag()
         {
-            ++nPropFlags;
-            return ++max_flag;
+            ++max_flag;
+            PropFlags.push_back(max_flag);
+            return max_flag;
         }
+        
 
 		
 

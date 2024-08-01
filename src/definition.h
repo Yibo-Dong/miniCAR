@@ -28,7 +28,7 @@ extern "C" {
 #include "aiger.h"
 }
 #include "assert.h"
-
+#define ILLEGAL_FLAG -2
 namespace car
 {
     /// ##################################################
@@ -369,8 +369,7 @@ public:
         bool bmc = false;
         /// forward CAR / backward CAR
         bool forward = false;
-        /// use propagation
-        bool propagate = false;
+
         /// partial state enabled during forward-CAR.
         bool partial = false;
         /// enable rotate
@@ -400,6 +399,10 @@ public:
         bool subStat = false;
         /// use a seperate solver for each frame.
         bool multi_solver = false;
+
+        /// use propagation
+        int propMode = 0;
+        int propParam = 0;
 
         std::string inputPath;
         std::string outputPath;
