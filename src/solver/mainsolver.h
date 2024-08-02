@@ -146,8 +146,8 @@ namespace car
 			assert(frame_level >= 0);
 			while(size_t(frame_level) >= flags.size())
 			{
-                ++max_flag;
-				flags.push_back(max_flag);
+                int flag = max_flag++;
+				flags.push_back(flag);
 			}
 			return flags.at(frame_level);
 		}
@@ -166,9 +166,9 @@ namespace car
         std::vector<int> PropFlags;
         inline int getNewPropFlag()
         {
-            ++max_flag;
-            PropFlags.push_back(max_flag);
-            return max_flag;
+            int flag = max_flag++;
+            PropFlags.push_back(flag);
+            return flag;
         }
         
 
