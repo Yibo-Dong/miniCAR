@@ -693,7 +693,7 @@ namespace car
                     int j = dis(gen);
                     std::swap(shuff_helper[i], shuff_helper[j]);
                 }
-                ms->set_assumption(s, level,  {shuff_helper});
+                ms->set_assumption_M(s, level,  {shuff_helper});
                 break;
             }
 
@@ -702,7 +702,7 @@ namespace car
                 // FIXME: implement this part to be a real decision procedure.
                 std::vector<int> exp = s->get_latches(); // tmp only.
                 ms->set_expectation(exp);
-                ms->set_assumption(s, level,  pref);
+                ms->set_assumption_M(s, level,  pref);
                 break;
             }
 
@@ -710,7 +710,7 @@ namespace car
             case 0: // traditional one, no need to shuffel
             default:
             {
-                ms->set_assumption(s, level,  pref);
+                ms->set_assumption_M(s, level,  pref);
                 // do nothing
                 break;
             }

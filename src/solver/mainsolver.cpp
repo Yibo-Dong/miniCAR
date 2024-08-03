@@ -58,11 +58,21 @@ namespace car
 	 * @param s 
 	 * @param frame_level 
 	 */
-    void MainSolver::set_assumption(State*s,  const int frame_level)
+    void MainSolver::set_assumption_M(State*s,  const int frame_level)
     {
         assumptions.clear();
-        if (frame_level > -1)
-			assumptions.push (SAT_lit (MFlagOf(frame_level)));
+        if (frame_level > -1) // should always satisfy
+		{
+			// activate this frame
+			auto flagOfThisFrame = MFlagOf(frame_level);
+			assumptions.push (SAT_lit (flagOfThisFrame));
+			// deactivate others
+			for(auto flg : MFlags)
+			{
+				if (flg != flagOfThisFrame)
+					assumptions.push(SAT_lit(-flg));
+			}
+		}
 		for (const int &id :s->get_latches())
 		{
 			int target = reverseT ? _model->prime (id) : id;
@@ -70,11 +80,22 @@ namespace car
 		}
     }
 
-	void MainSolver::set_assumption(State*s,  const int frame_level, const std::vector<Cube> & prefers)
+	void MainSolver::set_assumption_M(State*s,  const int frame_level, const std::vector<Cube> & prefers)
     {
         assumptions.clear();
         if (frame_level > -1) // should always satisfy
-			assumptions.push (SAT_lit (MFlagOf(frame_level)));
+		{
+			// activate this frame
+			auto flagOfThisFrame = MFlagOf(frame_level);
+			assumptions.push (SAT_lit (flagOfThisFrame));
+			// deactivate others
+			for(auto flg : MFlags)
+			{
+				if (flg != flagOfThisFrame)
+					assumptions.push(SAT_lit(-flg));
+			}
+		}
+		
         
         /// TODO: deactivate other frames
         for(size_t i = 0; i < prefers.size(); ++i)

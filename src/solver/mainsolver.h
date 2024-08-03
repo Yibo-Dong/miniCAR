@@ -78,9 +78,9 @@ namespace car
          * @brief check SAT(_s_  /\ T  /\ O_l' ) in backward CAR, or
          *              SAT(_s_' /\ T  /\ O_l  ) in forward CAR.
          */
-		void set_assumption(State *s, const int frame_level);
+		void set_assumption_M(State *s, const int frame_level);
 		// same as ↑, with `prefers` flattened and placed in the front.
-        void set_assumption(State *s, const int frame_level, const std::vector<Cube>& prefers);
+        void set_assumption_M(State *s, const int frame_level, const std::vector<Cube>& prefers);
         // set assumption used for prapagation:
         inline void set_assumption_primed(Cube& uc_or_flags) {
             assert(assumptions.size() == 0);
