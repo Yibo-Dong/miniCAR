@@ -28,7 +28,8 @@ extern "C" {
 #include "aiger.h"
 }
 #include "assert.h"
-#define ILLEGAL_FLAG -2
+#define NOT_M_FLAG -2
+#define NOT_P_FLAG -3
 namespace car
 {
     /// ##################################################
@@ -221,7 +222,7 @@ public:
     void shrink_to_previous_vars    (Cube &cu) const;
     // shrink the uc to its 'previous' version.
     // note: maybe not unique. just take the first one.
-    void shrink_uc_to_previous      (Cube& uc) const;
+    void transform_uc_to_previous      (Cube& uc) const;
     void shrink_to_latch_vars       (Cube &cu) const;
 	
 public:

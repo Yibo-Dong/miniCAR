@@ -301,9 +301,9 @@ namespace car
 
         if (rotate_enabled)
             rotates.push_back(rotate);
-        getMainSolver(OSize() - 1)->add_new_frame(Otmp, OSize() - 1);
+        getMainSolver(OSize() - 1)->add_new_frame_M(Otmp, OSize() - 1);
         if (propMode>0)
-            prop_solver->add_new_frame(Otmp, OSize() - 1);
+            prop_solver->add_new_frame_P(Otmp, OSize() - 1);
         return false;
     }
 
@@ -732,33 +732,39 @@ namespace car
             
             if (uc.empty())
             {
-                cerr<<"uc is empty!"<<endl;
+                cerr<<"uc is empty@1!"<<endl;
                 safe_reported = true;
+                cerr<<"error level is "<<level<<endl;
+                cerr<<"corresponding O frame is "<<endl;
+                for(auto &cls: whichFrame(level))
+                {
+                    for(auto &lit: cls)
+                    {
+                        cerr<<lit<<" ";
+                    }
+                    cerr<<endl;
+                }
+                cerr<<"end printing the O frame"<<endl;
             }
-
             if(subStat)
             {
                 ucs.push_back(uc);
                 CARStats.recordUC(false);
             }
 
+            // note: should do this before propagation.
+            addUCtoSolver(uc, level + 1);
+
             if (propMode > 0 && level > 0 && level + 1 < OSize())
                 propagate(uc, level);
-
-
-            if (uc.empty())
-            {
-                cerr<<"uc is empty!"<<endl;
-                safe_reported = true;
-            }
             
             if (uc.empty())
             {
-                cerr<<"uc is empty!"<<endl;
+                cerr<<"uc is empty@2!"<<endl;
                 safe_reported = true;
             }
 
-            addUCtoSolver(uc, level + 1);
+
         }
 
         if (get_rotate() && !res)
@@ -960,31 +966,31 @@ namespace car
         CARStats.count_prop_begin();
         prop_solver->clear_assumption();
         
-        vector<int> assumption;
-        assumption.reserve(prop_solver->PropFlags.size() + uc.size() + 2);
+        vector<int> assumption; 
+        // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
+        assumption.reserve(1 + prop_solver->PTFlag.size() + 1 + uc.size());
 
         // two approches:
         // 1): insert all the fresh clauses of current state here.
         // 2): everytime we update the main solver, we also update the prop_solver.
         // Choose 2) at present to avoid maintaining the indexes of 'fresh'.
 
-        int Oflag = prop_solver->flag_of(level+1);
+        int Oflag = prop_solver->MFlagOf(level+1);
         assumption.push_back(Oflag);
 
         // deactivate all the previous ones.
-        for(int flg: prop_solver->PropFlags)
+        for(int flg: prop_solver->PTFlag)
         {
-            assumption.push_back( flg );
+            assumption.push_back(flg);
         }
-        int new_flag = prop_solver->getNewPropFlag();
+        int new_flag = prop_solver->getNewPTFlag();
         // activate the current one:
         assumption.push_back(-new_flag);
 
-        // the UC:
+        // the UC(will be primed later in `set_assumption_primed`):
         assumption.insert(assumption.end(), uc.begin(), uc.end());
 
-        // assumption ::= <uc'>, - (previous flags), current flag.
-        prop_solver->set_assumption_primed(assumption); // uc'
+        prop_solver->set_assumption_primed(assumption); 
 
         // clause ::= !uc , current flag.
         prop_solver->add_clause_from_cube(uc,new_flag, true);  // !uc
@@ -996,12 +1002,24 @@ namespace car
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
+            /**
+             * The upcoming UC ::= <subset of uc> [<activation flag>] [<Oflag>]
+             * Reason:
+             * 1) O flag is the first in the assumption vector;
+             *  either it appears ==> should be in the back
+             *  or it does not appear
+             * 2) The deactivation literals are pure literals, should not appear.
+             * 3) The activation flag is likely to appear -- Otherwise, T /\ uc' is tautology.
+            */
 
             bool strongInductive = false;// regardless of the frame.
             // assert: flag should only appear in the back, or not.
-            // assert: activating flags should not appear.
-            if(prop_solver->levelOfFlag(upcoming_uc.back()) == ILLEGAL_FLAG)
+
+            // again, remember:
+            // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
+            if(prop_solver->MLevelOf(upcoming_uc.back()) == NOT_M_FLAG)
             {
+                // O flag does not participate.
                 strongInductive = true;
             }
             else
@@ -1009,53 +1027,37 @@ namespace car
                 upcoming_uc.pop_back();
                 strongInductive = false;
             }
-            // // sanity check
-            // for(auto lit: upcoming_uc)
-            // {
-            //     if(prop_solver->levelOfFlag(lit) != ILLEGAL_FLAG)
-            //     {
-            //         cerr<<"flags:\n";
-            //         for(int i:prop_solver->flags)
-            //         cerr<<i<<", ";
-            //         cerr<<endl;
-                    
-            //         cerr<<"prop flags:\n";
-            //         for(int i:prop_solver->PropFlags)
-            //         cerr<<i<<", ";
-            //         cerr<<endl;
-                    
-            //         cerr<<"flag is:\n";
-            //         cerr<<lit<<endl;
-            //         assert(false && "should not have let it in");
 
-            //     }
-            // }
+            if(upcoming_uc.back() == -new_flag)
+            {
+                upcoming_uc.pop_back();
+            }
             
             if(upcoming_uc.size() < uc.size())
             {
                 // map prop_uc -> 'previous' version.
                 // note: not unique, just take the first one.
-                model_->shrink_uc_to_previous(upcoming_uc);
+                model_->transform_uc_to_previous(upcoming_uc);              
+                //TODO:change me back!
                 uc = upcoming_uc;
+
             }
 
             if(strongInductive)
             {
-                // propagate to all previous levels
+                // propagate to all previous levels                
                 for (int f = level; f >= 0; --f)
+                {
                     addUCtoSolver(uc, f);
-                // cerr<<"-1";
+                }                
             }
             else{
                 // propagate to only level l.
                 addUCtoSolver(uc, level);
+                // we could check whether it is relative to previous frames.
                 if(propMode == PropContinue || propMode == PropShortCont)
                     propagate(uc,level - 1);
-                // cerr<<level;
-                // we could check whether it is relative to others.
             }
-
-            
         }
 
         CARStats.count_prop_end(!prop_res);
@@ -1096,11 +1098,11 @@ namespace car
 
         if (dst_level_plus_one < OSize())
         {
-            getMainSolver(dst_level_plus_one)->add_clause_from_cube(uc, dst_level_plus_one);
+            getMainSolver(dst_level_plus_one)->add_clause_from_cube_M(uc, dst_level_plus_one);
             if(propMode > 0)
             {
                 // also update the propagation solver
-                prop_solver->add_clause_from_cube(uc, dst_level_plus_one);
+                prop_solver->add_clause_from_cube_P(uc, dst_level_plus_one);
             }
         }
         else if (dst_level_plus_one == OSize())
@@ -1268,7 +1270,7 @@ namespace car
                         {
                             ImplySolver::add_uc(frame[index],findex);
                         }
-                        getMainSolver(0)->add_new_frame(Onp[0], Onp.size() - 1);
+                        getMainSolver(0)->add_new_frame_M(Onp[0], Onp.size() - 1);
                     }
 
                     if(get_rotate())
@@ -1372,11 +1374,11 @@ namespace car
         }
 
         if (backwardCAR)
-            getMainSolver(0)->add_new_frame(Onp[0], Onp.size() - 1);
+            getMainSolver(0)->add_new_frame_M(Onp[0], Onp.size() - 1);
         if (!backwardCAR)
-            getMainSolver(0)->add_new_frame(OI[0], OI.size() - 1);
+            getMainSolver(0)->add_new_frame_M(OI[0], OI.size() - 1);
         if (propMode > 0 && backwardCAR)
-            prop_solver->add_new_frame(Onp[0], Onp.size() - 1);
+            prop_solver->add_new_frame_P(Onp[0], Onp.size() - 1);
 
 
         return false;

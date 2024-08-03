@@ -83,6 +83,7 @@ namespace car
         void set_assumption(State *s, const int frame_level, const std::vector<Cube>& prefers);
         // set assumption used for prapagation:
         inline void set_assumption_primed(Cube& uc_or_flags) {
+            assert(assumptions.size() == 0);
             for (auto& l : uc_or_flags)
             {
                 // only the latch variables could get the primed version
@@ -125,9 +126,13 @@ namespace car
 			CARSolver::add_cube_negate(cu);
 		}
 
-		void add_new_frame(const OFrame& frame, const int frame_level);
+		void add_new_frame_M(const OFrame& frame, const int frame_level);
+        void add_new_frame_P(const OFrame& frame, const int frame_level);
 
-		void add_clause_from_cube(const Cube &cu, const int frame_level);
+        // used in main solver
+		void add_clause_from_cube_M(const Cube &cu, const int frame_level);
+        // used in propagation solver.
+        void add_clause_from_cube_P(const Cube &cu, const int frame_level);
 
         // without the frame level, without prime.
         // if flag > 0, a real flag : also add the flag
@@ -138,42 +143,77 @@ namespace car
 		void shrink_model(Assignment &model);
 
 	public:
-        // flags. Starting from O[0].
-		std::vector<int> flags;
+        /**
+         * @section flags.
+         * Categories of flags:
+         * 1. O flags used in main solver.      ==> MFlag
+         * 2. O flags use din propagation solver.   ==> PFlag
+         * 3. propagation flags used in propagation test(to add temporary clauses) ==> PTFlag
+         */
+        
 
-		inline int flag_of(const int frame_level)
+        // 1) O flags used in main solver. Used to (de)activate particular frames of O frame.
+        // flags[i] = flagOf(O[i])
+		std::vector<int> MFlags;
+
+		inline int MFlagOf(const int frame_level)
 		{
 			assert(frame_level >= 0);
-			while(size_t(frame_level) >= flags.size())
+			while(size_t(frame_level) >= MFlags.size())
 			{
                 int flag = max_flag++;
-				flags.push_back(flag);
+				MFlags.push_back(flag);
 			}
-			return flags.at(frame_level);
+			return MFlags.at(frame_level);
 		}
 
-        inline int levelOfFlag(const int flag)
+        // backward mapping from Mflag to level.
+        inline int MLevelOf(const int Mflag)
         {
-            int abs_flag = abs(flag);
-            for(size_t i = 0; i< flags.size(); ++i)
+            int abs_flag = abs(Mflag);
+            for(size_t i = 0; i< MFlags.size(); ++i)
             {
-                if(abs_flag == flags[i])
+                if(abs_flag == MFlags[i])
                     return i;
             }
-            return ILLEGAL_FLAG; // does not exists.
+            return NOT_M_FLAG; // does not exists.
         }
 
-        std::vector<int> PropFlags;
-        inline int getNewPropFlag()
+        // 2) Temporary flags used in inductive checking(propagation).
+        std::vector<int> PTFlag;
+        inline int getNewPTFlag()
         {
             int flag = max_flag++;
-            PropFlags.push_back(flag);
+            PTFlag.push_back(flag);
             return flag;
         }
         
+        // 3) Propagation flags 
+        std::vector<int> PFlags;
 
-		
+		inline int PFlagOf(const int frame_level)
+		{
+			assert(frame_level >= 0);
+			while(size_t(frame_level) >= PFlags.size())
+			{
+                int flag = max_flag++;
+				PFlags.push_back(flag);
+			}
+			return PFlags.at(frame_level);
+		}
 
+        // backward mapping from Mflag to level.
+        inline int PLevelOf(const int PFlag)
+        {
+            int abs_flag = abs(PFlag);
+            for(size_t i = 0; i< PFlags.size(); ++i)
+            {
+                if(abs_flag == PFlags[i])
+                    return i;
+            }
+            return NOT_P_FLAG; // does not exists.
+        }
+        
 
     public: 
         // unroll for BMC:

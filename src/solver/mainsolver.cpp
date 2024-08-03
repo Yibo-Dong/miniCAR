@@ -53,7 +53,7 @@ namespace car
 
 
 	/**
-	 * @brief set assumption = { s->get_latches() , flag_of(Os[frame_level]) }
+	 * @brief set assumption = { s->get_latches() , MFlagOf(Os[frame_level]) }
 	 * 
 	 * @param s 
 	 * @param frame_level 
@@ -62,7 +62,7 @@ namespace car
     {
         assumptions.clear();
         if (frame_level > -1)
-			assumptions.push (SAT_lit (flag_of(frame_level)));
+			assumptions.push (SAT_lit (MFlagOf(frame_level)));
 		for (const int &id :s->get_latches())
 		{
 			int target = reverseT ? _model->prime (id) : id;
@@ -74,7 +74,7 @@ namespace car
     {
         assumptions.clear();
         if (frame_level > -1) // should always satisfy
-			assumptions.push (SAT_lit (flag_of(frame_level)));
+			assumptions.push (SAT_lit (MFlagOf(frame_level)));
         
         /// TODO: deactivate other frames
         for(size_t i = 0; i < prefers.size(); ++i)
@@ -201,19 +201,27 @@ namespace car
         return conflict;
 	}
 	
-	void MainSolver::add_new_frame(const OFrame& frame, const int frame_level)
+	void MainSolver::add_new_frame_M(const OFrame& frame, const int frame_level)
 	{
 		for(size_t i = 0; i < frame.size (); i ++)
 		{
-			add_clause_from_cube (frame[i], frame_level);
+			add_clause_from_cube_M (frame[i], frame_level);
+		}
+	}
+
+	void MainSolver::add_new_frame_P(const OFrame& frame, const int frame_level)
+	{
+		for(size_t i = 0; i < frame.size (); i ++)
+		{
+			add_clause_from_cube_P (frame[i], frame_level);
 		}
 	}
 
 	// Actually, each center_state should only exist in O sequence in one direction.
 	// Should we just record this?
-	void MainSolver::add_clause_from_cube(const Cube &cu, const int frame_level)
+	void MainSolver::add_clause_from_cube_M(const Cube &cu, const int frame_level)
 	{
-		int flag = flag_of(frame_level);
+		int flag = MFlagOf(frame_level);
 		vector<int> cl = {-flag};
 		for(size_t i = 0; i < cu.size (); i ++)
 		{
@@ -221,6 +229,18 @@ namespace car
 				cl.push_back (-_model->prime (cu[i]));
 			else
 				cl.push_back (-cu[i]);
+		}
+		add_clause (cl);
+	}
+
+	void MainSolver::add_clause_from_cube_P(const Cube &cu, const int frame_level)
+	{
+		assert(!reverseT && "backward CAR only for propagation\n");
+		int flag = PFlagOf(frame_level);
+		vector<int> cl = {-flag};
+		for(size_t i = 0; i < cu.size (); i ++)
+		{
+			cl.push_back (-cu[i]);
 		}
 		add_clause (cl);
 	}

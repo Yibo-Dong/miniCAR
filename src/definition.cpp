@@ -523,13 +523,15 @@ namespace car {
 		uc = tmp;
 	}
 
-    void Problem::shrink_uc_to_previous (Cube& uc) const
+    void Problem::transform_uc_to_previous (Cube& uc) const
 	{
     	for(size_t i = 0; i < uc.size(); ++i)
 		{
 		    vector<int> ids = previous (abs (uc[i]));
 			if (ids.empty ())
-                continue;
+            {
+                assert(false && "should not happen");
+            }
 			else
                 // take the first one.
 				uc[i] = ((uc[i] > 0) ? ids[0] : (-ids[0]));	
