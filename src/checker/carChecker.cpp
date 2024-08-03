@@ -999,6 +999,7 @@ namespace car
         bool prop_res = prop_solver->solve_assumption();
 
         // do minimization of UC:
+        bool strongInductive = false;
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
@@ -1012,7 +1013,7 @@ namespace car
              * 3) The activation flag is likely to appear -- Otherwise, T /\ uc' is tautology.
             */
 
-            bool strongInductive = false;// regardless of the frame.
+            strongInductive = false;// regardless of the frame.
             // assert: flag should only appear in the back, or not.
 
             // again, remember:
@@ -1037,8 +1038,7 @@ namespace car
             {
                 // map prop_uc -> 'previous' version.
                 // note: not unique, just take the first one.
-                model_->transform_uc_to_previous(upcoming_uc);              
-                //TODO:change me back!
+                model_->transform_uc_to_previous(upcoming_uc);
                 uc = upcoming_uc;
 
             }
@@ -1060,7 +1060,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_end(!prop_res);
+        CARStats.count_prop_end(!prop_res,strongInductive, uc.size());
     }
 
     State *Checker::getModel(int level)
