@@ -547,7 +547,7 @@ namespace car
     {
         switch (LOStrategy)
         {
-            case 1: // random
+            case LO_Rand: // random
             {
                 std::random_device rd;
                 std::mt19937 gen(rd());
@@ -561,8 +561,19 @@ namespace car
                 return {shuff_helper};
             }
             
-            case 3:
-            case 0: // traditional one, no need to shuffel
+            case LO_Classic_Pos:
+            {
+                if(level == -1)
+                    return {s->get_latches()};
+                vector<Cube> pref;
+                pref.reserve(inter.size() + 2);
+                pref = inter;
+                pref.push_back(std::move(rcube));
+                pref.push_back(std::move(rest));
+                return pref;
+            }
+            
+            case LO_Classic: // traditional one, no need to shuffel
             default:
             {                
                 vector<Cube> pref;

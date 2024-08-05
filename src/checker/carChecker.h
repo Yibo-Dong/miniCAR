@@ -129,6 +129,7 @@ namespace car
             LO_Classic = 0,     /// Intersection + Rotation for (1), Reverse it for (2), Random for the subsequent ones.
             LO_Rand = 1,        /// Just do random test.
             // LO_Fixpoint = 2,    /// Rotation for (1), {not_used, used} for later
+            LO_Classic_Pos = 3, /// don't do for level == -1
         };
 
         inline void set_inter_cnt(int cnt)      { inter_cnt = cnt; }
