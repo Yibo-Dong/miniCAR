@@ -96,6 +96,9 @@ namespace car
             ConvModeStuck = 3,
             ConvModeRand = 4
         };
+        // whether to calculate more UC.
+        bool convTriggered(int level);
+        void mUC(const Cube &uc, int level);
         
         ///////////////////////////////////
         /// @subsection restart         ///
@@ -125,17 +128,27 @@ namespace car
         enum LiteralOrderingEnum{
             LO_Classic = 0,     /// Intersection + Rotation for (1), Reverse it for (2), Random for the subsequent ones.
             LO_Rand = 1,        /// Just do random test.
-            LO_Fixpoint = 2,    /// Rotation for (1), {not_used, used} for later
-            LO_Exp = 3,         /// Reuse the phase-saving strategy to implement a biased-SAT instead.
+            // LO_Fixpoint = 2,    /// Rotation for (1), {not_used, used} for later
         };
 
         inline void set_inter_cnt(int cnt)      { inter_cnt = cnt; }
         inline int  get_inter_cnt()             { return inter_cnt; }
         inline void set_rotate(bool rtt)        { rotate_enabled = rtt; }
         inline bool get_rotate()                { return rotate_enabled; }
+        void get_inter_res(State*s, int level, std::vector<Cube>&);
+        void get_rotate_res(State*s, int level, Cube& rcube, Cube& rest);
+        std::vector<Cube> reorderAssumptions(State*s, int level, const std::vector<Cube>& inter, const Cube &rres, const Cube &rtmp);
 
         /// rotation calculation:
         std::vector<Cube> rotates;  /// corresponding to O[i]
+
+        ///////////////////////////////////
+        /// @subsection Expectation     ///
+        ///////////////////////////////////
+        
+        
+        /// Reuse the phase-saving strategy to implement a biased-SAT instead.
+
 
         ///////////////////////////////////
         /// @subsection Implication     ///

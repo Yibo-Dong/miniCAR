@@ -25,7 +25,7 @@ namespace car
 	 * @brief put all the clauses generated into SAT solver.
 	 * 		
 	 */
-    MainSolver::MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), unroll_level(1), reverseT(forward)
+    MainSolver::MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), unroll_level(1), reverseT(forward), bad(m->output(0))
     {
         max_flag = m->max_id() + 1;
         // (1) create clauses for constraints encoding
@@ -57,10 +57,6 @@ namespace car
         assumptions.clear();
         assumptions.push (SAT_lit (bad));
         push_to_assumption(st);
-
-        if(unroll_level > 1)
-            enable_level(unroll_level);
-
         return solve_assumption();
     }
 
@@ -121,13 +117,20 @@ namespace car
             push_to_assumption(s->get_latches());
     }
 
-	void MainSolver::set_assumption_M(State*s,  const int frame_level, const std::vector<Cube> & prefers)
+	void MainSolver::set_assumption_M(State*s,  const int frame_level, const std::vector<Cube> &prefers)
     {
         // clear the assumptions first
         assumptions.clear();
-        
-        // set flags, both activation flags and deactivation flags
-        push_flags_M(frame_level);
+
+        // if level == -1: badcheck.
+        if(frame_level == -1)
+        {
+            assert(!reverseT);
+            push_to_assumption({bad});            
+        }
+        else
+            // set flags, both activation flags and deactivation flags
+            push_flags_M(frame_level);
 
         for(auto cu:prefers)
         {
@@ -372,7 +375,7 @@ namespace car
 	 * @param m 
 	 * @param unroll_level 
 	 */
-	MainSolver::MainSolver (Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level): rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), reverseT(forward)
+	MainSolver::MainSolver (Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level): rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), reverseT(forward), bad(m->output(0))
 	{
 		// no need to unroll if level == 1.
 		assert(unroll_level >=1);

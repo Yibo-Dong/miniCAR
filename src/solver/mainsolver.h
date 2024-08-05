@@ -45,6 +45,7 @@ namespace car
 		int max_flag;
 		int unroll_level;
         bool reverseT;
+        int bad;
 
 	public:
 		MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort);

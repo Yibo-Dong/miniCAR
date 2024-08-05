@@ -116,7 +116,6 @@ namespace car
             return main_solver;
         else
         {
-            CARStats.count_1_begin();
             if(level >= main_solvers.size())
             {
                 int needs = level - main_solvers.size() + 1;
@@ -127,7 +126,6 @@ namespace car
                     --needs;
                 }
             }
-            CARStats.count_1_end(1);
             if(level <=0)
                 return main_solvers.at(0);
             else
@@ -221,6 +219,7 @@ namespace car
 
         // add a new frame to O, as Otmp
         O.push_back({});
+
         // if rotate enabled, push back a new vector to record.
         if (rotate_enabled)
             rotates.push_back({});
@@ -544,141 +543,10 @@ namespace car
         return true;
     }
 
-    vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp)
+    std::vector<Cube> Checker::reorderAssumptions(State*s, int level, const vector<Cube>& inter, const Cube &rcube, const Cube &rest)
     {
-        vector<Cube> pref;
-        pref.reserve(inter.size() + 2);
-        pref = inter;
-        pref.push_back(std::move(rres));
-        pref.push_back(std::move(rtmp));
-        return pref;
-    }
-
-    bool Checker::satAssume(State *s, int level, bool& safe_reported)
-    {
-        vector<Cube> inter;
-        Cube rres, rtmp;
-        vector<Cube> ucs; // this is used for subsumption test, will cause low-efficiency, do not turn it on in practical scenarios.
-
-        MainSolver* ms = getMainSolver(level);
-        bool res = false;
-        if (level == -1)
+        switch (LOStrategy)
         {
-            // NOTE: in backward CAR, here needs further check.
-            CARStats.count_main_solver_original_time_start();
-            res = finalCheck(s);
-            if(res)
-            {
-                // if sat, no uc, we just update it here.
-                CARStats.count_main_solver_original_time_end(res,0);
-            }
-
-        }
-        else
-        {
-            do
-            {
-                // intersection:
-                if (get_inter_cnt())
-                {
-                    // NOTE: the meaning of inter_cnt is not consistent as to ni > 1
-                    const OFrame &frame = whichFrame(level + 1);
- 
-                    // this index is which iCube we want to create.
-                    int index = 1;
-
-                    int uc_index = frame.size();
-                    // in Conv, not every UC is original UC.
-                    int record_bits = conv_record[level + 1];
-
-                    while (index <= get_inter_cnt() && frame.size() >= size_t(index))
-                    {
-                        Cube inter_next;
-
-                        uc_index -= 1;
-                        if (convMode >= 0)
-                        {
-                            // if we generated more than UC, we shall just use the original one.
-                            uc_index -= (record_bits & (1 << (index - 1))) ? 1 : 0;
-                            if (uc_index < 0)
-                                break;
-                            // cerr<<"uc index is "<< uc_index<<"/"<<frame.size()<<endl;
-                            // cerr<<"index is "<<index<<", record bit is "<< ((record_bits & (1<<(index-1))) ? 1 : 0 )<<endl;
-                            // cerr<<"picked uc at "<<uc_index<<endl;
-                        }
-                        const Cube &last_uc = frame[uc_index];
-
-                        inter_next = s->intersect(last_uc);
-
-                        // otherwise, do not do this!
-                        inter.push_back(inter_next);
-                        ++index;
-                    }
-                    if (inter.empty())
-                        inter.push_back({});
-                }
-            } while (0);
-
-            do
-            {
-                if(get_rotate())
-                {
-                // rotates[i]
-                if (!rotate_enabled)
-                    break;
-                Cube &rcu = rotates[level + 1];
-                if (rcu.empty())
-                {
-                    rres = {};
-                    rtmp = s->get_latches();
-                    // TODO: try this to be inter?
-                    break;
-                }
-
-                // a full state
-                if (s->latch_size() == model_->num_latches())
-                {
-                    // calculate intersection and put the others behind.
-                    for(size_t i = 0; i < rcu.size(); ++i)
-                    {
-                        if (s->latch_at(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
-                            rres.push_back(rcu[i]);
-                        else
-                            rtmp.push_back(-rcu[i]);
-                    }
-                }
-                else
-                {
-                    // a partial state
-                    // TODO: test me!
-                    int i = 0, j = 0;
-                    while (i < s->latch_size() && size_t(j) < rcu.size())
-                    {
-                        if (rcu[j] == s->latch_at(i))
-                        {
-                            rres.push_back(rcu[j]);
-                            i++;
-                            j++;
-                        }
-                        else
-                        {
-                            rtmp.push_back(s->latch_at(i));
-                            if (rcu[j] < s->latch_at(i))
-                                j++;
-                            else
-                                i++;
-                        }
-                    }                    
-                }
-                }
-            } while (0);
-
-
-            vector<Cube> pref = reorderAssum(inter, rres, rtmp);
-            
-
-            switch (LOStrategy)
-            {
             case 1: // random
             {
                 std::random_device rd;
@@ -690,47 +558,68 @@ namespace car
                     int j = dis(gen);
                     std::swap(shuff_helper[i], shuff_helper[j]);
                 }
-                ms->set_assumption_M(s, level,  {shuff_helper});
-                break;
-            }
-
-            case 3: // expectation test
-            {
-                // FIXME: implement this part to be a real decision procedure.
-                std::vector<int> exp = s->get_latches(); // tmp only.
-                ms->set_expectation(exp);
-                ms->set_assumption_M(s, level,  pref);
-                break;
-            }
-
-            case 2:
-            case 0: // traditional one, no need to shuffel
-            default:
-            {
-                ms->set_assumption_M(s, level,  pref);
-                // do nothing
-                break;
-            }
+                return {shuff_helper};
             }
             
-            CARStats.count_main_solver_original_time_start();
-            res = ms->solve_assumption();
-            if(res)
-            {
-                // if sat, no uc, we just update it here.
-                CARStats.count_main_solver_original_time_end(res,0);
+            case 3:
+            case 0: // traditional one, no need to shuffel
+            default:
+            {                
+                vector<Cube> pref;
+                pref.reserve(inter.size() + 2);
+                pref = inter;
+                pref.push_back(std::move(rcube));
+                pref.push_back(std::move(rest));
+                return pref;
             }
         }
-        if(!res)
+    }
+
+    bool Checker::satAssume(State *s, int level, bool& safe_reported)
+    {
+        MainSolver* ms = getMainSolver(level);
+        bool res = false;
+
+        if(level == -1 && !backwardCAR)
         {
-            // update the UC.
+            res = true;
+            whichCEX() = s;
+            return res;
+        }
+
+        vector<Cube> inter;
+        get_inter_res(s,level, inter);
+        Cube rcube, rest;
+        get_rotate_res(s,level,rcube,rest);
+        auto prefers = reorderAssumptions(s, level, inter, rcube, rest);
+
+        ms->set_assumption_M(s, level, prefers);
+
+        CARStats.count_main_solver_original_time_start();
+        res = ms->solve_assumption();
+
+        if(res)
+        {
+            CARStats.count_main_solver_original_time_end(res,0); //uc size == 0
+            if(level == -1)
+            {
+                assert(backwardCAR);
+                State *cex = ms->get_state();
+                clear_defer(cex);
+                whichPrior()[cex] = s;
+                whichCEX() = cex;
+                return true;
+            }
+        }
+        else
+        {
             Cube uc = ms->get_shrunk_uc();
             CARStats.count_main_solver_original_time_end(res,uc.size());
             
             if (uc.empty())
             {
-                cerr<<"uc is empty@1!"<<endl;
                 safe_reported = true;
+                cerr<<"uc is empty@1!"<<endl;
                 cerr<<"error level is "<<level<<endl;
                 cerr<<"corresponding O frame is "<<endl;
                 for(auto &cls: whichFrame(level))
@@ -743,12 +632,8 @@ namespace car
                 }
                 cerr<<"end printing the O frame"<<endl;
             }
-            if(subStat)
-            {
-                ucs.push_back(uc);
-                CARStats.recordUC(false);
-            }
 
+            // add uc to solver.
             // note: should do this before propagation.
             addUCtoSolver(uc, level + 1);
 
@@ -757,155 +642,24 @@ namespace car
             
             if (uc.empty())
             {
+                // watch dog for propagation.
                 cerr<<"uc is empty@2!"<<endl;
                 safe_reported = true;
             }
-        }
 
-        if (get_rotate() && !res)
-        {
-            // update rotate
-            Cube &rcu = rotates[level + 1];
-            rcu = rres;
-            rcu.insert(rcu.end(), rtmp.begin(), rtmp.end());
-        }
-
-        if(convMode >= 0)
-        {
-            // <others> <skipped> <previousUC>
-
-            // whether to calculate another UC.
-            bool trigger = false;
-            switch(convMode)
+            if(rotate_enabled)
             {
-                case ConvModeAlways:
-                {    
-                    trigger = true;
-                    // cerr<<"conv mode = Always"<<endl;
-                    break;
-                }
-                case ConvModeHigh:
-                {    
-                    if(convParam <=0)
-                    {
-                        trigger = false;
-                        break;
-                    }
-                    if (convParam == 1)
-                    {
-                        trigger = true;
-                        break;
-                    }
-                    if(level > 0 && level > OSize() - (OSize() / convParam))
-                    {
-                        trigger = true;
-                    }
-                    else{
-                        trigger = false;
-                    }
-                    // cerr<<"conv mode = High, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
-                    break;
-                }
-                case ConvModeLow:
-                {
-                    if(convParam <=0)
-                    {
-                        // static bool printed = false;
-                        // if(!printed)
-                        // {
-                        //     printed = true;
-                        //     cerr<<"always no"<<endl;
-                        // }
-                        trigger = false;
-                        break;
-                    }
-                    if (convParam == 1)
-                    {
-                        // static bool printed = false;
-                        // if(!printed)
-                        // {
-                        //     printed = true;
-                        //     cerr<<"always yes"<<endl;
-                        // }
-                        trigger = true;
-                        break;
-                    }
-
-                    if (level < 0 || level <  1 + (OSize() / convParam))
-                    {
-                        trigger = true;
-                    }
-                    else{
-                        trigger = false;
-                    }
-                    // cerr<<"conv mode = Low, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
-                    break;
-                }
-                case ConvModeRand:
-                {
-                    assert(convParam != 0);
-                    static mt19937 mt_rand(1);
-                                
-                    trigger = ((mt_rand() % convParam) == 0) ? true : false;
-                    
-                    // cerr<<"conv mode = Random, res = "<<trigger<<endl;
-                    break;
-                }
-                case ConvModeStuck:
-                {
-                    // TODO: fill in here.
-                    break;
-                }
-
-                default:
-                    trigger = true;
+                // update rotate
+                Cube &rcu = rotates[level + 1];
+                rcu = rcube;
+                rcu.insert(rcu.end(), rest.begin(), rest.end());
             }
 
-            if (!res && trigger)
+            if(convMode >= 0)
             {
-                int amount = 0;
-                while(++amount <= convAmount)
-                {
-                // retrieve another bit.
-                conv_record[level + 1] <<= 1;
-
-                // mark as inserted
-                conv_record[level + 1] += 1;
-
-
-                CARStats.count_main_solver_convergence_time_start();
-                // get another conflict!
-                auto nextuc = ms->get_conflict_another(LOStrategy, amount);
-                
-                if(subStat)
-                {
-                    // note, this is slow..
-                    bool sub = false;
-                    for(auto& uc: ucs)
-                    {
-                        if(imply_heavy(nextuc, uc))
-                        {
-                            CARStats.recordUC(true);
-                            sub = true;
-                            break;
-                        }
-                    }
-                    if(!sub)
-                    {
-                        CARStats.recordUC(false);
-                        ucs.push_back(nextuc);
-                    }
-                }
-
-                CARStats.count_main_solver_convergence_time_end(nextuc.size());
-                //TODO: analyse, whether imply or implied.
-
-                addUCtoSolver(nextuc, level + 1);
-                }
-                // TODO: subsumption test is not cost-effective as we tested before, but we may use it to illustrate the diminishing effects.
-                
+                mUC(uc, level);
             }
-        }    
+        }
 
         return res;
     }
@@ -1048,6 +802,246 @@ namespace car
         }
 
         CARStats.count_prop_end(!prop_res,strongInductive, uc.size());
+    }
+
+    bool Checker::convTriggered(int level)
+    {
+        bool trigger = false;
+        switch(convMode)
+        {
+            case ConvModeAlways:
+            {    
+                trigger = true;
+                // cerr<<"conv mode = Always"<<endl;
+                break;
+            }
+            case ConvModeHigh:
+            {    
+                if(convParam <=0)
+                {
+                    trigger = false;
+                    break;
+                }
+                if (convParam == 1)
+                {
+                    trigger = true;
+                    break;
+                }
+                if(level > 0 && level > OSize() - (OSize() / convParam))
+                {
+                    trigger = true;
+                }
+                else{
+                    trigger = false;
+                }
+                // cerr<<"conv mode = High, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
+                break;
+            }
+            case ConvModeLow:
+            {
+                if(convParam <=0)
+                {
+                    // static bool printed = false;
+                    // if(!printed)
+                    // {
+                    //     printed = true;
+                    //     cerr<<"always no"<<endl;
+                    // }
+                    trigger = false;
+                    break;
+                }
+                if (convParam == 1)
+                {
+                    // static bool printed = false;
+                    // if(!printed)
+                    // {
+                    //     printed = true;
+                    //     cerr<<"always yes"<<endl;
+                    // }
+                    trigger = true;
+                    break;
+                }
+
+                if (level < 0 || level <  1 + (OSize() / convParam))
+                {
+                    trigger = true;
+                }
+                else{
+                    trigger = false;
+                }
+                // cerr<<"conv mode = Low, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
+                break;
+            }
+            case ConvModeRand:
+            {
+                assert(convParam != 0);
+                static mt19937 mt_rand(1);
+                            
+                trigger = ((mt_rand() % convParam) == 0) ? true : false;
+                
+                // cerr<<"conv mode = Random, res = "<<trigger<<endl;
+                break;
+            }
+            case ConvModeStuck:
+            {
+                // TODO: fill in here.
+                break;
+            }
+
+            default:
+                trigger = true;
+        }
+        return trigger;
+    }
+
+    void Checker::mUC(const Cube &uc, int level)
+    {
+        if(convMode < 0)
+            return;
+
+        // whether to calculate another UC.
+        bool trigger = convTriggered(level);
+        if (trigger)
+        {
+            vector<Cube> ucs; // this is used for subsumption test, will cause low-efficiency, do not turn it on in practical scenarios.
+            if(subStat)
+            {
+                ucs.push_back(uc);
+                CARStats.recordUC(false);
+            }
+            int amount = 0;
+            while(++amount <= convAmount)
+            {
+                // retrieve another bit.
+                conv_record[level + 1] <<= 1;
+
+                // mark as inserted
+                conv_record[level + 1] += 1;
+
+                CARStats.count_main_solver_convergence_time_start();
+                // get another conflict!
+                auto nextuc = getMainSolver(level)->get_conflict_another(LOStrategy, amount);
+                
+                if(subStat)
+                {
+                    // note, this is slow..
+                    bool sub = false;
+                    for(auto& uc: ucs)
+                    {
+                        if(imply_heavy(nextuc, uc))
+                        {
+                            CARStats.recordUC(true);
+                            sub = true;
+                            break;
+                        }
+                    }
+                    if(!sub)
+                    {
+                        CARStats.recordUC(false);
+                        ucs.push_back(nextuc);
+                    }
+                }
+
+                CARStats.count_main_solver_convergence_time_end(nextuc.size());
+                //TODO: analyse, whether imply or implied.
+
+                addUCtoSolver(nextuc, level + 1);
+            }            
+        }
+    }
+
+    void Checker::get_inter_res(State *s, int level, vector<Cube>&inter)
+    {        
+        inter.clear();
+        if (!get_inter_cnt()) return;
+
+        // NOTE: the meaning of inter_cnt is not consistent as to ni > 1
+        const OFrame &frame = whichFrame(level + 1);
+
+        // this index is which iCube we want to create.
+        int index = 1;
+
+        int uc_index = frame.size();
+        // in Conv, not every UC is original UC.
+        int record_bits = conv_record[level + 1];
+
+        while (index <= get_inter_cnt() && frame.size() >= size_t(index))
+        {
+            Cube inter_next;
+
+            uc_index -= 1;
+            if (convMode >= 0)
+            {
+                // if we generated more than UC, we shall just use the original one.
+                uc_index -= (record_bits & (1 << (index - 1))) ? 1 : 0;
+                if (uc_index < 0)
+                    break;
+                // cerr<<"uc index is "<< uc_index<<"/"<<frame.size()<<endl;
+                // cerr<<"index is "<<index<<", record bit is "<< ((record_bits & (1<<(index-1))) ? 1 : 0 )<<endl;
+                // cerr<<"picked uc at "<<uc_index<<endl;
+            }
+            const Cube &last_uc = frame[uc_index];
+
+            inter_next = s->intersect(last_uc);
+
+            // otherwise, do not do this!
+            inter.push_back(inter_next);
+            ++index;
+        }
+        return;
+    }
+
+    void Checker::get_rotate_res(State *s, int level, Cube &rcube, Cube &rest)
+    {
+        rcube.clear();
+        rest.clear();
+        if(!rotate_enabled) return;
+
+        // rotates[i]
+        Cube &rcu = rotates[level + 1];
+        if (rcu.empty())
+        {
+            rcube = {};
+            rest = s->get_latches();
+            // TODO: try this to be inter?
+            return;
+        }
+
+        // a full state
+        if (s->latch_size() == model_->num_latches())
+        {
+            // calculate intersection and put the others behind.
+            for(size_t i = 0; i < rcu.size(); ++i)
+            {
+                if (s->latch_at(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
+                    rcube.push_back(rcu[i]);
+                else
+                    rest.push_back(-rcu[i]);
+            }
+        }
+        else
+        {
+            // a partial state
+            // TODO: test me!
+            int i = 0, j = 0;
+            while (i < s->latch_size() && size_t(j) < rcu.size())
+            {
+                if (rcu[j] == s->latch_at(i))
+                {
+                    rcube.push_back(rcu[j]);
+                    i++;
+                    j++;
+                }
+                else
+                {
+                    rest.push_back(s->latch_at(i));
+                    if (rcu[j] < s->latch_at(i))
+                        j++;
+                    else
+                        i++;
+                }
+            }                    
+        }
     }
 
     State *Checker::getModel(int level)
