@@ -57,23 +57,13 @@ namespace car
          * * initial condition
          * * last check in backward CAR(forward search), where ~p is represented by an apprixmation.
          */
-        inline bool badcheck(const Assignment &st, const int bad)
-        {
-            // assumption = {st, bad}
-            assumptions.clear();
-            assumptions.push (SAT_lit (bad));
-            for (const int &var :st)
-            {
-                assumptions.push (SAT_lit (var));
-            }
-    
-            if(unroll_level > 1)
-                enable_level(unroll_level);
-    
-            return solve_assumption();
-        }
+        bool badcheck(const Assignment &st, const int bad);
 
-
+        /// @brief  push the activation & deactivation flags. 
+        /// @param  level
+        void push_flags_M(const int);
+        void push_to_assumption(const Cube&);
+        void push_to_assumption_primed(const Cube&);
         /**
          * @brief check SAT(_s_  /\ T  /\ O_l' ) in backward CAR, or
          *              SAT(_s_' /\ T  /\ O_l  ) in forward CAR.
@@ -81,31 +71,9 @@ namespace car
 		void set_assumption_M(State *s, const int frame_level);
 		// same as ↑, with `prefers` flattened and placed in the front.
         void set_assumption_M(State *s, const int frame_level, const std::vector<Cube>& prefers);
-        // set assumption used for prapagation:
-        inline void set_assumption_primed(Cube& uc_or_flags) {
-            assert(assumptions.size() == 0);
-            for (auto& l : uc_or_flags)
-            {
-                // only the latch variables could get the primed version
-                if(_model->latch_var(l))
-                {
-                    int target = _model->prime(l);
-                    assumptions.push(SAT_lit(target));
-                }
-                else{
-                    // as to the flags, just push them.
-                    assumptions.push(SAT_lit(l));
-                }
-            }
-        }
 
-        inline void set_assumption(Cube& uc) {
-            for (auto& l : uc)
-            {
-                int target = l;
-                assumptions.push(SAT_lit(target));
-            }
-        }
+        // set assumption, with latches primed, rest untouched.
+        void set_assumption_primed(Cube& uc_or_flags);
 		
 
         // here we could like to reuse the data-structure for phase-saving within Minisat, in order to guide it when SAT.
@@ -118,7 +86,7 @@ namespace car
 
 		// this version is used for bad check only
 		Cube get_conflict_no_bad(const int bad);
-		Cube get_conflict();
+		Cube get_shrunk_uc();
         Cube get_conflict_another(int option, int nth);
 
 		inline void add_cube_negate(const Cube &cu)

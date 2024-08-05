@@ -433,7 +433,7 @@ namespace car
             // Therefore, it ought to be unsat. If so, we can get the partial state (from the uc)
             bool res = partial_solver->solve_assumption();
             // uc actually stores the partial state.
-            s = partial_solver->get_conflict();
+            s = partial_solver->get_shrunk_uc();
 
             if (res || s.empty())
             {
@@ -724,7 +724,7 @@ namespace car
         if(!res)
         {
             // update the UC.
-            Cube uc = ms->get_conflict();
+            Cube uc = ms->get_shrunk_uc();
             CARStats.count_main_solver_original_time_end(res,uc.size());
             
             if (uc.empty())

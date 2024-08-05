@@ -58,7 +58,7 @@ namespace car
 		add_clause(cl);
 	}
 
-	Assignment PartialSolver::get_conflict()
+	Assignment PartialSolver::get_shrunk_uc()
 	{
 		Assignment conflict = get_uc();
 		model_ -> shrink_to_latch_vars(conflict);

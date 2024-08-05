@@ -77,7 +77,7 @@ namespace car
 
 		bool solve_with_assumption(const Assignment& assumption);
 
-		Assignment get_conflict();
+		Assignment get_shrunk_uc();
 		Assignment get_conflict_no_bad(int bad);
 
 		void set_assumption(const Assignment& assum);

@@ -51,8 +51,55 @@ namespace car
         }
     }
 
+    bool MainSolver::badcheck(const Assignment &st, const int bad)
+    {
+        // assumption = {st, bad}
+        assumptions.clear();
+        assumptions.push (SAT_lit (bad));
+        push_to_assumption(st);
 
-	/**
+        if(unroll_level > 1)
+            enable_level(unroll_level);
+
+        return solve_assumption();
+    }
+
+    void MainSolver::push_flags_M(const int level){
+        assert(level > -1);
+        // activate this frame
+        auto flagOfThisFrame = MFlagOf(level);
+        assumptions.push (SAT_lit (flagOfThisFrame));
+        // deactivate others
+        for(auto flg : MFlags)
+        {
+            if (flg != flagOfThisFrame)
+                assumptions.push(SAT_lit(-flg));
+        }
+    }
+
+    void MainSolver::push_to_assumption(const Cube &cu)
+    {
+        for(auto& lit :cu)
+            assumptions.push(SAT_lit(lit));
+    }
+
+    void MainSolver::push_to_assumption_primed(const Cube &cu)
+    {
+        for(auto& lit :cu)
+        {
+            if(_model->latch_var(lit))
+                assumptions.push(SAT_lit(_model->prime(lit)));
+            else
+                assumptions.push(SAT_lit(lit));
+        }
+    }
+
+    void MainSolver::set_assumption_primed(Cube& uc_or_flags) {
+        assumptions.clear();
+        push_to_assumption_primed(uc_or_flags);
+    }
+
+    /**
 	 * @brief set assumption = { s->get_latches() , MFlagOf(Os[frame_level]) }
 	 * 
 	 * @param s 
@@ -60,62 +107,44 @@ namespace car
 	 */
     void MainSolver::set_assumption_M(State*s,  const int frame_level)
     {
+        // clear the assumptions first
         assumptions.clear();
-        if (frame_level > -1) // should always satisfy
-		{
-			// activate this frame
-			auto flagOfThisFrame = MFlagOf(frame_level);
-			assumptions.push (SAT_lit (flagOfThisFrame));
-			// deactivate others
-			for(auto flg : MFlags)
-			{
-				if (flg != flagOfThisFrame)
-					assumptions.push(SAT_lit(-flg));
-			}
-		}
-		for (const int &id :s->get_latches())
-		{
-			int target = reverseT ? _model->prime (id) : id;
-			assumptions.push (SAT_lit (target));
-		}
+        
+        // set flags, both activation flags and deactivation flags
+        push_flags_M(frame_level);
+        
+        // push the latches of this state `s`.
+
+        if(reverseT)
+            push_to_assumption_primed(s->get_latches());
+        else
+            push_to_assumption(s->get_latches());
     }
 
 	void MainSolver::set_assumption_M(State*s,  const int frame_level, const std::vector<Cube> & prefers)
     {
+        // clear the assumptions first
         assumptions.clear();
-        if (frame_level > -1) // should always satisfy
-		{
-			// activate this frame
-			auto flagOfThisFrame = MFlagOf(frame_level);
-			assumptions.push (SAT_lit (flagOfThisFrame));
-			// deactivate others
-			for(auto flg : MFlags)
-			{
-				if (flg != flagOfThisFrame)
-					assumptions.push(SAT_lit(-flg));
-			}
-		}
-		
         
-        /// TODO: deactivate other frames
-        for(size_t i = 0; i < prefers.size(); ++i)
-		{
-			auto &vec = prefers[i];
-			for(auto &id : vec)
-			{
-				int target = reverseT?_model->prime(id) : id;
-				assumptions.push(SAT_lit(target));
-			}
-		}
+        // set flags, both activation flags and deactivation flags
+        push_flags_M(frame_level);
+
+        for(auto cu:prefers)
+        {
+            if(reverseT)
+                push_to_assumption_primed(cu);
+            else
+                push_to_assumption(cu);
+        }
+
+        // with rotate on, it will already be the whole state.
+        // therefore, no need to add the rest part.
         if(!rotate_is_on)
         {
-            // with rotate on, it will already be the whole state.
-            // therefore, no need to add the rest part.
-            for (const int &id :s->get_latches())
-            {
-                int target = reverseT ? _model->prime (id) : id;
-                assumptions.push (SAT_lit (target));
-            }
+            if(reverseT)
+                push_to_assumption_primed(s->get_latches());
+            else
+                push_to_assumption(s->get_latches());
         }
     }
 
@@ -181,7 +210,7 @@ namespace car
 	 * @note the last lit is pushed again.
 	 * @return Cube 
 	 */
-	Cube MainSolver::get_conflict ()
+	Cube MainSolver::get_shrunk_uc ()
 	{
 		Cube conflict = get_uc ();
 
