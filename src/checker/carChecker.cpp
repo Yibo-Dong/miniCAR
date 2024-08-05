@@ -41,7 +41,6 @@ namespace car
             start_solver = nullptr;
         }
         rotates.clear();
-        rotate.clear();
         if(opt.time_limit_to_restart > 0)
             restart_enabled = true;
     }
@@ -219,7 +218,13 @@ namespace car
         // NOTE: can eliminate initialization.
         auto& O = whichO();
         safe_reported = false;
-        refreshOtmp();
+
+        // add a new frame to O, as Otmp
+        O.push_back({});
+        // if rotate enabled, push back a new vector to record.
+        if (rotate_enabled)
+            rotates.push_back({});
+
         CARStats.count_enter_new_ronud();
         /**
          * this procedure is like the old car procedure, but the OSequence is not bound to be OI or Onegp.
@@ -296,14 +301,6 @@ namespace car
             }
         }
 
-        // this is same with extend_F_sequence in old CAR.
-        O.push_back(Otmp);
-
-        if (rotate_enabled)
-            rotates.push_back(rotate);
-        getMainSolver(OSize() - 1)->add_new_frame_M(Otmp, OSize() - 1);
-        if (propMode>0)
-            prop_solver->add_new_frame_P(Otmp, OSize() - 1);
         return false;
     }
 
@@ -629,7 +626,7 @@ namespace car
                 // rotates[i]
                 if (!rotate_enabled)
                     break;
-                Cube &rcu = size_t(level + 1) < rotates.size() ? rotates[level + 1] : rotate;
+                Cube &rcu = rotates[level + 1];
                 if (rcu.empty())
                 {
                     rres = {};
@@ -755,7 +752,7 @@ namespace car
             // note: should do this before propagation.
             addUCtoSolver(uc, level + 1);
 
-            if (propMode > 0 && level > 0 && level + 1 < OSize())
+            if (propMode > 0 && level > 0 && level + 1 <= OSize())
                 propagate(uc, level);
             
             if (uc.empty())
@@ -763,14 +760,12 @@ namespace car
                 cerr<<"uc is empty@2!"<<endl;
                 safe_reported = true;
             }
-
-
         }
 
         if (get_rotate() && !res)
         {
             // update rotate
-            Cube &rcu = size_t(level + 1) < rotates.size() ? rotates[level + 1] : rotate;
+            Cube &rcu = rotates[level + 1];
             rcu = rres;
             rcu.insert(rcu.end(), rtmp.begin(), rtmp.end());
         }
@@ -921,21 +916,16 @@ namespace car
      * basis: at level l+1: !uc
      *     |= !uc /\ T -> (!uc')
      * <=> UNSAT(!uc /\ T /\ (uc'))
+     * @todo record whether the UC to propagate is already within lower frame.
+     * @pre  should be right after an UNSAT call.
      */
     void Checker::propagate(Cube& uc, int level)
     {
-        if(level <= 0 ||  level + 1 >= OSize())
+        if(level <= 0 ||  level + 1 > OSize())
             return;
-        /**
-         * @todo Play with it!
-         * 1. Only short UCs?
-         * 2. Only to particular Frames? (close ones, low-level ones, small-size ones)
-         * 3. Trigger time: Only if the 2nd UC == 1st UC? (It seems to be the unique UC?)
-         */
 
         switch (propMode)
         {
-        
             case PropAlways:
             {
                 // do it.
@@ -949,12 +939,16 @@ namespace car
                 // do it.
                 break;
             }
-
             case PropContinue:
             {
                 break;
             }
-            
+            case PropFresh:
+            {
+                if(level < OSize()-1)
+                    return;
+                break;
+            }
             default: // fall through.
             case PropNone:
             {
@@ -962,18 +956,12 @@ namespace car
             }
         }
 
-        // should be right after an UNSAT call.
         CARStats.count_prop_begin();
         prop_solver->clear_assumption();
         
         vector<int> assumption; 
         // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
         assumption.reserve(1 + prop_solver->PTFlag.size() + 1 + uc.size());
-
-        // two approches:
-        // 1): insert all the fresh clauses of current state here.
-        // 2): everytime we update the main solver, we also update the prop_solver.
-        // Choose 2) at present to avoid maintaining the indexes of 'fresh'.
 
         int Oflag = prop_solver->MFlagOf(level+1);
         assumption.push_back(Oflag);
@@ -1014,10 +1002,10 @@ namespace car
             */
 
             strongInductive = false;// regardless of the frame.
-            // assert: flag should only appear in the back, or not.
 
             // again, remember:
             // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
+            // assert: flag should only appear in the back, or not.
             if(prop_solver->MLevelOf(upcoming_uc.back()) == NOT_M_FLAG)
             {
                 // O flag does not participate.
@@ -1040,7 +1028,6 @@ namespace car
                 // note: not unique, just take the first one.
                 model_->transform_uc_to_previous(upcoming_uc);
                 uc = upcoming_uc;
-
             }
 
             if(strongInductive)
@@ -1054,7 +1041,7 @@ namespace car
             else{
                 // propagate to only level l.
                 addUCtoSolver(uc, level);
-                // we could check whether it is relative to previous frames.
+                // we could check whether it could be propagate further.
                 if(propMode == PropContinue || propMode == PropShortCont)
                     propagate(uc,level - 1);
             }
@@ -1096,7 +1083,7 @@ namespace car
         ImplySolver::add_uc(uc,dst_level_plus_one);
         
 
-        if (dst_level_plus_one < OSize())
+        if (dst_level_plus_one <= OSize())
         {
             getMainSolver(dst_level_plus_one)->add_clause_from_cube_M(uc, dst_level_plus_one);
             if(propMode > 0)
@@ -1105,7 +1092,8 @@ namespace car
                 prop_solver->add_clause_from_cube_P(uc, dst_level_plus_one);
             }
         }
-        else if (dst_level_plus_one == OSize())
+        
+        if (dst_level_plus_one == OSize())
         {
             if (!backwardCAR)
             {

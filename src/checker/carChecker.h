@@ -68,6 +68,7 @@ namespace car
             PropShort       = 2,    // Only Propagate when it's a short UC
             PropContinue    = 3,    // If propagation succeed, continue for the next frame.
             PropShortCont   = 4,    // Short && Continue
+            PropFresh       = 5,    // Only Propagate when it's at highest level.
         };
         int propMode = 0;
         int propParam = 0;
@@ -135,7 +136,6 @@ namespace car
 
         /// rotation calculation:
         std::vector<Cube> rotates;  /// corresponding to O[i]
-        Cube rotate;                /// corresponding to Otmp
 
         ///////////////////////////////////
         /// @subsection Implication     ///
@@ -219,11 +219,10 @@ namespace car
         inline USequence &whichU() { return backwardCAR ? Ub : Uf;}
         inline USequence &otherU() { return backwardCAR ? Uf : Ub;}
         inline OSequence &whichO() { return backwardCAR ? Onp :OI;}
-
-        OFrame Otmp;
-        inline void refreshOtmp() {Otmp.clear();}
-        inline OFrame& whichFrame(int index){return (index < OSize())? whichO().at(index) : Otmp;}
-        inline int OSize() {return whichO().size();}
+        
+        inline OFrame& whichFrame(int index){ assert(index <= whichO().size()); return whichO().at(index);}
+        // minus one: for Otmp
+        inline int OSize() {return whichO().size() - 1;}
         /// used in picking state randomly
         std::vector<std::pair<State *, int>> Uset;
 
