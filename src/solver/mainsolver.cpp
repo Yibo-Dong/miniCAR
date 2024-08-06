@@ -132,7 +132,7 @@ namespace car
             // set flags, both activation flags and deactivation flags
             push_flags_M(frame_level);
 
-        for(auto cu:prefers)
+        for(auto& cu:prefers)
         {
             if(reverseT)
                 push_to_assumption_primed(cu);
