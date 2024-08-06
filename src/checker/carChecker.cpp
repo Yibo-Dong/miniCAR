@@ -1117,8 +1117,21 @@ namespace car
                 start_solver->add_clause_with_flag(uc);
             }
         }
+
+        if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
+        {
+            while(ucs_masks.size() <= dst_level_plus_one + 1)
+            {
+                ucs_masks.push_back({});
+            }
+            auto& masks = ucs_masks[dst_level_plus_one];
+            const int nlatches = model_->num_latches();
+            const int startPos = model_->num_inputs() + 1;
+            masks.push_back(UCMask(uc,nlatches,startPos));
+        }
     }
 
+    // TODO: rewrite this part.
     bool Checker::initSequence(bool &res)
     {
         State *init = new State(model_->init());
@@ -1170,6 +1183,14 @@ namespace car
                     for(size_t index = 0; index< O0.size(); ++index)
                     {
                         ImplySolver::add_uc(O0[index],0);
+                        if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
+                        {
+                            ucs_masks.push_back({});   
+                            auto& masks = ucs_masks[0];
+                            const int nlatches = model_->num_latches();
+                            const int startPos = model_->num_inputs() + 1;
+                            masks.push_back(UCMask(O0[index],nlatches,startPos));
+                        }
                     }
                     Onp = OSequence({O0});
                 }
@@ -1666,6 +1687,79 @@ namespace car
                 else
                     this_level_map[s->id] = frame.size();  // end of the frame.
                 // cerr<<s->id<<"@"<<frame_level<<":"<<this_level_map[s->id]<<" ";
+
+                break;
+            }
+
+            case (Imp_Bit):
+            {
+                UCMask u_s(s->get_latches());
+                // get frame_level.
+                if(frame_level >= ucs_masks.size())
+                {
+                    res = false;
+                    break;
+                }
+                const auto& masks_this_level = ucs_masks.at(frame_level);
+                for(const auto& m: masks_this_level)
+                    if(u_s.imply(m))
+                    {
+                        res = true;
+                        break;
+                    }
+                break;
+            }
+
+            case (Imp_BitFresh):
+            {
+                /**
+                 * @brief Record what has been tested as to each state
+                 * 
+                 */
+
+                // no uc yet. Return False.
+                if(frame_level >= ucs_masks.size())
+                {
+                    res = false;
+                    break;
+                }
+
+                // get its fresh index!
+                if(impFreshRecord.find(frame_level) == impFreshRecord.end())
+                {
+                    // this level has not been tested before.
+                    impFreshRecord[frame_level] = std::unordered_map<int,int>({});
+                }
+                auto &this_level_map = impFreshRecord[frame_level];
+
+                // fresh index: the index we should start testing
+                int freshIndex = 0;
+                if(this_level_map.find(s->id) != this_level_map.end())
+                {
+                    // found the fresh index! We could start from the last time
+                    freshIndex = this_level_map[s->id];
+                }
+
+                
+                UCMask u_s(s->get_latches());  // remember this also?
+
+                const auto& masks_this_level = ucs_masks.at(frame_level);
+                size_t framesz = whichFrame(frame_level).size();
+
+                int i = freshIndex;
+                for (; i<framesz; ++i)
+                {
+                    auto& uc = masks_this_level[i];
+                    res = u_s.imply(uc);
+                    if (res)
+                    {
+                        break;
+                    }
+                }
+                if(res)
+                    this_level_map[s->id] = i;          // the one that blocks it
+                else
+                    this_level_map[s->id] = framesz;  // end of the frame.
 
                 break;
             }

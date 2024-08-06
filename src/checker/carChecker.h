@@ -2,6 +2,7 @@
 #define carChecker_H
 
 #include "definition.h"
+#include "implysolver.h"
 #include "invsolver.h"
 #include "startsolver.h"
 #include "mainsolver.h"
@@ -158,19 +159,22 @@ namespace car
 
         /// how to calculate imply.
         enum ImpHowEnum{
-            Imp_Manual = 0,
-            Imp_Solver = 1,
-            Imp_Sample = 2,
-            /// Imp_Sort = 3, /// proved not to be useful. depricated.
-            Imp_Exp = 4,
-            Imp_Thresh = 5,
-            /// Imp_MOM = 6, /// proved not to be useful. depricated.
-            Imp_Fresh = 7,
+            Imp_Manual      = 0,
+            Imp_Solver      = 1,
+            Imp_Sample      = 2,
+            /// Imp_Sort    = 3, /// proved not to be useful. depricated.
+            Imp_Exp         = 4,
+            Imp_Thresh      = 5,
+            /// Imp_MOM     = 6, /// proved not to be useful. depricated.
+            Imp_Fresh       = 7, /// record the checking process of state.
+            Imp_Bit         = 8, /// Use Bit Masks to represent UCs.
+            Imp_BitFresh    = 9, /// Use Bit Masks, also record fresh indexes.
         };
 
         /// level -> id -> freshIndex
         std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;
 
+        std::vector<std::vector<UCMask>> ucs_masks;
 
         ///////////////////////////////////
         /// @subsection Garbage Collect ///
