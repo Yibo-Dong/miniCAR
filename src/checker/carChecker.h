@@ -69,6 +69,7 @@ namespace car
             PropContinue    = 3,    // If propagation succeed, continue for the next frame.
             PropShortCont   = 4,    // Short && Continue
             PropFresh       = 5,    // Only Propagate when it's at highest level.
+            PropShortFresh  = 6,    // Only Short and Fresh.
         };
         int propMode = 0;
         int propParam = 0;

@@ -714,6 +714,14 @@ namespace car
                     return;
                 break;
             }
+            case PropShortFresh:
+            {
+                if(uc.size() > propParam)
+                    return;
+                if(level < OSize()-1)
+                    return;
+                break;
+            }
             default: // fall through.
             case PropNone:
             {
@@ -753,6 +761,8 @@ namespace car
 
         // do minimization of UC:
         bool strongInductive = false;
+
+        int originalUCsize = uc.size();
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
@@ -812,7 +822,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_end(!prop_res,strongInductive, uc.size());
+        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize);
     }
 
     bool Checker::convTriggered(int level)
