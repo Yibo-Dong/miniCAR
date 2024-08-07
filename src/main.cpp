@@ -87,7 +87,7 @@ OPTIONS parse_args(int argc, char **argv)
             opt.inter_cnt = 1;
             opt.raw_uc = true;
             opt.forward = false;
-            opt.impMethod = 7;
+            opt.impMethod = 9;
             opt.LOStrategy = 3;
         }
         else if (strcmp(argv[i], "-f") == 0)
