@@ -33,11 +33,7 @@
 #include <vector>
 
 namespace CARSolverNS {
-    #ifdef MINISAT
-		using SolverType = Minisat::Solver;
-    #else
-		using SolverType = Glucose::Solver;
-    #endif // MINISAT
+    using SolverType = Minisat::Solver;
 }
 
 namespace car
@@ -48,13 +44,8 @@ namespace car
 		public:
 			CARSolver() {}
 
-#ifdef MINISAT
 			Minisat::Lit SAT_lit(int id);	        // create the Lit used in SAT solver for the id.
 			int lit_id(Minisat::Lit) const;         // return the id of SAT lit
-#else
-			Glucose::Lit SAT_lit(int id);			// create the Lit used in SAT solver for the id.
-			int lit_id(Glucose::Lit) const;			// return the id of SAT lit
-#endif 
             /**
              * @brief Solve with the assumptions in _assumption. 
              * @note before this, make sure all the assumption lits are put into assumptions.
