@@ -305,6 +305,11 @@ namespace car {
 		cls_.push_back(clause(-false_));
 	}
 
+    void Problem::simplify_clauses()
+    {
+        // fill in here.
+    }
+
     /**
 	 * @brief 
 	 * flag1: All latches that share a common next have same value 

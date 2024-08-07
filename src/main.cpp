@@ -244,12 +244,13 @@ void check_aiger(int argc, char **argv)
         return;
     }
 
-    // if Restart NOT enabled, use one checker to check.
+    CARStats.count_whole_begin();
+    chk = new Checker(model, opt, res_file, nullptr);
+    RESEnum res = chk->check();
+
     if (opt.time_limit_to_restart <= 0)
     {
-        CARStats.count_whole_begin();
-        chk = new Checker(model, opt, res_file, nullptr);
-        chk->check();
+        // if Restart NOT enabled, use one checker to check.
         CARStats.count_whole_end();
         delete chk;
     }
@@ -258,15 +259,8 @@ void check_aiger(int argc, char **argv)
         // if RESTART enabled:
         // TODO: verify the result of restart
         assert(opt.convMode >= 0 && "restart with multiple UCs, mode should be given");
-        CARStats.count_whole_begin();
-
-        chk = new Checker(model, opt, res_file, nullptr);
         auto clear_delay = chk;
-        
-        // FIXME: split safe/unsafe and unknown
-        chk->check(); // the first check
-        
-        while (chk->ppstoped)
+        while (RES_RESTART == res)
         {
             ++opt.convParam;
             ImplySolver::reset_all();
@@ -275,7 +269,7 @@ void check_aiger(int argc, char **argv)
 
             // check, with information of last check avaiable.
             chk = new Checker(model, opt, res_file, clear_delay);
-            chk->check();
+            res = chk->check();
             delete clear_delay;
             clear_delay = chk;
         }

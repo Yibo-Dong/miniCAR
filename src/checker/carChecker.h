@@ -105,9 +105,6 @@ namespace car
         ///////////////////////////////////
         /// @subsection restart         ///
         ///////////////////////////////////
-
-        /// whether this phase has reached its time limit.
-        bool ppstoped = false;
         /// remember Option: whether we shall remember something during restart
         enum rememberEnum{
             remem_None = 0,
@@ -211,8 +208,12 @@ namespace car
         Checker(const Checker &) = delete;
         const Checker &operator=(const Checker &) = delete;
 
-        /// entrance for CAR checking
-        bool check();
+        /**
+         * @brief entrance for CAR checking
+         * 
+         * @return ResEnum
+         */
+        RESEnum check();
 
     public:
         const bool backwardCAR;
@@ -247,17 +248,13 @@ namespace car
 
     private:
         /// entrance for CAR
-        bool car();
+        RESEnum car();
 
         /**
          * @brief Check for immediate safe or unsafe
          *
-         * @param out where to print
-         * @param res the check result
-         * @return true : Bad == True / False
-         * @return false
          */
-        bool trivialCheck(bool &res);
+        RESEnum trivialCheck();
 
         /**
          * @brief Searching procedure of bi-car. Enumerate states in U and use the OSequence as the guide.
@@ -265,7 +262,7 @@ namespace car
          * @return true : successfully reached O[0]. which means a cex is found.
          * @return false : all states in present U has been checked. No cex is found.
          */
-        bool trySAT(bool &safe_reported);
+        RESEnum trySAT();
 
         /// @brief print evidence.
         void print_evidence() const;
@@ -329,8 +326,9 @@ namespace car
 
         /**
          * @brief init special sequences: Uf, Ub, Oi, Onp
-         */
-        bool initSequence(bool &res);
+         * Will call ImmediateCheck.
+         * /
+        RESEnum initSequence();
 
         /**
          * @brief Use start solver to get a state. Usually in ~p.
@@ -347,7 +345,7 @@ namespace car
          * use uc to initialize O[0] is suitable.
          *
          */
-        bool immediateCheck(State *from, bool &res, OFrame &UCs);
+        RESEnum immediateCheck(State *from, OFrame &UCs);
 
         /**
          * @brief Check whether this in O[0] is actually a CEX.

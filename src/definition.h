@@ -310,6 +310,7 @@ public:
 	void add_clauses_from_equation (const aiger_and* aa);
 	void create_constraints_for_latches ();
 	void create_clauses (const aiger* aig);
+    void simplify_clauses();
 
     void unfold_bad(const aiger* aig, std::vector<std::vector<int>>& res);
 };
@@ -407,6 +408,15 @@ public:
 
         std::string inputPath;
         std::string outputPath;
+    };
+
+    /// The status of checking.
+    enum RESEnum{
+        RES_UNSAFE  = 0,
+        RES_SAFE    = 1,
+        RES_UNKNOWN = 2,
+        RES_FAIL    = 3,
+        RES_RESTART = 4,
     };
 }
 
