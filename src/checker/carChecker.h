@@ -327,7 +327,7 @@ namespace car
         /**
          * @brief init special sequences: Uf, Ub, Oi, Onp
          * Will call ImmediateCheck.
-         * /
+         */
         RESEnum initSequence();
 
         /**
