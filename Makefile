@@ -1,19 +1,8 @@
-ifeq ($(SOLVER),MINISAT)
 SOLVER_FLAG = -DMINISAT
-SOLVER_SOURCES = src/thirdParty/sat/minisat/core/Solver.cc src/thirdParty/sat/minisat/utils/Options.cc src/thirdParty/sat/minisat/utils/System.cc
-SOLVER_OBJECTS = Solver.o Options.o System.o 
-SOLVER_INCLUDE_DIRS = -I./src/thirdParty/sat -I./src/thirdParty/sat/minisat -I./src/thirdParty/sat/minisat/core -I./src/thirdParty/sat/minisat/utils 
-else ifeq ($(SOLVER),GLUCOSE4)
-SOLVER_FLAG = -DGLUCOSE
-SOLVER_SOURCES = src/thirdParty/sat/glucose-4.2.1/core/Solver.cc src/thirdParty/sat/glucose-4.2.1/utils/Options.cc src/thirdParty/sat/glucose-4.2.1/utils/System.cc src/thirdParty/sat/glucose-4.2.1/core/lcm.cc
-SOLVER_OBJECTS = Solver.o Options.o System.o lcm.o
-SOLVER_INCLUDE_DIRS = -I./src/thirdParty/sat -I./src/thirdParty/sat/glucose-4.2.1 -I./src/thirdParty/sat/glucose-4.2.1/core -I./src/thirdParty/sat/glucose-4.2.1/utils 
-else
-SOLVER_FLAG = -DGLUCOSE
-SOLVER_SOURCES = src/thirdParty/sat/glucose/core/Solver.cc src/thirdParty/sat/glucose/utils/Options.cc src/thirdParty/sat/glucose/utils/System.cc
-SOLVER_OBJECTS = Solver.o Options.o System.o 
-SOLVER_INCLUDE_DIRS = -I./src/thirdParty/sat -I./src/thirdParty/sat/glucose -I./src/thirdParty/sat/glucose/core -I./src/thirdParty/sat/glucose/utils
-endif
+SOLVER_SOURCES = src/thirdParty/sat/minisat/core/Solver.cc src/thirdParty/sat/minisat/utils/Options.cc src/thirdParty/sat/minisat/utils/System.cc src/thirdParty/sat/minisat/simp/SimpSolver.cc
+SOLVER_OBJECTS = Solver.o Options.o System.o SimpSolver.o
+SOLVER_INCLUDE_DIRS = -I./src/thirdParty/sat -I./src/thirdParty/sat/minisat -I./src/thirdParty/sat/minisat/core -I./src/thirdParty/sat/minisat/utils -Isrc/thirdParty/sat/minisat/simp
+
 
 SEED ?= 0
 ifeq ($(SEED),0)

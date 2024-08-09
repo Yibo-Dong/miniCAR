@@ -27,6 +27,7 @@
 #ifndef NEW_MAIN_SOLVER_H
 #define NEW_MAIN_SOLVER_H
 
+#include "SimpSolver.h"
 #include "carsolver.h"
 #include "definition.h"
 #include "statistics.h"
@@ -48,7 +49,8 @@ namespace car
         int bad;
 
 	public:
-		MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort);
+        void loadSimpCNF();
+		MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort, bool simp);
 		MainSolver(Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level) ;
 		~MainSolver() {}
 

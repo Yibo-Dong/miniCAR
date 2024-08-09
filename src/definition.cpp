@@ -305,10 +305,6 @@ namespace car {
 		cls_.push_back(clause(-false_));
 	}
 
-    void Problem::simplify_clauses()
-    {
-        // fill in here.
-    }
 
     /**
 	 * @brief 

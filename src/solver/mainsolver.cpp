@@ -17,38 +17,104 @@
 
 #include "mainsolver.h"
 #include "definition.h"
+#include "SSLV.h"
 #include <algorithm>
 using namespace std;
+using namespace Minisat;
 namespace car
 {
 	/**
 	 * @brief put all the clauses generated into SAT solver.
 	 * 		
 	 */
-    MainSolver::MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), unroll_level(1), reverseT(forward), bad(m->output(0))
+    MainSolver::MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort, bool simp) : rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), unroll_level(1), reverseT(forward), bad(m->output(0))
     {
         max_flag = m->max_id() + 1;
-        // (1) create clauses for constraints encoding
-        for(int i = 0; i < m->common_next_start(); ++i)
-        {
-            add_clause(m->element(i));
+        if(!simp)
+        {            
+            // (1) create clauses for constraints encoding
+            for(int i = 0; i < m->common_next_start(); ++i)
+            {
+                add_clause(m->element(i));
+            }
+            // (2) same next have same previous, initialized to 0.
+            for(int i = m->common_next_start(); i < m->outputs_start(); ++i)
+            {
+                add_clause(m->element(i));
+            }
+            // (3) clause for encoding outputs.
+            for(int i = m->outputs_start(); i < m->latches_start(); ++i)
+            {
+                add_clause(m->element(i));
+            }
+            // (4) clause for encoding latches's mapping relation
+            // (5) create clauses for true and false
+            for(int i = m->latches_start(); i < m->size(); ++i)
+            {
+                add_clause(m->element(i));
+            }
         }
-        // (2) same next have same previous, initialized to 0.
-        for(int i = m->common_next_start(); i < m->outputs_start(); ++i)
-        {
-            add_clause(m->element(i));
+        else{
+            loadSimpCNF();
         }
-        // (3) clause for encoding outputs.
-        for(int i = m->outputs_start(); i < m->latches_start(); ++i)
+    }
+
+    void MainSolver::loadSimpCNF()
+    {
+        // FIXME: its result is wrong now!
+        auto m = _model;
+        int max_id = m->max_id();
+        SSLV *sslv = new SSLV();
+        for(size_t i = 0; i <= max_id; ++i)
         {
-            add_clause(m->element(i));
+            sslv->newVar();
         }
-        // (4) clause for encoding latches's mapping relation
-        // (5) create clauses for true and false
-        for(int i = m->latches_start(); i < m->size(); ++i)
+        // minus 1 : we skip 0 in Aiger.
+        for(size_t i = 1; i <= m->num_inputs(); ++i)
         {
-            add_clause(m->element(i));
+            Var id = i - 1; 
+            sslv->setFrozen(id, true);
         }
+        for(size_t i = m->num_inputs() + 1; i < m->num_inputs() + m->num_latches(); ++i)
+        {
+            Var id = i;
+            sslv->setFrozen(id - 1, true);
+            sslv->setFrozen(m->prime(id) - 1, true);
+        }
+        // true && false
+        sslv->setFrozen(m->true_id() - 1, true);
+        sslv->setFrozen(m->false_id() - 1, true);     
+        for (int i = 0; i < m->size(); ++i)
+        {
+            auto& cl = m->element(i);
+            vec<Lit> lits(cl.size());
+            int index = 0;
+            for(int id : cl)
+            {
+                assert(id != 0);
+                int var = abs(id) - 1;
+                Lit l = mkLit(var, id > 0);
+                lits[index++] = l;
+            }
+            bool res = sslv->addClause(lits);
+        }
+        sslv->eliminate(true);
+
+        while(nVars() < sslv->nVars())
+            newVar();
+
+        for (Minisat::ClauseIterator c = sslv->clausesBegin(); c != sslv->clausesEnd(); ++c)
+        {
+            const Minisat::Clause &cls = *c;
+            Minisat::vec<Minisat::Lit> cls_;
+            for (int i = 0; i < cls.size(); ++i)
+                cls_.push(cls[i]);
+            addClause(cls_);
+        }
+
+        for (auto c = sslv->trailBegin(); c != sslv->trailEnd(); ++c)
+            addClause(*c);
+        
     }
 
     bool MainSolver::badcheck(const Assignment &st, const int bad)

@@ -19,13 +19,13 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), simp(opt.simplifyCNF)
     {
         if(!multi_solver)
         {
-            main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
+            main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
             // also initialize the prop solver.
-            prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
+            prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
         }    
 
         if (!backwardCAR)
@@ -123,7 +123,7 @@ namespace car
                 int needs = level - main_solvers.size() + 1;
                 while(needs > 0)
                 {
-                    auto *new_slv = new MainSolver(model_, !backwardCAR, get_rotate(), uc_no_sort);
+                    auto *new_slv = new MainSolver(model_, !backwardCAR, get_rotate(), uc_no_sort, simp);
                     main_solvers.push_back(new_slv);                        
                     --needs;
                 }

@@ -52,6 +52,7 @@ namespace car
         bool partial = false;
         bool restart_enabled = false;
         bool multi_solver = false;
+        bool simp = false;
 
     public:
         /**

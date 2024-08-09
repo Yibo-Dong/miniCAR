@@ -180,6 +180,10 @@ OPTIONS parse_args(int argc, char **argv)
         {
             opt.multi_solver = true;
         }
+        else if (strcmp(argv[i], "--simp") == 0)
+        {
+            opt.simplifyCNF = true;
+        }
         else if (opt.inputPath.empty())
         {
             opt.inputPath = string(argv[i]);

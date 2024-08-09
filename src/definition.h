@@ -406,6 +406,9 @@ public:
         int propMode = 0;
         int propParam = 0;
 
+        // whether to simplify the CNF, using another simpSolver.
+        bool simplifyCNF = false;
+
         std::string inputPath;
         std::string outputPath;
     };
