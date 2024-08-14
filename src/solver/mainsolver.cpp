@@ -61,7 +61,6 @@ namespace car
 
     void MainSolver::loadSimpCNF()
     {
-        // FIXME: its result is wrong now!
         auto m = _model;
         int max_id = m->max_id();
         SSLV *sslv = new SSLV();
@@ -75,15 +74,16 @@ namespace car
             Var id = i - 1; 
             sslv->setFrozen(id, true);
         }
-        for(size_t i = m->num_inputs() + 1; i < m->num_inputs() + m->num_latches(); ++i)
+        for(size_t i = m->num_inputs() + 1; i <= m->num_inputs() + m->num_latches(); ++i)
         {
             Var id = i;
             sslv->setFrozen(id - 1, true);
-            sslv->setFrozen(m->prime(id) - 1, true);
+            sslv->setFrozen(abs(m->prime(id)) - 1, true);
         }
         // true && false
-        sslv->setFrozen(m->true_id() - 1, true);
-        sslv->setFrozen(m->false_id() - 1, true);     
+        sslv->setFrozen(abs(m->output(0)) - 1, true);
+        sslv->setFrozen(abs(m->true_id()) - 1, true);
+        sslv->setFrozen(abs(m->false_id()) - 1, true);
         for (int i = 0; i < m->size(); ++i)
         {
             auto& cl = m->element(i);
@@ -93,7 +93,7 @@ namespace car
             {
                 assert(id != 0);
                 int var = abs(id) - 1;
-                Lit l = mkLit(var, id > 0);
+                Lit l = (id > 0) ? mkLit(var) : ~mkLit(var);
                 lits[index++] = l;
             }
             bool res = sslv->addClause(lits);
@@ -108,13 +108,16 @@ namespace car
             const Minisat::Clause &cls = *c;
             Minisat::vec<Minisat::Lit> cls_;
             for (int i = 0; i < cls.size(); ++i)
+            {
                 cls_.push(cls[i]);
+            }
             addClause(cls_);
         }
 
         for (auto c = sslv->trailBegin(); c != sslv->trailEnd(); ++c)
+        {
             addClause(*c);
-        
+        }
     }
 
     bool MainSolver::badcheck(const Assignment &st, const int bad)
