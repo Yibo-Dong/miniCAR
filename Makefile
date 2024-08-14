@@ -1,8 +1,7 @@
-SOLVER_FLAG = -DMINISAT
-SOLVER_SOURCES = src/thirdParty/sat/minisat/core/Solver.cc src/thirdParty/sat/minisat/utils/Options.cc src/thirdParty/sat/minisat/utils/System.cc src/thirdParty/sat/minisat/simp/SimpSolver.cc
+SOLVER_FLAG = -DGLUCOSE
+SOLVER_SOURCES = src/thirdParty/sat/glucose/core/Solver.cc src/thirdParty/sat/glucose/utils/Options.cc src/thirdParty/sat/glucose/utils/System.cc src/thirdParty/sat/glucose/simp/SimpSolver.cc
 SOLVER_OBJECTS = Solver.o Options.o System.o SimpSolver.o
-SOLVER_INCLUDE_DIRS = -I./src/thirdParty/sat -I./src/thirdParty/sat/minisat -I./src/thirdParty/sat/minisat/core -I./src/thirdParty/sat/minisat/utils -Isrc/thirdParty/sat/minisat/simp
-
+SOLVER_INCLUDE_DIRS = -I./src/thirdParty/sat -I./src/thirdParty/sat/glucose -I./src/thirdParty/sat/glucose/core -I./src/thirdParty/sat/glucose/utils -Isrc/thirdParty/sat/glucose/simp
 
 SEED ?= 0
 ifeq ($(SEED),0)

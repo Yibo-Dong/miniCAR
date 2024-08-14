@@ -4,15 +4,14 @@
 #include "SolverTypes.h"
 #include "assert.h"
 
-class SSLV: public Minisat::SimpSolver{
+class SSLV: public Glucose::SimpSolver{
 public:
     SSLV(){}
-    inline Minisat::ClauseIterator clausesBegin() const { return Minisat::ClauseIterator(ca, &clauses[0]); }
-    inline Minisat::ClauseIterator clausesEnd  () const { return Minisat::ClauseIterator(ca, &clauses[clauses.size()]); }
-    inline Minisat::TrailIterator  trailBegin  () const { return Minisat::TrailIterator(&trail[0]); }
-    inline Minisat::TrailIterator  trailEnd    () const { 
-        return Minisat::TrailIterator(&trail[decisionLevel() == 0 ? trail.size() : trail_lim[0]]); }
-
+    inline Glucose::ClauseIterator clausesBegin() const { return Glucose::ClauseIterator(ca, &clauses[0]); }
+    inline Glucose::ClauseIterator clausesEnd  () const { return Glucose::ClauseIterator(ca, &clauses[clauses.size()]); }
+    inline Glucose::TrailIterator  trailBegin  () const { return Glucose::TrailIterator(&trail[0]); }
+    inline Glucose::TrailIterator  trailEnd    () const { 
+        return Glucose::TrailIterator(&trail[decisionLevel() == 0 ? trail.size() : trail_lim[0]]); }
 };
 
 

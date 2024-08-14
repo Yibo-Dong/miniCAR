@@ -20,7 +20,7 @@
 #include "SSLV.h"
 #include <algorithm>
 using namespace std;
-using namespace Minisat;
+using namespace Glucose;
 namespace car
 {
 	/**
@@ -103,10 +103,10 @@ namespace car
         while(nVars() < sslv->nVars())
             newVar();
 
-        for (Minisat::ClauseIterator c = sslv->clausesBegin(); c != sslv->clausesEnd(); ++c)
+        for (Glucose::ClauseIterator c = sslv->clausesBegin(); c != sslv->clausesEnd(); ++c)
         {
-            const Minisat::Clause &cls = *c;
-            Minisat::vec<Minisat::Lit> cls_;
+            const Glucose::Clause &cls = *c;
+            Glucose::vec<Glucose::Lit> cls_;
             for (int i = 0; i < cls.size(); ++i)
             {
                 cls_.push(cls[i]);
