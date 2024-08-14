@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <map>
 #include <chrono>
 using namespace std::chrono;
@@ -260,6 +261,7 @@ class Statistics
 
         /// propagation time
         clock_high prop_begin_, prop_end_;
+        std::vector<int> prop_ticks;
         double time_prop = 0.0;
         int ntime_prop = 0;
         int ntime_prop_succ = 0;
@@ -273,7 +275,7 @@ class Statistics
         inline void count_prop_begin() { 
             prop_begin_ = steady_clock::now(); 
         }
-        inline void count_prop_end(bool succeed, bool pureInductive, int uc_length)
+        inline void count_prop_end(bool succeed, bool pureInductive, int uc_length, int tick)
         {
             ++ntime_prop;
             if(succeed)
@@ -292,7 +294,8 @@ class Statistics
                 else if(uc_length < 100)
                     ++num_prop_uc_50_100;
                 else
-                    ++num_prop_uc_100_inf;        
+                    ++num_prop_uc_100_inf;     
+                prop_ticks.push_back(tick);   
             }
             
             prop_end_ = steady_clock ::now();
@@ -446,6 +449,10 @@ class Statistics
             std::cout << "      \t\"[50,100)\": " << num_prop_uc_50_100 << "," << std::endl;
             std::cout << "      \t\"[100,inf)\": " << num_prop_uc_100_inf << "," << std::endl;
             std::cout << "      }," << std::endl;
+            std::cout << "      \t\"Ticks\" : [";
+            for(int i:prop_ticks)
+                std::cout<<"\""<<i<<"\""<<", ";
+            std::cout << "      ],"<<std::endl;
             std::cout << "      }," << std::endl;
             std::cout << "      \"UC distribution\": {" << std::endl;
             std::cout << "      \t\"[0,3)\": " << num_uc_0_3 << "," << std::endl;

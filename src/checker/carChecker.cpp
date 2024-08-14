@@ -753,6 +753,9 @@ namespace car
         bool strongInductive = false;
 
         int originalUCsize = uc.size();
+
+        static int prop_tick = 0;
+        ++prop_tick;
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
@@ -812,7 +815,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize);
+        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize, prop_tick);
     }
 
     bool Checker::convTriggered(int level)
