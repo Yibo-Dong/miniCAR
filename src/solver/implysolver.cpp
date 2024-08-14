@@ -1,8 +1,12 @@
 #include "implysolver.h"
 #include <algorithm>
 using namespace std;
-using namespace Minisat;
 
+#ifdef MINISAT
+using namespace Minisat;
+#else
+using namespace Glucose;
+#endif
 
 namespace car
 {

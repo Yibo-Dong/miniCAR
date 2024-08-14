@@ -22,8 +22,11 @@
 #include <algorithm>
 #include <random>
 using namespace std;
-using namespace Minisat;
-
+#ifdef MINISAT
+	using namespace Minisat;
+#else
+	using namespace Glucose;
+#endif // DEBUG
 
 namespace car
 {
@@ -260,7 +263,7 @@ namespace car
 		out << "clauses in SAT solver: \n";
 		for(int i = 0; i < clauses.size (); i ++)
 		{
-			Minisat::Clause& c = ca[clauses[i]];
+			Glucose::Clause& c = ca[clauses[i]];
 			for(int j = 0; j < c.size (); j ++)
 				out << lit_id (c[j]) << " ";
 			out << "0 " << endl;
