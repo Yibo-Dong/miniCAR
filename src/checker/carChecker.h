@@ -168,6 +168,12 @@ namespace car
             Imp_BitFresh    = 9, /// Use Bit Masks, also record fresh indexes.
         };
 
+        inline bool needImpSolver()
+        {
+            static std::unordered_set<int> __needImpSolver{Imp_Solver, Imp_Sample, Imp_Exp, Imp_Thresh};
+            return __needImpSolver.count(impMethod)!=0;
+        }
+
         /// level -> id -> freshIndex
         std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;
 
