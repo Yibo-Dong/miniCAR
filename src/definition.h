@@ -106,6 +106,7 @@ namespace car
             /// Construct a state with only latches, inputs to be set later.
 			explicit State(const Assignment &latches) : _latches(latches),id(++maxid), _isnegp(false) {}
             inline void set_inputs(const Assignment &st) { _inputs = st; }
+            inline bool isPartial() const{return _latches.size() != num_latches_;}
 
             /// Construct a state with inputs and latches.
 			State(const Assignment &inputs , const Assignment &latches): _latches(latches), _inputs(inputs),id(++maxid), _isnegp(false) {}

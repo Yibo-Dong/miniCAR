@@ -51,7 +51,7 @@ namespace car
 	public:
         void loadSimpCNF();
 		MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort, bool simp);
-		MainSolver(Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level) ;
+		MainSolver(Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level, bool simp) ;
 		~MainSolver() {}
 
         /**
@@ -86,6 +86,7 @@ namespace car
 
 		// @note: can only be used if the unroll level is 1. For unroll level>1, use `get_states`.
 		State* get_state();
+        State* getInitState();
 
 		// this version is used for bad check only
 		Cube get_conflict_no_bad(const int bad);

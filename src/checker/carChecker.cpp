@@ -81,12 +81,10 @@ namespace car
     RESEnum Checker::check()
     {
         RESEnum res = trivialCheck();
-        if (res != RES_UNKNOWN)
+        if (res == RES_UNKNOWN)
         {
-            return res;
+            res = car();
         }
-
-        res = car();
 
         switch (res)
         {
@@ -176,20 +174,14 @@ namespace car
         // FIXME: fix for multiple properties.
         if (bad_ == model->true_id())
         {
-            out << "1" << endl;
-            out << "b0" << endl;
-            {
-                // print init state
-                // FIXME: fix for latch inits.
-                for(int i = 0; i < model->num_latches(); ++i)
-                    out << "0";
-                out << endl;
-                // print an arbitary input vector
-                for(int j = 0; j < model->num_inputs(); j++)
-                    out << "0";
-                out << endl;
-            }
-            out << "." << endl;
+
+            vector<int> all0(model_->num_inputs(),0);
+            State *init = new State(model_->init());
+            State *neg = new State(all0, model_->init());
+            clear_defer(init);
+            clear_defer(neg);
+            whichPrior()[neg] = init;
+            whichCEX() = neg;
             return RES_UNSAFE;
         }
         else if (bad_ == model->false_id())
@@ -264,9 +256,7 @@ namespace car
                     {
                         return RES_UNSAFE;
                     }
-                    State *tprime = getModel(dst);
-                    
-                    updateU(tprime, s);
+                    State *tprime = getModel(s, dst);
 
                     // NOTE: why here calculate minNOTBLOCKED, rather than next time when pop?
                     int new_level = minNOTBlocked(tprime, 0, dst - 1);               
@@ -375,7 +365,8 @@ namespace car
             State *new_s = enumerateStartStates();
             if(new_s)
             {
-                updateU(new_s,nullptr);
+                whichPrior()[new_s] = nullptr;
+                whichU().push_back(new_s);
                 if(start_solver)
                     start_solver->reset();
                 return new_s;
@@ -520,18 +511,6 @@ namespace car
         out << "." << endl;
     }
 
-    bool Checker::updateU(State *s, State *prior_state_in_trail)
-    {
-        // Counter Example Issue.
-        // Every time we insert a new state into U sequence, it should be updated.
-        // FIXME: without considering bi-direction, one state will only have one prior. Shall we move this into "state"?
-        {
-            whichPrior()[s] = prior_state_in_trail;
-        }
-        whichU().push_back(s);
-
-        return true;
-    }
 
     std::vector<Cube> Checker::reorderAssumptions(State*s, int level, const vector<Cube>& inter, const Cube &rcube, const Cube &rest)
     {
@@ -1058,12 +1037,25 @@ namespace car
         }
     }
 
-    State *Checker::getModel(int level)
+    State *Checker::getModel(State *s, int level)
     {
-        State *s = getMainSolver(level)->get_state();
+        State *t = getMainSolver(level)->get_state();
+        clear_defer(t);
+        whichU().push_back(t);
+        if(s->isPartial())
+        {
+            // if predecessor is partial, we would like to initialize it.
+            // why not s->set_latches() ? because s may be reused, but newInit will not be used in the search(but only in CEX printing).
+            State* newInit = getMainSolver(level)->getInitState();
+            newInit->set_inputs(s->get_inputs()); // although, it should be empty here in backward CAR.
+            clear_defer(newInit);
+            whichPrior()[t] = newInit;
+        }
+        else{
+            whichPrior()[t] = s;
+        }
         // NOTE: if it is the last state, it will be set last-inputs later.
-        clear_defer(s);
-        return s;
+        return t;
     }
 
 
@@ -1148,7 +1140,8 @@ namespace car
 
                     // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
                     // construct an abstract state
-                    updateU(negp,nullptr);
+                    whichPrior()[negp] = nullptr;
+                    whichU().push_back(negp);
                     pickStateLastIndex = Uf.size();
                     
                     // O_I
@@ -1165,7 +1158,8 @@ namespace car
                 if (backwardCAR)
                 {
                     // Ub[0] = I;
-                    updateU(init, nullptr);
+                    whichPrior()[init] = nullptr;
+                    whichU().push_back(init);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1201,7 +1195,8 @@ namespace car
                 if (backwardCAR)
                 {
                     // Ub[0] = I;
-                    updateU(init, nullptr);
+                    whichPrior()[init] = nullptr;
+                    whichU().push_back(init);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1282,10 +1277,16 @@ namespace car
             if (ms->badcheck(latches, bad_))
             {
                 CARStats.count_main_solver_original_time_end(true,0);
-                // if sat. already find the cex.
+                // if sat. already found the cex.
                 State *s = ms->get_state(); // no need to shrink here
                 clear_defer(s);
-                whichPrior()[s] = from;
+                Assignment model = ms->get_model();
+
+                Assignment latches(model.begin() + model_->num_inputs(),model.begin() + model_->num_inputs()+model_->num_latches());
+                State* newinit = new State(latches);
+                clear_defer(newinit);
+                
+                whichPrior()[s] = newinit;
                 whichCEX() = s;
                 return RES_UNSAFE;
             }

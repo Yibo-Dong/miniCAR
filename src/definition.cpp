@@ -167,16 +167,23 @@ namespace car {
 	
 	void Problem::set_outputs (const aiger* aig)
 	{
-		for(size_t i = 0; i < aig->num_outputs; i++)
+		for(size_t i = 0; i < aig->num_outputs; ++i)
 		{
 			int lit = (int)aig->outputs[i].lit;
 			outputs_.push_back(car_var(lit));
 		}
+        for(size_t i = 0; i< aig->num_bad; ++i)
+        {
+            int lit = (int)aig->bad[i].lit;
+			outputs_.push_back(car_var(lit));
+        }
+        num_outputs_ = outputs_.size();
+        assert(outputs_.size() == 1 && "Only 1 output is allowed!\n");
 	}
 
 	void Problem::set_init (const aiger* aig)
 	{
-		for(size_t i = 0; i < aig->num_latches; i ++)
+		for(size_t i = 0; i < aig->num_latches; ++i)
 		{
 			if (aig->latches[i].reset == 0)
 				init_.push_back (-(num_inputs_+1+i));
@@ -184,8 +191,7 @@ namespace car {
 				init_.push_back (num_inputs_+1+i);
 			else
 			{
-				cout << "Error setting initial state!" << endl;
-				exit (0);
+                // do nothing. They are `don't care`.
 			}
 		}
 	}
@@ -273,8 +279,13 @@ namespace car {
 
 		gates.clear();
 		//  Use Outputs as the start point, recursively add all the rhs lits.
-		collect_necessary_gates(aig, aig->outputs, aig->num_outputs, exist_gates, gates);
-		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
+        
+        // Assume: only one property to be checked.
+        if(aig->num_outputs > 0)
+    		collect_necessary_gates(aig, aig->outputs, aig->num_outputs, exist_gates, gates);
+        else
+            collect_necessary_gates(aig, aig->bad, aig->num_bad, exist_gates, gates);
+    	for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
 			assert(aa != NULL);

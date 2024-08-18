@@ -289,18 +289,11 @@ namespace car
         State *get_partial_state(Assignment &s, const State *prior_state);
 
         /**
-         * @brief Get the solution from SAT solver.
+         * @brief Get the solution from SAT solver, update it to U sequence.
          *
-         * @return State* : the state representing the solution, which is to be added to the U sequence.
+         * @return State* : the state retrieved.
          */
-        State *getModel(int level);
-
-        /**
-         * @brief Update U sequence, and push into cex vector
-         *
-         * @return whether it is already seen at a lower level.
-         */
-        bool updateU(State *, State *prior_in_trail);
+        State *getModel(State *s, int level);
 
         /**
          * @brief SAT_Assume(assum, clauses)

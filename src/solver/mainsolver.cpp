@@ -195,7 +195,7 @@ namespace car
         if(frame_level == -1)
         {
             assert(!reverseT);
-            push_to_assumption({bad});            
+            push_to_assumption({bad});
         }
         else
             // set flags, both activation flags and deactivation flags
@@ -256,6 +256,15 @@ namespace car
 		State* s = new State(inputs,latches);
 		return s;
 	}
+
+    State* MainSolver::getInitState()
+    {
+        assert(unroll_level == 1);
+		Assignment model = get_model();
+        Assignment initLatches(model.begin() + _model->num_inputs(),model.begin() + _model->num_inputs()+_model->num_latches());
+        State *newInit = new State(initLatches);
+        return newInit;
+    }
 
 	/**
 	 * @brief get unsat core, and remove bad from it if exists.
@@ -444,8 +453,9 @@ namespace car
 	 * @param m 
 	 * @param unroll_level 
 	 */
-	MainSolver::MainSolver (Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level): rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), reverseT(forward), bad(m->output(0))
+	MainSolver::MainSolver (Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level, bool simp): rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), reverseT(forward), bad(m->output(0))
 	{
+        assert(simp == false);
 		// no need to unroll if level == 1.
 		assert(unroll_level >=1);
 		// note: add flags for each round

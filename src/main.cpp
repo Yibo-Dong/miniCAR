@@ -70,6 +70,8 @@ string get_file_name(string &s)
     else
         start_pos += 1;
     size_t end_pos = s.find(".aig", start_pos);
+    if(end_pos == std::string::npos)
+        end_pos = s.find(".aag", start_pos);
     assert(end_pos != std::string::npos);
 
     return s.substr(start_pos, end_pos - start_pos);
