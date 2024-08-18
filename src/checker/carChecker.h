@@ -341,15 +341,6 @@ namespace car
          */
         RESEnum immediateCheck(State *from, OFrame &UCs);
 
-        /**
-         * @brief Check whether this in O[0] is actually a CEX.
-         *
-         * @param from
-         * @param O
-         * @return true
-         * @return false
-         */
-        bool finalCheck(State *from);
 
         /**
          * @brief Whether this state is blocked in this O frame, namely O[frame_level] (or Otmp, if frame_level == O.size)

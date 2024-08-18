@@ -562,9 +562,8 @@ namespace car
 
         if(level == -1 && !backwardCAR)
         {
-            res = true;
             whichCEX() = s;
-            return res;
+            return true;
         }
 
         vector<Cube> inter;
@@ -583,10 +582,9 @@ namespace car
             CARStats.count_main_solver_original_time_end(res,0); //uc size == 0
             if(level == -1)
             {
+                // TODO: consider to use immediateCheck() here, to get more than 1 uc when level == -1.
                 assert(backwardCAR);
-                State *cex = ms->get_state();
-                clear_defer(cex);
-                whichPrior()[cex] = s;
+                State *cex = getModel(s, level);
                 whichCEX() = cex;
                 return true;
             }
@@ -1278,16 +1276,8 @@ namespace car
             {
                 CARStats.count_main_solver_original_time_end(true,0);
                 // if sat. already found the cex.
-                State *s = ms->get_state(); // no need to shrink here
-                clear_defer(s);
-                Assignment model = ms->get_model();
-
-                Assignment latches(model.begin() + model_->num_inputs(),model.begin() + model_->num_inputs()+model_->num_latches());
-                State* newinit = new State(latches);
-                clear_defer(newinit);
-                
-                whichPrior()[s] = newinit;
-                whichCEX() = s;
+                State *cex = getModel(from, 0);
+                whichCEX() = cex;
                 return RES_UNSAFE;
             }
             // NOTE: the last bit in uc is added in.
@@ -1322,34 +1312,6 @@ namespace car
             }
         } while (true);
         return RES_UNKNOWN;
-    }
-
-    bool Checker::finalCheck(State *from)
-    {
-        bool direction = !backwardCAR;
-        MainSolver *ms = getMainSolver(0);
-        if (direction)
-        // in forward CAR, last target state is Init. Initial state is a concrete state, therefore it is bound to be reachable (within 0 steps). Here we only need to update the cex structure.
-        {
-            whichCEX() = from;
-            return true;
-        }
-        else
-        // in backward car, we use uc0 instead of ~P to initialize Ob[0]. This makes it possible to return false, because uc0 is necessary but not essential.
-        {
-            // check whether it's in it.
-            bool res = ms->badcheck(from->get_latches(), bad_);
-            if (res)
-            {
-                // OK. counter example is found.    
-                State *s = ms->get_state();
-                clear_defer(s);
-                whichPrior()[s] = from;
-                whichCEX() = s;
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
