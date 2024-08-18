@@ -1287,7 +1287,7 @@ namespace car
             if (cu.empty())
             {
                 // this means, ~p itself is bound to be UNSAT. No need to check. But it should not happen in most cases.
-                return RES_FAIL;
+                return RES_SAFE;
             }
 
             if(convMode==0 || convMode == 1)

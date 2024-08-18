@@ -234,7 +234,7 @@ void check_aiger(int argc, char **argv)
     if (!aiger_is_reencoded(aig))
         aiger_reencode(aig);
 
-    car::model = new Problem(aig);
+    car::model = new Problem(aig, opt.unrollPrime);
     State::set_num_inputs_and_latches(model->num_inputs(), model->num_latches());
 
     // assume that there is only one output needs to be checked in each aiger model,

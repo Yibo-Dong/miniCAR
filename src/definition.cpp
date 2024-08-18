@@ -108,7 +108,7 @@ namespace car {
 		return res;
 	}
 
-    Problem::Problem (aiger* aig)
+    Problem::Problem (aiger* aig, bool unroll)
 	{
 		// According to aiger format, inputs should be [1 ... num_inputs_]
 		// and latches should be [num_inputs+1 ... num_latches+num_inputs]]
@@ -130,6 +130,8 @@ namespace car {
 		set_init (aig);
 		
 		create_next_map (aig);
+        if(num_constraints_ > 0 || unroll)
+            unroll_prime(aig);
 		create_clauses (aig);
 	}
 	
@@ -259,6 +261,17 @@ namespace car {
 			add_clauses_from_equation(aa);
 		}
 
+        // ============================================================================
+		// (1+) create clauses for constraints encoding
+		// ============================================================================
+        for(size_t i = 0; i < aig->num_constraints; ++i)
+        {
+            auto lit = aig->constraints[i].lit;
+            auto var = car_var(lit);
+            cls_.push_back({var});
+            if(!input_var(var))
+                cls_.push_back({prime(var)});
+        }
 		// ============================================================================
 		// (2) same next have same previous, initialized to 0.
 		// ============================================================================
@@ -269,7 +282,6 @@ namespace car {
 		set_common_next_start();
 		// @note: even if no gates share a common next, the helper lit will be inserted.
 		create_constraints_for_latches();
-
 		// ============================================================================
 		// (3) clause for encoding outputs.
 		// ============================================================================
@@ -291,7 +303,6 @@ namespace car {
 			assert(aa != NULL);
 			add_clauses_from_equation(aa);
 		}
-
 		// ============================================================================
 		// (4) clause for encoding latches's mapping relation
 		// ============================================================================
@@ -308,7 +319,6 @@ namespace car {
 			assert(aa != NULL);
 			add_clauses_from_equation(aa);
 		}
-
 		// ============================================================================
 		//// (5) create clauses for true and false
 		// ============================================================================
@@ -316,6 +326,28 @@ namespace car {
 		cls_.push_back(clause(-false_));
 	}
 
+    // when dealing with cosntraints, we need to add primed constraints to solver.
+    void Problem::unroll_prime(const aiger* aig)
+    {
+        int startingLit = max_id() + 1;
+        // for each andgate, we would like to get its primed version.
+
+        for(int i = 0; i < aig->num_ands; ++i)
+		{
+			aiger_and& aa = aig->ands[i];
+            int primedLHS = startingLit + i;
+            auto toInsert = std::pair<int,int>{car_var(aa.lhs), primedLHS};
+            next_map_.insert(toInsert);
+            insert_to_reverse_next_map(primedLHS, car_var(aa.lhs));
+            int primedRHS0 = (input_var(car_var(aa.rhs0))) ? car_var(aa.rhs0) : prime(car_var(aa.rhs0));
+            int primedRHS1 = (input_var(car_var(aa.rhs1))) ? car_var(aa.rhs1) :prime(car_var(aa.rhs1));
+            cls_.push_back (clause ( (primedLHS), -(primedRHS0), -(primedRHS1)));
+			cls_.push_back (clause (- (primedLHS),  (primedRHS0)));
+			cls_.push_back (clause (- (primedLHS),  (primedRHS1)));
+        }
+        max_id_ += aig->num_ands;
+        
+    }
 
     /**
 	 * @brief 

@@ -55,6 +55,7 @@ namespace car
             }
         }
         else{
+            assert(_model->num_constraints() == 0);
             loadSimpCNF();
         }
     }

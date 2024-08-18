@@ -189,7 +189,7 @@ public:
 	                                   
 public:
     /// construct from an AIGER.
-	explicit Problem (aiger*);
+	Problem (aiger*, bool unroll);
 	~Problem () {}
 	
     /// get the 'next' of this literal.
@@ -197,6 +197,7 @@ public:
     /// get those literals whose next is this.
 	std::vector<int> previous (const int) const;
 	
+    bool input_var (const int id) const {return abs(id) >= 1 && (abs(id) <= num_inputs_);}
 	bool state_var (const int id) const {return (abs(id) >= 1) && (abs(id) <= num_inputs_+num_latches_);}
 	bool latch_var (const int id) const {return (abs(id) >= num_inputs_+1) && (abs(id) <= num_inputs_+num_latches_);}
 
@@ -311,9 +312,8 @@ public:
 	void add_clauses_from_equation (const aiger_and* aa);
 	void create_constraints_for_latches ();
 	void create_clauses (const aiger* aig);
-    void simplify_clauses();
 
-    void unfold_bad(const aiger* aig, std::vector<std::vector<int>>& res);
+    void unroll_prime(const aiger* aig);
 };
 
 
@@ -409,6 +409,9 @@ public:
 
         // whether to simplify the CNF, using another simpSolver.
         bool simplifyCNF = false;
+
+        // unroll primed version. Must ON for CONSTRAINTS. Think about it: Whether we should used bad' instead of O0?
+        bool unrollPrime = false;
 
         std::string inputPath;
         std::string outputPath;
