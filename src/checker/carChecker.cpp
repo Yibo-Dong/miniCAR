@@ -1078,7 +1078,8 @@ namespace car
 
         frame.push_back(uc);
 
-        ImplySolver::add_uc(uc,dst_level_plus_one);
+        if(needImpSolver())
+            ImplySolver::add_uc(uc,dst_level_plus_one);
         
 
         if (dst_level_plus_one <= OSize())
@@ -1168,7 +1169,8 @@ namespace car
                     // use uc to initialize O[0] is suitable.
                     for(size_t index = 0; index< O0.size(); ++index)
                     {
-                        ImplySolver::add_uc(O0[index],0);
+                        if(needImpSolver())
+                            ImplySolver::add_uc(O0[index],0);
                         if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
                         {
                             ucs_masks.push_back({});   
@@ -1204,10 +1206,11 @@ namespace car
                     // ~p in ~uc
                     // use uc to initialize O[0] is suitable.
 
-                    for(size_t index = 0; index< O0.size(); ++index)
-                    {
-                        ImplySolver::add_uc(O0[index],0);
-                    }
+                    if(needImpSolver())
+                        for(size_t index = 0; index< O0.size(); ++index)
+                        {
+                            ImplySolver::add_uc(O0[index],0);
+                        }
                     Onp = OSequence({O0});
                 }
                 break;
