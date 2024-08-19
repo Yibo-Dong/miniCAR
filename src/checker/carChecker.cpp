@@ -731,8 +731,8 @@ namespace car
 
         int originalUCsize = uc.size();
 
-        static int prop_tick = 0;
-        ++prop_tick;
+        static std::map<int,int> prop_tick;
+        ++prop_tick[level];
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
@@ -792,7 +792,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize, prop_tick);
+        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize, prop_tick[level]);
     }
 
     bool Checker::convTriggered(int level)
