@@ -35,18 +35,33 @@ namespace car {
      */
  	bool State::imply (const Cube& uc) const
 	{
-        // TODO: use bit-operation to compare multiple bits at the same time?
-		for(int i = uc.size() - 1 ; i >= 0; --i)
-		{
-            // get the offset of this literal.
-			int index = abs(uc[i]) - num_inputs_ - 1;
-			assert (index >= 0);
-			if (_latches[index] ^ uc[i])
-			{
-				return false;
-			}
-		}
-		return true;
+        if(isPartial())
+        {
+            std::unordered_set<int> lits;
+            for(auto &lit: get_latches())
+            {
+                lits.insert(lit);
+            }
+            for(auto &l: uc)
+            {
+                if(lits.find(l) == lits.end())
+                    return false;
+            }
+            return true;
+        }
+        else{
+            for(int i = uc.size() - 1 ; i >= 0; --i)
+            {
+                // get the offset of this literal.
+                int index = abs(uc[i]) - num_inputs_ - 1;
+                assert (index >= 0);
+                if (_latches[index] ^ uc[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
 	}
 	
     /**
@@ -59,15 +74,30 @@ namespace car {
      */
 	Cube State::intersect (const Cube& cu) const
 	{
-		Cube res;
+        Cube res;
         res.reserve(cu.size());
-		for(size_t i = 0; i < cu.size (); i ++)
-		{
-			int index = abs(cu[i]) - num_inputs_ - 1;
-			assert (index >= 0);
-			if (_latches[index] == cu[i])
-				res.push_back (cu[i]);
-		}
+        if(isPartial())
+        {
+            std::unordered_set<int> lits;
+            for(auto &lit: get_latches())
+            {
+                lits.insert(lit);
+            }
+            for(auto &l: cu)
+            {
+                if(lits.find(l) == lits.end())
+                    res.push_back(l);
+            }
+        }
+        else{
+            for(size_t i = 0; i < cu.size (); i ++)
+            {
+                int index = abs(cu[i]) - num_inputs_ - 1;
+                assert (index >= 0);
+                if (_latches[index] == cu[i])
+                    res.push_back (cu[i]);
+            }
+        }
 		return res;
 	}
 
@@ -130,7 +160,7 @@ namespace car {
 		set_init (aig);
 		
 		create_next_map (aig);
-        if(num_constraints_ > 0 || unroll)
+        if(unroll)
             unroll_prime(aig);
 		create_clauses (aig);
 	}
@@ -269,8 +299,6 @@ namespace car {
             auto lit = aig->constraints[i].lit;
             auto var = car_var(lit);
             cls_.push_back({var});
-            if(!input_var(var))
-                cls_.push_back({prime(var)});
         }
 		// ============================================================================
 		// (2) same next have same previous, initialized to 0.
@@ -329,13 +357,12 @@ namespace car {
     // when dealing with cosntraints, we need to add primed constraints to solver.
     void Problem::unroll_prime(const aiger* aig)
     {
-        int startingLit = max_id() + 1;
         // for each andgate, we would like to get its primed version.
 
         for(int i = 0; i < aig->num_ands; ++i)
 		{
 			aiger_and& aa = aig->ands[i];
-            int primedLHS = startingLit + i;
+            int primedLHS = ++max_id_;
             auto toInsert = std::pair<int,int>{car_var(aa.lhs), primedLHS};
             next_map_.insert(toInsert);
             insert_to_reverse_next_map(primedLHS, car_var(aa.lhs));
@@ -345,8 +372,6 @@ namespace car {
 			cls_.push_back (clause (- (primedLHS),  (primedRHS0)));
 			cls_.push_back (clause (- (primedLHS),  (primedRHS1)));
         }
-        max_id_ += aig->num_ands;
-        
     }
 
     /**

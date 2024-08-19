@@ -211,9 +211,6 @@ namespace car
                 push_to_assumption(cu);
         }
 
-        // with rotate on, it will already be the whole state.
-        // therefore, no need to add the rest part.
-        if(!rotate_is_on)
         {
             if(reverseT)
                 push_to_assumption_primed(s->get_latches());

@@ -999,7 +999,7 @@ namespace car
         }
 
         // a full state
-        if (s->latch_size() == model_->num_latches())
+        if (!s->isPartial())
         {
             // calculate intersection and put the others behind.
             for(size_t i = 0; i < rcu.size(); ++i)
@@ -1013,25 +1013,18 @@ namespace car
         else
         {
             // a partial state
-            // TODO: test me!
-            int i = 0, j = 0;
-            while (i < s->latch_size() && size_t(j) < rcu.size())
+            std::unordered_set<int> helper;
+            for(auto lit: s->get_latches())
             {
-                if (rcu[j] == s->latch_at(i))
-                {
-                    rcube.push_back(rcu[j]);
-                    i++;
-                    j++;
-                }
+                helper.insert(lit);
+            }
+            for(auto l: rcu)
+            {
+                if(helper.find(l) != helper.end())
+                    rcube.push_back(l);
                 else
-                {
-                    rest.push_back(s->latch_at(i));
-                    if (rcu[j] < s->latch_at(i))
-                        j++;
-                    else
-                        i++;
-                }
-            }                    
+                    rest.push_back(l);
+            }                 
         }
     }
 
