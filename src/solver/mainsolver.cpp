@@ -167,7 +167,7 @@ namespace car
     }
 
     /**
-	 * @brief set assumption = { s->get_latches() , MFlagOf(Os[frame_level]) }
+	 * @brief set assumption = { s->getLatches() , MFlagOf(Os[frame_level]) }
 	 * 
 	 * @param s 
 	 * @param frame_level 
@@ -183,9 +183,9 @@ namespace car
         // push the latches of this state `s`.
 
         if(reverseT)
-            push_to_assumption_primed(s->get_latches());
+            push_to_assumption_primed(s->getLatches());
         else
-            push_to_assumption(s->get_latches());
+            push_to_assumption(s->getLatches());
     }
 
 	void MainSolver::set_assumption_M(State*s,  const int frame_level, const std::vector<Cube> &prefers)
@@ -213,9 +213,9 @@ namespace car
 
         {
             if(reverseT)
-                push_to_assumption_primed(s->get_latches());
+                push_to_assumption_primed(s->getLatches());
             else
-                push_to_assumption(s->get_latches());
+                push_to_assumption(s->getLatches());
         }
     }
 
@@ -414,164 +414,6 @@ namespace car
 				res[i - 1] = -i;
 		}
 		model = res;
-	}
-
-
-
-
-	
-    // ##################################################
-    // #####              UNROLL for BMC           ######
-    // ##################################################
-
-	/**
-	 * @brief Idea of unroll is to encode T^k into the solver with k > 1
-	 * 
-	 * Inputs are independant, output is just a mark. 
-	 * Relation between different levels is built up upon Latches:
-	 * 	The next value of prior cycle === The Previous value of next cycle
-	 * 
-	 * E.g.
-	 * Input	: 2
-	 * Latch	: (4, 2)
-	 * Output	: 4
-	 * AndGate	: {}
-	 * 
-	 * ---> 
-	 * 
-	 * Input	: 2, 1 * 4 + 2
-	 * Latch	: (4, 2), (1 * 4 + 4, 1 * 4 + 2)
-	 * Output	: 1 * 4 + 4
-	 * AndGate	: {}
-	 * 
-	 * We need to record: 8 == 2.
-	 * 
-	 * To unroll one level:
-	 * First, copy the literals. 
-	 * 
-	 * @param m 
-	 * @param unroll_level 
-	 */
-	MainSolver::MainSolver (Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level, bool simp): rotate_is_on(rotate_is_on), uc_no_sort(uc_no_sort), _model(m), reverseT(forward), bad(m->output(0))
-	{
-        assert(simp == false);
-		// no need to unroll if level == 1.
-		assert(unroll_level >=1);
-		// note: add flags for each round
-		int lits_each_round = lits_per_round();
-
-		max_flag = unroll_level * lits_each_round;
-			
-		// BASIC STEP:
-		// (1) create clauses for constraints encoding
-		for(int i = 0; i < m->common_next_start(); ++i)
-		{
-			add_clause (m->element (i));
-		}
-		// (2) same next have same previous, initialized to 0.
-		for( int i = m->common_next_start(); i< m->outputs_start(); ++i)
-		{
-			add_clause(m->element(i));
-		}
-		// (3) clause for encoding outputs.
-		for(int i = m->outputs_start (); i < m->latches_start (); ++i)
-		{
-			add_clause (m->element (i));
-		}
-		// (4) clause for encoding latches's mapping relation
-		// (5) create clauses for true and false
-		for(int i = m->latches_start (); i < m->size (); ++i)
-		{
-			add_clause (m->element (i));
-		}
-
-		// flag for the first level
-		int flag_for_first_level = 1 * lits_each_round;
-		add_clause(flag_for_first_level);
-		
-		if(unroll_level == 1)
-		{
-			return;
-		}
-
-		// UNROLL SECTION:
-
-		for(int level = 2; level <= unroll_level; ++level)
-		{
-			unroll();
-		}
-	}
-
-    void MainSolver::enable_level(int level)
-	{
-		assert(level <= unroll_level);
-		for(int i = 2; i <= level; ++i)
-		{
-			int flag_for_this_level = i * lits_per_round();
-			assumptions.push (SAT_lit (flag_for_this_level));
-		}
-	}
-
-	void MainSolver::unroll()
-	{
-		int level = unroll_level+1;
-		max_flag = level * lits_per_round();
-		int lits_each_round = lits_per_round();
-		int flag_for_this_level = level * lits_each_round;
-		// copy clauses.
-		// @note: last 2: true & false. The two lits reserved.
-		for(int i = 0; i < _model->size(); ++i)
-		{
-			// copy it first
-			vector<int> unrolled_clause = _model->element(i);
-			
-			// unroll it
-			for(int &lit : unrolled_clause)
-			{
-				lit += (lit > 0 ? 1 : -1) *  (level-1) * lits_each_round;
-			}
-			// add flag
-			unrolled_clause.push_back(-flag_for_this_level);
-
-			add_clause(unrolled_clause);
-		}
-
-		// add equivalent relation between levels
-		// prior's next is present!
-		for(int i = _model->num_inputs() + 1; i < _model->num_inputs() + _model->num_latches() + 1; ++i)
-		{
-			int present = (level - 1) * lits_each_round + i;
-			int prior_next = (level - 2) * lits_each_round * (_model->next_map_.at(i) > 0 ? 1 : -1) + _model->next_map_.at(i);
-			// equiv
-			add_clause(-present,prior_next,-flag_for_this_level);
-			add_clause(present,-prior_next,-flag_for_this_level);
-		}
-		unroll_level = level;
-	}
-
-    // the states in ret is not owned by MainSolver
-	void MainSolver::get_states(std::vector<State*>& ret)
-	{
-		Assignment model = get_model();
-		assert(model.size() == size_t(unroll_level * lits_per_round()));
-		for(int level = 0 ; level < unroll_level; ++level)
-		{
-			int offset = level * lits_per_round();
-
-			Assignment model_for_this_level(offset + model.begin(), offset + model.begin() + _model->num_inputs() + _model->num_latches());
-			//TODO: this needs to be tested.
-			if(reverseT)
-				shrink_model(model_for_this_level);
-			for(auto &i : model_for_this_level)
-			{
-				// the behavior of negative number's modulo arithmatic is not well defined. do not use. 
-				i -= ( i > 0 ? 1 : -1) * offset;
-			}
-			Assignment inputs(model_for_this_level.begin(), model_for_this_level.begin() + _model->num_inputs());
-			Assignment latches(model_for_this_level.begin() + _model->num_inputs(), model_for_this_level.begin() + _model->num_inputs() + _model->num_latches());
-			State* s = new State(inputs,latches);
-			ret.push_back(s);
-		}
 	}
 
 }

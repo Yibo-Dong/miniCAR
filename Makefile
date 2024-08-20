@@ -18,12 +18,12 @@ endif
 
 
 SOURCES = src/thirdParty/aiger/aiger.c \
-			src/checker/carChecker.cpp src/checker/bmcChecker.cpp \
-			src/solver/carsolver.cpp src/solver/mainsolver.cpp src/solver/newpartialsolver.cpp src/solver/implysolver.cpp\
+			src/checker/carChecker.cpp \
+			src/solver/carsolver.cpp src/solver/mainsolver.cpp src/solver/implysolver.cpp\
 			src/definition.cpp src/main.cpp \
 			$(SOLVER_SOURCES)
 INCLUDE_DIRS = -I./src -I./src/thirdParty/aiger -I./src/checker -I./src/debug -I./src/solver -I./src/utils $(SOLVER_INCLUDE_DIRS)
-OBJECTS = carsolver.o implysolver.o newpartialsolver.o mainsolver.o main.o aiger.o $(SOLVER_OBJECTS) carChecker.o bmcChecker.o definition.o
+OBJECTS = carsolver.o implysolver.o mainsolver.o main.o aiger.o $(SOLVER_OBJECTS) carChecker.o definition.o
 
 CFLAG = $(INCLUDE_DIRS) -D__STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -c -g
 LFLAG = -g -lz -lpthread 

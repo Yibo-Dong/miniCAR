@@ -1,6 +1,5 @@
 #include "carChecker.h"
 #include "implysolver.h"
-#include "newpartialsolver.h"
 #include "statistics.h"
 #include "definition.h"
 #include <vector>
@@ -28,18 +27,6 @@ namespace car
             prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
         }    
 
-        if (!backwardCAR)
-        {
-            // only forward needs these
-            partial_solver = new PartialSolver(model);
-            // TODO: extend to multi-properties.
-            start_solver = new StartSolver(model, bad_, true);
-        }
-        else
-        {
-            partial_solver = nullptr;
-            start_solver = nullptr;
-        }
         rotates.clear();
         if(opt.time_limit_to_restart > 0)
             restart_enabled = true;
@@ -60,16 +47,6 @@ namespace car
                 delete slv;
                 slv = nullptr;
             }
-        }
-        if (start_solver)
-        {
-            delete start_solver;
-            start_solver = nullptr;
-        }
-        if (partial_solver)
-        {
-            delete partial_solver;
-            partial_solver = nullptr;
         }
         if (prop_solver)
         {
@@ -358,106 +335,9 @@ namespace car
         }
         --pickStateLastIndex;
         State* s = U[pickStateLastIndex];
-        if(s->_isnegp)
-        {
-            // FIXME: check for forward CAR, where we need to enumerate by querying the start solver.
-            // TODO: check for efficiency.
-            State *new_s = enumerateStartStates();
-            if(new_s)
-            {
-                whichPrior()[new_s] = nullptr;
-                whichU().push_back(new_s);
-                if(start_solver)
-                    start_solver->reset();
-                return new_s;
-            }
-            else
-            {
-                // negp should be at position 0.
-                // so when we try to fetch a state, but get negp, it is also the end of one round.
-                pickStateLastIndex = U.size();
-
-                if(start_solver)
-                    start_solver->reset();
-                return nullptr;
-            }
-            return nullptr;
-        }
         return s;
     }
 
-
-    /**
-     * @brief About the principle here, see newpartialsolver.h
-     *
-     * @param s
-     * @param prior_state
-     */
-    State *Checker::get_partial_state(Assignment &s, const State *prior_state)
-    {
-        Assignment next_assumptions = s;
-        Assignment old_inputs(s.begin(), s.begin() + model_->num_inputs());
-
-        if (prior_state)
-        // it is not start state
-        {
-            // negate the s' as the cls, put into the solver.
-            Assignment cls = negateCube(prior_state->get_latches());
-            partial_solver->new_flag();
-            partial_solver->add_clause_with_flag(cls);
-
-            // the assumption being t's input and latches.
-            next_assumptions.push_back(partial_solver->get_flag());
-            partial_solver->set_assumption(next_assumptions);
-
-            // Therefore, it ought to be unsat. If so, we can get the partial state (from the uc)
-            bool res = partial_solver->solve_assumption();
-            // uc actually stores the partial state.
-            s = partial_solver->get_shrunk_uc();
-
-            if (res || s.empty())
-            {
-                // all states can reach this state! It means the counter example is found. Sure the initial state can reach this state.
-                // set the next state to be the initial state.
-                assert(Ub.size());
-                State *init = Ub[0];
-                s = init->get_latches();
-            }
-
-            // block this clause.
-            int flag = partial_solver->get_flag();
-            partial_solver->add_clause(flag);
-        }
-        else
-        // for initial states, there is no such "prior state", only "bad"
-        {
-            next_assumptions.push_back(-bad_);
-            partial_solver->set_assumption(next_assumptions);
-            bool res = partial_solver->solve_assumption();
-            s = partial_solver->get_conflict_no_bad(-bad_);
-            // if one-step reachable, should already been found in immediate_satisfiable.
-            assert(!s.empty());
-        }
-
-        // FIXME: is this `inputs` really useful?
-        Assignment inputs, latches;
-        for (auto &it : s)
-        {
-            if (abs(it) <= model_->num_inputs())
-                inputs.push_back(it);
-            else
-                latches.push_back(it);
-        }
-        if (inputs.empty()) // use this inputs as the inputs.
-        {
-            inputs = old_inputs;
-        }
-
-        // this state is not a full state.
-        State *pstate = new State(inputs, latches);
-        clear_defer(pstate);
-        return pstate;
-    }
 
     /**
      * @brief print the evidence. reuse backwardCAR, which exactly reveals present searching direciton.
@@ -483,9 +363,9 @@ namespace car
             {
                 State *next = prior_in_trail_b.find(to_print) != prior_in_trail_b.end() ? prior_in_trail_b.at(to_print) : nullptr;
                 if (next)
-                    helper.push(to_print->get_inputs_str());
+                    helper.push(to_print->getInputsStr());
                 else
-                    helper.push(to_print->get_latches_str());
+                    helper.push(to_print->getLatchesStr());
                 to_print = next;
             }
             while (!helper.empty())
@@ -500,11 +380,11 @@ namespace car
         {
             State *to_print = counter_start_f;
             if (!latch_printed)
-                out << to_print->get_latches_str() << endl;
+                out << to_print->getLatchesStr() << endl;
             while (to_print)
             {
                 State *next = prior_in_trail_f.find(to_print) != prior_in_trail_f.end() ? prior_in_trail_f.at(to_print) : nullptr;
-                out << to_print->get_inputs_str() << endl;
+                out << to_print->getInputsStr() << endl;
                 to_print = next;
             }
         }
@@ -520,7 +400,7 @@ namespace car
             {
                 std::random_device rd;
                 std::mt19937 gen(rd());
-                vector<int> shuff_helper = s->get_latches();
+                vector<int> shuff_helper = s->getLatches();
                 for(int i = shuff_helper.size() - 1; i > 0; --i) {
                     // starting from 1, because 0 is the flag.
                     std::uniform_int_distribution<int> dis(0, i);
@@ -533,7 +413,7 @@ namespace car
             case LO_Classic_Pos:
             {
                 if(level == -1)
-                    return {s->get_latches()};
+                    return {s->getLatches()};
                 vector<Cube> pref;
                 pref.reserve(inter.size() + 2);
                 pref = inter;
@@ -559,12 +439,6 @@ namespace car
     {
         MainSolver* ms = getMainSolver(level);
         bool res = false;
-
-        if(level == -1 && !backwardCAR)
-        {
-            whichCEX() = s;
-            return true;
-        }
 
         vector<Cube> inter;
         get_inter_res(s,level, inter);
@@ -993,7 +867,7 @@ namespace car
         if (rcu.empty())
         {
             rcube = {};
-            rest = s->get_latches();
+            rest = s->getLatches();
             // TODO: try this to be inter?
             return;
         }
@@ -1004,7 +878,7 @@ namespace car
             // calculate intersection and put the others behind.
             for(size_t i = 0; i < rcu.size(); ++i)
             {
-                if (s->latch_at(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
+                if (s->getLatchAt(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
                     rcube.push_back(rcu[i]);
                 else
                     rest.push_back(-rcu[i]);
@@ -1014,7 +888,7 @@ namespace car
         {
             // a partial state
             std::unordered_set<int> helper;
-            for(auto lit: s->get_latches())
+            for(auto lit: s->getLatches())
             {
                 helper.insert(lit);
             }
@@ -1038,7 +912,7 @@ namespace car
             // if predecessor is partial, we would like to initialize it.
             // why not s->set_latches() ? because s may be reused, but newInit will not be used in the search(but only in CEX printing).
             State* newInit = getMainSolver(level)->getInitState();
-            newInit->set_inputs(s->get_inputs()); // although, it should be empty here in backward CAR.
+            newInit->setInputs(s->getInputs()); // although, it should be empty here in backward CAR.
             clear_defer(newInit);
             whichPrior()[t] = newInit;
         }
@@ -1085,16 +959,6 @@ namespace car
             }
         }
         
-        if (dst_level_plus_one == OSize())
-        {
-            if (!backwardCAR)
-            {
-                // FIXME: test me later.
-                // Not always. Only if the start state is ~p.
-                start_solver->add_clause_with_flag(uc);
-            }
-        }
-
         if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
         {
             while(ucs_masks.size() <= dst_level_plus_one + 1)
@@ -1124,30 +988,8 @@ namespace car
                 RESEnum res = immediateCheck(init, O0);
                 if (RES_UNKNOWN != res)
                     return res;
-
-                // forward inits.
-                if (!backwardCAR)
-                {
-                    // Uf[0] = ~p;
-
-                    // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
-                    // construct an abstract state
-                    whichPrior()[negp] = nullptr;
-                    whichU().push_back(negp);
-                    pickStateLastIndex = Uf.size();
-                    
-                    // O_I
-                    // NOTE: O stores the UC, while we actually use negations.
-                    OFrame frame;
-                    auto& latches = init->get_latches();
-                    frame.resize(latches.size());
-                    std::transform(latches.begin(), latches.end(), frame.begin(), [](auto lit) {
-                        return std::vector<int>{-lit};
-                    });
-                    OI = {frame};
-                }
                 // backward inits.
-                if (backwardCAR)
+                assert(backwardCAR);
                 {
                     // Ub[0] = I;
                     whichPrior()[init] = nullptr;
@@ -1215,13 +1057,11 @@ namespace car
 
         if(get_rotate())
         {
-            rotates.push_back(init->get_latches());
+            rotates.push_back(init->getLatches());
         }
 
         if (backwardCAR)
             getMainSolver(0)->add_new_frame_M(Onp[0], Onp.size() - 1);
-        if (!backwardCAR)
-            getMainSolver(0)->add_new_frame_M(OI[0], OI.size() - 1);
         if (propMode > 0 && backwardCAR)
             prop_solver->add_new_frame_P(Onp[0], Onp.size() - 1);
 
@@ -1231,38 +1071,13 @@ namespace car
 
     //////////////helper functions/////////////////////////////////////////////
 
-    // NOTE: if not updated, it return the same state all the time?
-    State *Checker::enumerateStartStates()
-    {
-        if(partial)
-        {
-            if (start_solver->solve_with_assumption())
-            {
-                Assignment ass = start_solver->get_model();
-                ass.resize(model_->num_inputs() + model_->num_latches());
-                State *partial_res = get_partial_state(ass, nullptr);
-                clear_defer(partial_res);
-                return partial_res;
-            }
-        }
-        else
-        {
-            if (start_solver->solve_with_assumption())
-            {
-                State *res = start_solver->create_new_state();
-                clear_defer(res);
-                return res;
-            }
-        }
-        return NULL;
-    }
 
     // This is used in sequence initialization
     RESEnum Checker::immediateCheck(State *from, OFrame &O0)
     {
         MainSolver* ms = getMainSolver(0);
         // NOTE: init may not be already set.
-        vector<int> latches = from->get_latches();
+        vector<int> latches = from->getLatches();
 
         int last_max = 0;
         do
@@ -1312,7 +1127,7 @@ namespace car
 
     /**
      * @brief
-     * @pre s->get_latches() is in abs-increasing order
+     * @pre s->getLatches() is in abs-increasing order
      *
      * @param s
      * @param frame_level
@@ -1482,7 +1297,7 @@ namespace car
 
             case (Imp_Bit):
             {
-                UCMask u_s(s->get_latches());
+                UCMask u_s(s->getLatches());
                 // get frame_level.
                 if(frame_level >= ucs_masks.size())
                 {
@@ -1530,7 +1345,7 @@ namespace car
                 }
 
                 
-                UCMask u_s(s->get_latches());  // remember this also?
+                UCMask u_s(s->getLatches());  // remember this also?
 
                 const auto& masks_this_level = ucs_masks.at(frame_level);
                 size_t framesz = whichFrame(frame_level).size();

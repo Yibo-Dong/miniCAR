@@ -4,9 +4,7 @@
 #include "definition.h"
 #include "implysolver.h"
 #include "invsolver.h"
-#include "startsolver.h"
 #include "mainsolver.h"
-#include "newpartialsolver.h"
 #include <assert.h>
 #include "statistics.h"
 #include <unordered_map>
@@ -226,8 +224,6 @@ namespace car
         const bool backwardCAR;
         const int bad_;
         Problem         *model_         = nullptr;
-        StartSolver     *start_solver   = nullptr;
-        PartialSolver   *partial_solver = nullptr;
         InvSolver       *inv_solver     = nullptr;
         /// @brief if one solver shared among all the frames, use this
         MainSolver      *main_solver    = nullptr;
@@ -286,15 +282,6 @@ namespace car
         int pickStateLastIndex = -1;
 
         /**
-         * @brief Get the partial state with assignment s. This is used in forward CAR.
-         *
-         * @param s
-         * @param prior_state
-         * @return State*
-         */
-        State *get_partial_state(Assignment &s, const State *prior_state);
-
-        /**
          * @brief Get the solution from SAT solver, update it to U sequence.
          *
          * @return State* : the state retrieved.
@@ -329,13 +316,6 @@ namespace car
          * Will call ImmediateCheck.
          */
         RESEnum initSequence();
-
-        /**
-         * @brief Use start solver to get a state. Usually in ~p.
-         *
-         * @return State*
-         */
-        State *enumerateStartStates();
 
         /**
          * @brief Check SAT_ASSUME(I, ~P).
