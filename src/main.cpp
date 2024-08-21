@@ -187,6 +187,10 @@ OPTIONS parse_args(int argc, char **argv)
         {
             opt.simplifyCNF = true;
         }
+        else if (strcmp(argv[i], "--unroll") == 0)
+        {
+            opt.unrollPrime = true;
+        }
         else if (opt.inputPath.empty())
         {
             opt.inputPath = string(argv[i]);

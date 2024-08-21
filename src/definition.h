@@ -272,7 +272,7 @@ public:
 		return std::vector<int>{id1, id2, id3};
 	}
 	
-	inline void set_outputs_start ()
+	inline void setOutputs_start ()
 	{
 	    outputs_start_ = cls_.size ();
 	}
@@ -287,29 +287,26 @@ public:
 		common_next_start_ = cls_.size();
 	}
 	
-	void set_init (const aiger* aig);
-	void set_constraints (const aiger* aig);
-	void set_outputs (const aiger* aig);
+	void setInits ();
+	void setConstraints ();
+	void setOutputs ();
 
     /// collect those that are trivially constant
-	void collectTrue (const aiger* aig);
+	void collectTrue ();
     /// previous -> next
-	void create_next_map (const aiger* aig);
+	void create_next_map ();
     /// next -> previous(s)
 	void insert_to_reverse_next_map (const int index, const int val);
 
-	void collect_necessary_gates (const aiger* aig, const aiger_symbol* as, const int as_size, std::set<unsigned>& exist_gates, std::set<unsigned>& gates, bool next = false);
-	aiger_and* necessary_gate (const unsigned id, const aiger* aig);
+	void collect_necessary_gates (const aiger_symbol* as, const int as_size, std::set<unsigned>& exist_gates, std::set<unsigned>& gates, bool next = false);
+	aiger_and* necessary_gate (const unsigned id);
     
     // deprecated. Recursion causes stack overflow on large cases.
-	void recursively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates);
-    void iteratively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates);
+    void iteratively_add (const aiger_and* aa,std::set<unsigned>& exist_gates, std::set<unsigned>& gates);
 
 	void add_clauses_from_equation (const aiger_and* aa);
-	void create_constraints_for_latches ();
-	void create_clauses (const aiger* aig);
-
-    void unroll_prime(const aiger* aig);
+	void create_clauses ();
+    void unroll_prime();
 };
 
 
