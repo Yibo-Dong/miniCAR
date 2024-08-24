@@ -106,7 +106,7 @@ namespace car
 			 */
 			inline void add_constraint_and (const OFrame &frame, int level)
 			{
-				// flag = 1 : Clauses in this frame is enabled.
+				// flag = 1 : std::vector<std::vector<int>> in this frame is enabled.
 				// The real states this frame Represent
 				//	~uc1, ~uc2, ...
 				// flag = 0 : Not enabled

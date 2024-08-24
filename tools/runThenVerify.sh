@@ -16,6 +16,8 @@ BASENAME=$(basename "$INPUT_FILE" .aig)
 
 mkdir -p "$OUTPUT_PATH"
 
+rm -f "$OUTPUT_PATH/$BASENAME.res"
+
 ./miniCAR $OPTIONS "$INPUT_FILE" "$OUTPUT_PATH"
 
 ../aiger/aigsim -c "$INPUT_FILE" "$OUTPUT_PATH/$BASENAME.res"
@@ -24,8 +26,10 @@ if [ $? -eq 0 ]; then
     FIRST_LINE=$(head -n 1 "$OUTPUT_PATH/$BASENAME.res")
     if [ "$FIRST_LINE" == "1" ]; then
     echo "Verification passed: UNSAFE"
-    else
+    elif [ "$FIRST_LINE" == "0" ]; then
     echo "Verification passed: SAFE"
+    else
+    echo "Verification failed: EMPTY"
     fi
 else
     echo "Verification failed"

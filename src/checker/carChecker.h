@@ -4,9 +4,7 @@
 #include "definition.h"
 #include "implysolver.h"
 #include "invsolver.h"
-#include "startsolver.h"
 #include "mainsolver.h"
-#include "newpartialsolver.h"
 #include <assert.h>
 #include "statistics.h"
 #include <unordered_map>
@@ -52,6 +50,8 @@ namespace car
         bool partial = false;
         bool restart_enabled = false;
         bool multi_solver = false;
+        bool simp = false;
+        bool unroll_prime = false;
 
     public:
         /**
@@ -105,9 +105,6 @@ namespace car
         ///////////////////////////////////
         /// @subsection restart         ///
         ///////////////////////////////////
-
-        /// whether this phase has reached its time limit.
-        bool ppstoped = false;
         /// remember Option: whether we shall remember something during restart
         enum rememberEnum{
             remem_None = 0,
@@ -171,6 +168,12 @@ namespace car
             Imp_BitFresh    = 9, /// Use Bit Masks, also record fresh indexes.
         };
 
+        inline bool needImpSolver()
+        {
+            static std::unordered_set<int> __needImpSolver{Imp_Solver, Imp_Sample, Imp_Exp, Imp_Thresh};
+            return __needImpSolver.count(impMethod)!=0;
+        }
+
         /// level -> id -> freshIndex
         std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;
 
@@ -211,15 +214,17 @@ namespace car
         Checker(const Checker &) = delete;
         const Checker &operator=(const Checker &) = delete;
 
-        /// entrance for CAR checking
-        bool check();
+        /**
+         * @brief entrance for CAR checking
+         * 
+         * @return ResEnum
+         */
+        RESEnum check();
 
     public:
         const bool backwardCAR;
         const int bad_;
         Problem         *model_         = nullptr;
-        StartSolver     *start_solver   = nullptr;
-        PartialSolver   *partial_solver = nullptr;
         InvSolver       *inv_solver     = nullptr;
         /// @brief if one solver shared among all the frames, use this
         MainSolver      *main_solver    = nullptr;
@@ -247,17 +252,13 @@ namespace car
 
     private:
         /// entrance for CAR
-        bool car();
+        RESEnum car();
 
         /**
          * @brief Check for immediate safe or unsafe
          *
-         * @param out where to print
-         * @param res the check result
-         * @return true : Bad == True / False
-         * @return false
          */
-        bool trivialCheck(bool &res);
+        RESEnum trivialCheck();
 
         /**
          * @brief Searching procedure of bi-car. Enumerate states in U and use the OSequence as the guide.
@@ -265,7 +266,7 @@ namespace car
          * @return true : successfully reached O[0]. which means a cex is found.
          * @return false : all states in present U has been checked. No cex is found.
          */
-        bool trySAT(bool &safe_reported);
+        RESEnum trySAT();
 
         /// @brief print evidence.
         void print_evidence() const;
@@ -282,27 +283,11 @@ namespace car
         int pickStateLastIndex = -1;
 
         /**
-         * @brief Get the partial state with assignment s. This is used in forward CAR.
+         * @brief Get the solution from SAT solver, update it to U sequence.
          *
-         * @param s
-         * @param prior_state
-         * @return State*
+         * @return State* : the state retrieved.
          */
-        State *get_partial_state(Assignment &s, const State *prior_state);
-
-        /**
-         * @brief Get the solution from SAT solver.
-         *
-         * @return State* : the state representing the solution, which is to be added to the U sequence.
-         */
-        State *getModel(int level);
-
-        /**
-         * @brief Update U sequence, and push into cex vector
-         *
-         * @return whether it is already seen at a lower level.
-         */
-        bool updateU(State *, State *prior_in_trail);
+        State *getModel(State *s, int level);
 
         /**
          * @brief SAT_Assume(assum, clauses)
@@ -329,15 +314,9 @@ namespace car
 
         /**
          * @brief init special sequences: Uf, Ub, Oi, Onp
+         * Will call ImmediateCheck.
          */
-        bool initSequence(bool &res);
-
-        /**
-         * @brief Use start solver to get a state. Usually in ~p.
-         *
-         * @return State*
-         */
-        State *enumerateStartStates();
+        RESEnum initSequence();
 
         /**
          * @brief Check SAT_ASSUME(I, ~P).
@@ -347,17 +326,8 @@ namespace car
          * use uc to initialize O[0] is suitable.
          *
          */
-        bool immediateCheck(State *from, bool &res, OFrame &UCs);
+        RESEnum immediateCheck(State *from, OFrame &UCs);
 
-        /**
-         * @brief Check whether this in O[0] is actually a CEX.
-         *
-         * @param from
-         * @param O
-         * @return true
-         * @return false
-         */
-        bool finalCheck(State *from);
 
         /**
          * @brief Whether this state is blocked in this O frame, namely O[frame_level] (or Otmp, if frame_level == O.size)

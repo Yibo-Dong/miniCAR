@@ -1,6 +1,5 @@
 #include "carChecker.h"
 #include "implysolver.h"
-#include "newpartialsolver.h"
 #include "statistics.h"
 #include "definition.h"
 #include <vector>
@@ -19,27 +18,15 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), simp(opt.simplifyCNF), unroll_prime(opt.unrollPrime)
     {
         if(!multi_solver)
         {
-            main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
+            main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
             // also initialize the prop solver.
-            prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort);
+            prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
         }    
 
-        if (!backwardCAR)
-        {
-            // only forward needs these
-            partial_solver = new PartialSolver(model);
-            // TODO: extend to multi-properties.
-            start_solver = new StartSolver(model, bad_, true);
-        }
-        else
-        {
-            partial_solver = nullptr;
-            start_solver = nullptr;
-        }
         rotates.clear();
         if(opt.time_limit_to_restart > 0)
             restart_enabled = true;
@@ -61,16 +48,6 @@ namespace car
                 slv = nullptr;
             }
         }
-        if (start_solver)
-        {
-            delete start_solver;
-            start_solver = nullptr;
-        }
-        if (partial_solver)
-        {
-            delete partial_solver;
-            partial_solver = nullptr;
-        }
         if (prop_solver)
         {
             delete prop_solver;
@@ -78,34 +55,34 @@ namespace car
         }
     }
 
-    bool Checker::check()
+    RESEnum Checker::check()
     {
-        bool res;
-        if (trivialCheck(res))
+        RESEnum res = trivialCheck();
+        if (res == RES_UNKNOWN)
         {
-            return res ? true : false;
+            res = car();
         }
 
-        res = car();
-        if (res && ppstoped)
+        switch (res)
         {
-            // should try the next strategy.
-            // go out, build another checker.
-            return true;
-        }
+        case RES_SAFE:
+            out << "0" << endl;
+            out << "b0" << endl;
+            out << "." << endl;
+            break;
 
-        do
-        {
-            if (res)
-            {
-                out << "0" << endl;
-                out << "b0" << endl;
-                out << "." << endl;
-                break;
-            }
-
+        case RES_UNSAFE:
             print_evidence();
-        } while (false);
+
+        case RES_UNKNOWN:
+            break;
+
+        case RES_RESTART:
+            break;
+
+        default:
+            assert(false);
+        }
 
         return res;
     }
@@ -121,7 +98,7 @@ namespace car
                 int needs = level - main_solvers.size() + 1;
                 while(needs > 0)
                 {
-                    auto *new_slv = new MainSolver(model_, !backwardCAR, get_rotate(), uc_no_sort);
+                    auto *new_slv = new MainSolver(model_, !backwardCAR, get_rotate(), uc_no_sort, simp);
                     main_solvers.push_back(new_slv);                        
                     --needs;
                 }
@@ -133,10 +110,10 @@ namespace car
         }
     }
 
-    bool Checker::car()
+    RESEnum Checker::car()
     {
-        bool res = false;
-        if (initSequence(res))
+        RESEnum res = initSequence();
+        if (RES_UNKNOWN != res)
             return res;
         if (restart_enabled)
         {
@@ -153,69 +130,52 @@ namespace car
 
         while (true)
         {   
-            if (trySAT(res))
-            {
-                // if this PP phase ends, but has not reached the whole end.
-                if (ppstoped)
-                {
-                    return true;
-                    // continue;
-                }
+            res = trySAT();
+            if(RES_UNKNOWN != res)
                 return res;
-            }
 
             if (!inv_incomplete)
             {
                 if (InvFound())
-                    return true;
+                    return RES_SAFE;
             }
-
         }
 
         // dead code. Should not reach
-        return false;
+        return RES_FAIL;
     }
 
-    bool Checker::trivialCheck(bool &res)
+    RESEnum Checker::trivialCheck()
     {
         const Problem *model = model_;
         // FIXME: fix for multiple properties.
         if (bad_ == model->true_id())
         {
-            out << "1" << endl;
-            out << "b"
-                << "0" << endl;
-            {
-                // print init state
-                // FIXME: fix for latch inits.
-                for(int i = 0; i < model->num_latches(); ++i)
-                    out << "0";
-                out << endl;
-                // print an arbitary input vector
-                for(int j = 0; j < model->num_inputs(); j++)
-                    out << "0";
-                out << endl;
-            }
-            out << "." << endl;
-            res = true;
-            return true;
+
+            vector<int> all0(model_->num_inputs(),0);
+            State *init = new State(model_->init());
+            State *neg = new State(all0, model_->init());
+            clear_defer(init);
+            clear_defer(neg);
+            whichPrior()[neg] = init;
+            whichCEX() = neg;
+            return RES_UNSAFE;
         }
         else if (bad_ == model->false_id())
         {
             out << "0" << endl;
             out << "b" << endl;
             out << "." << endl;
-            res = false;
-            return true;
+            return RES_SAFE;
         }
-        return false;
+        return RES_UNKNOWN;
     }
 
-    bool Checker::trySAT(bool &safe_reported)
+    RESEnum Checker::trySAT()
     {
         // NOTE: can eliminate initialization.
         auto& O = whichO();
-        safe_reported = false;
+        bool safe_reported = false;
 
         // add a new frame to O, as Otmp
         O.push_back({});
@@ -263,8 +223,7 @@ namespace car
                     double time_delay = elapsed.count();
                     if (time_delay > time_limit_to_restart * 1000)
                     {
-                        ppstoped = true;
-                        return true;
+                        return RES_RESTART;
                     }
                 }
 
@@ -272,11 +231,9 @@ namespace car
                 {
                     if (dst == -1)
                     {
-                        return true;
+                        return RES_UNSAFE;
                     }
-                    State *tprime = getModel(dst);
-                    
-                    updateU(tprime, s);
+                    State *tprime = getModel(s, dst);
 
                     // NOTE: why here calculate minNOTBLOCKED, rather than next time when pop?
                     int new_level = minNOTBlocked(tprime, 0, dst - 1);               
@@ -289,7 +246,7 @@ namespace car
                 {
                     stk.pop();
                     if (safe_reported)
-                        return true;
+                        return RES_FAIL;
 
                     int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
                     if (new_level <= OSize())
@@ -300,7 +257,7 @@ namespace car
             }
         }
 
-        return false;
+        return RES_UNKNOWN;
     }
 
     /**
@@ -378,105 +335,9 @@ namespace car
         }
         --pickStateLastIndex;
         State* s = U[pickStateLastIndex];
-        if(s->_isnegp)
-        {
-            // FIXME: check for forward CAR, where we need to enumerate by querying the start solver.
-            // TODO: check for efficiency.
-            State *new_s = enumerateStartStates();
-            if(new_s)
-            {
-                updateU(new_s,nullptr);
-                if(start_solver)
-                    start_solver->reset();
-                return new_s;
-            }
-            else
-            {
-                // negp should be at position 0.
-                // so when we try to fetch a state, but get negp, it is also the end of one round.
-                pickStateLastIndex = U.size();
-
-                if(start_solver)
-                    start_solver->reset();
-                return nullptr;
-            }
-            return nullptr;
-        }
         return s;
     }
 
-
-    /**
-     * @brief About the principle here, see newpartialsolver.h
-     *
-     * @param s
-     * @param prior_state
-     */
-    State *Checker::get_partial_state(Assignment &s, const State *prior_state)
-    {
-        Assignment next_assumptions = s;
-        Assignment old_inputs(s.begin(), s.begin() + model_->num_inputs());
-
-        if (prior_state)
-        // it is not start state
-        {
-            // negate the s' as the cls, put into the solver.
-            Assignment cls = negateCube(prior_state->get_latches());
-            partial_solver->new_flag();
-            partial_solver->add_clause_with_flag(cls);
-
-            // the assumption being t's input and latches.
-            next_assumptions.push_back(partial_solver->get_flag());
-            partial_solver->set_assumption(next_assumptions);
-
-            // Therefore, it ought to be unsat. If so, we can get the partial state (from the uc)
-            bool res = partial_solver->solve_assumption();
-            // uc actually stores the partial state.
-            s = partial_solver->get_shrunk_uc();
-
-            if (res || s.empty())
-            {
-                // all states can reach this state! It means the counter example is found. Sure the initial state can reach this state.
-                // set the next state to be the initial state.
-                assert(Ub.size());
-                State *init = Ub[0];
-                s = init->get_latches();
-            }
-
-            // block this clause.
-            int flag = partial_solver->get_flag();
-            partial_solver->add_clause(flag);
-        }
-        else
-        // for initial states, there is no such "prior state", only "bad"
-        {
-            next_assumptions.push_back(-bad_);
-            partial_solver->set_assumption(next_assumptions);
-            bool res = partial_solver->solve_assumption();
-            s = partial_solver->get_conflict_no_bad(-bad_);
-            // if one-step reachable, should already been found in immediate_satisfiable.
-            assert(!s.empty());
-        }
-
-        // FIXME: is this `inputs` really useful?
-        Assignment inputs, latches;
-        for (auto &it : s)
-        {
-            if (abs(it) <= model_->num_inputs())
-                inputs.push_back(it);
-            else
-                latches.push_back(it);
-        }
-        if (inputs.empty()) // use this inputs as the inputs.
-        {
-            inputs = old_inputs;
-        }
-
-        // this state is not a full state.
-        State *pstate = new State(inputs, latches);
-        clear_defer(pstate);
-        return pstate;
-    }
 
     /**
      * @brief print the evidence. reuse backwardCAR, which exactly reveals present searching direciton.
@@ -502,9 +363,9 @@ namespace car
             {
                 State *next = prior_in_trail_b.find(to_print) != prior_in_trail_b.end() ? prior_in_trail_b.at(to_print) : nullptr;
                 if (next)
-                    helper.push(to_print->get_inputs_str());
+                    helper.push(to_print->getInputsStr());
                 else
-                    helper.push(to_print->get_latches_str());
+                    helper.push(to_print->getLatchesStr());
                 to_print = next;
             }
             while (!helper.empty())
@@ -519,29 +380,17 @@ namespace car
         {
             State *to_print = counter_start_f;
             if (!latch_printed)
-                out << to_print->get_latches_str() << endl;
+                out << to_print->getLatchesStr() << endl;
             while (to_print)
             {
                 State *next = prior_in_trail_f.find(to_print) != prior_in_trail_f.end() ? prior_in_trail_f.at(to_print) : nullptr;
-                out << to_print->get_inputs_str() << endl;
+                out << to_print->getInputsStr() << endl;
                 to_print = next;
             }
         }
         out << "." << endl;
     }
 
-    bool Checker::updateU(State *s, State *prior_state_in_trail)
-    {
-        // Counter Example Issue.
-        // Every time we insert a new state into U sequence, it should be updated.
-        // FIXME: without considering bi-direction, one state will only have one prior. Shall we move this into "state"?
-        {
-            whichPrior()[s] = prior_state_in_trail;
-        }
-        whichU().push_back(s);
-
-        return true;
-    }
 
     std::vector<Cube> Checker::reorderAssumptions(State*s, int level, const vector<Cube>& inter, const Cube &rcube, const Cube &rest)
     {
@@ -551,7 +400,7 @@ namespace car
             {
                 std::random_device rd;
                 std::mt19937 gen(rd());
-                vector<int> shuff_helper = s->get_latches();
+                vector<int> shuff_helper = s->getLatches();
                 for(int i = shuff_helper.size() - 1; i > 0; --i) {
                     // starting from 1, because 0 is the flag.
                     std::uniform_int_distribution<int> dis(0, i);
@@ -564,7 +413,7 @@ namespace car
             case LO_Classic_Pos:
             {
                 if(level == -1)
-                    return {s->get_latches()};
+                    return {s->getLatches()};
                 vector<Cube> pref;
                 pref.reserve(inter.size() + 2);
                 pref = inter;
@@ -591,13 +440,6 @@ namespace car
         MainSolver* ms = getMainSolver(level);
         bool res = false;
 
-        if(level == -1 && !backwardCAR)
-        {
-            res = true;
-            whichCEX() = s;
-            return res;
-        }
-
         vector<Cube> inter;
         get_inter_res(s,level, inter);
         Cube rcube, rest;
@@ -614,10 +456,9 @@ namespace car
             CARStats.count_main_solver_original_time_end(res,0); //uc size == 0
             if(level == -1)
             {
+                // TODO: consider to use immediateCheck() here, to get more than 1 uc when level == -1.
                 assert(backwardCAR);
-                State *cex = ms->get_state();
-                clear_defer(cex);
-                whichPrior()[cex] = s;
+                State *cex = getModel(s, level);
                 whichCEX() = cex;
                 return true;
             }
@@ -763,6 +604,9 @@ namespace car
         bool strongInductive = false;
 
         int originalUCsize = uc.size();
+
+        static std::map<int,int> prop_tick;
+        ++prop_tick[level];
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
@@ -822,7 +666,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize);
+        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize, prop_tick[level]);
     }
 
     bool Checker::convTriggered(int level)
@@ -1023,18 +867,18 @@ namespace car
         if (rcu.empty())
         {
             rcube = {};
-            rest = s->get_latches();
+            rest = s->getLatches();
             // TODO: try this to be inter?
             return;
         }
 
         // a full state
-        if (s->latch_size() == model_->num_latches())
+        if (!s->isPartial())
         {
             // calculate intersection and put the others behind.
             for(size_t i = 0; i < rcu.size(); ++i)
             {
-                if (s->latch_at(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
+                if (s->getLatchAt(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
                     rcube.push_back(rcu[i]);
                 else
                     rest.push_back(-rcu[i]);
@@ -1043,34 +887,40 @@ namespace car
         else
         {
             // a partial state
-            // TODO: test me!
-            int i = 0, j = 0;
-            while (i < s->latch_size() && size_t(j) < rcu.size())
+            std::unordered_set<int> helper;
+            for(auto lit: s->getLatches())
             {
-                if (rcu[j] == s->latch_at(i))
-                {
-                    rcube.push_back(rcu[j]);
-                    i++;
-                    j++;
-                }
+                helper.insert(lit);
+            }
+            for(auto l: rcu)
+            {
+                if(helper.find(l) != helper.end())
+                    rcube.push_back(l);
                 else
-                {
-                    rest.push_back(s->latch_at(i));
-                    if (rcu[j] < s->latch_at(i))
-                        j++;
-                    else
-                        i++;
-                }
-            }                    
+                    rest.push_back(l);
+            }                 
         }
     }
 
-    State *Checker::getModel(int level)
+    State *Checker::getModel(State *s, int level)
     {
-        State *s = getMainSolver(level)->get_state();
+        State *t = getMainSolver(level)->get_state();
+        clear_defer(t);
+        whichU().push_back(t);
+        if(s->isPartial())
+        {
+            // if predecessor is partial, we would like to initialize it.
+            // why not s->set_latches() ? because s may be reused, but newInit will not be used in the search(but only in CEX printing).
+            State* newInit = getMainSolver(level)->getInitState();
+            newInit->setInputs(s->getInputs()); // although, it should be empty here in backward CAR.
+            clear_defer(newInit);
+            whichPrior()[t] = newInit;
+        }
+        else{
+            whichPrior()[t] = s;
+        }
         // NOTE: if it is the last state, it will be set last-inputs later.
-        clear_defer(s);
-        return s;
+        return t;
     }
 
 
@@ -1095,7 +945,8 @@ namespace car
 
         frame.push_back(uc);
 
-        ImplySolver::add_uc(uc,dst_level_plus_one);
+        if(needImpSolver())
+            ImplySolver::add_uc(uc,dst_level_plus_one);
         
 
         if (dst_level_plus_one <= OSize())
@@ -1108,16 +959,6 @@ namespace car
             }
         }
         
-        if (dst_level_plus_one == OSize())
-        {
-            if (!backwardCAR)
-            {
-                // FIXME: test me later.
-                // Not always. Only if the start state is ~p.
-                start_solver->add_clause_with_flag(uc);
-            }
-        }
-
         if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
         {
             while(ucs_masks.size() <= dst_level_plus_one + 1)
@@ -1132,7 +973,7 @@ namespace car
     }
 
     // TODO: rewrite this part.
-    bool Checker::initSequence(bool &res)
+    RESEnum Checker::initSequence()
     {
         State *init = new State(model_->init());
         State *negp = new State(true);
@@ -1144,36 +985,26 @@ namespace car
         {
             case(remem_None):
             {
-                if (immediateCheck(init, res, O0))
-                    return true;
-
-                // forward inits.
-                if (!backwardCAR)
-                {
-                    // Uf[0] = ~p;
-
-                    // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
-                    // construct an abstract state
-                    updateU(negp,nullptr);
-                    pickStateLastIndex = Uf.size();
-                    
-                    // O_I
-                    // NOTE: O stores the UC, while we actually use negations.
-                    OFrame frame;
-                    auto& latches = init->get_latches();
-                    frame.resize(latches.size());
-                    std::transform(latches.begin(), latches.end(), frame.begin(), [](auto lit) {
-                        return std::vector<int>{-lit};
-                    });
-                    OI = {frame};
-                }
+                RESEnum res = immediateCheck(init, O0);
+                if (RES_UNKNOWN != res)
+                    return res;
                 // backward inits.
-                if (backwardCAR)
+                assert(backwardCAR);
                 {
                     // Ub[0] = I;
-                    updateU(init, nullptr);
+                    whichPrior()[init] = nullptr;
+                    whichU().push_back(init);
                     pickStateLastIndex = Ub.size();
 
+                    if(unroll_prime)
+                    {
+                        O0 = {{bad_}};
+                        if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
+                        {
+                            ucs_masks.push_back({});   
+                        }
+                    }
+                    else{
                     // Ob[0] = uc0.
                     // clauses will be added by immediate_satisfible.
                     // SAT_assume(init, ~p)
@@ -1182,7 +1013,8 @@ namespace car
                     // use uc to initialize O[0] is suitable.
                     for(size_t index = 0; index< O0.size(); ++index)
                     {
-                        ImplySolver::add_uc(O0[index],0);
+                        if(needImpSolver())
+                            ImplySolver::add_uc(O0[index],0);
                         if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
                         {
                             ucs_masks.push_back({});   
@@ -1192,7 +1024,10 @@ namespace car
                             masks.push_back(UCMask(O0[index],nlatches,startPos));
                         }
                     }
+                    }
+                   
                     Onp = OSequence({O0});
+                    
                 }
                 break;
             }
@@ -1200,14 +1035,15 @@ namespace car
             case(remem_O0):
             {
                 // If we remember all, it will be too many.
-                // NOTE: sonly implement backward now.
+                // NOTE: only implement backward now.
                 assert(backwardCAR);
                 O0 = last_chker->Onp[0];
                 
                 if (backwardCAR)
                 {
                     // Ub[0] = I;
-                    updateU(init, nullptr);
+                    whichPrior()[init] = nullptr;
+                    whichU().push_back(init);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1217,231 +1053,43 @@ namespace car
                     // ~p in ~uc
                     // use uc to initialize O[0] is suitable.
 
-                    for(size_t index = 0; index< O0.size(); ++index)
-                    {
-                        ImplySolver::add_uc(O0[index],0);
-                    }
-                    Onp = OSequence({O0});
-                }
-                break;
-            }
-            case(remem_short):
-            {
-                // If we remember all, it will be too many.
-                // NOTE: sonly implement backward now.
-                assert(backwardCAR);
-                O0 = last_chker->Onp[0];
-                
-                sort(O0.begin(),O0.end(),[](const vector<int>& a, const vector<int>& b){return a.size() < b.size();});
-                
-                // int len = 0;
-                // for(auto &uc:O0)
-                //     len+=uc.size();
-                // cerr<<"before: sz = "<<O0.size()<<", avg = "<<len/O0.size()<<endl;
-
-                static float portion = 2;
-                O0.resize(O0.size() * (1-(1/portion)));
-                portion++;
-
-                // int after_len = 0;
-                // for(auto &uc:O0)
-                //     after_len+=uc.size();
-
-                // cerr<<"after: sz = "<<O0.size()<<", avg = "<<after_len/O0.size()<<endl;
-
-                if (backwardCAR)
-                {
-                    // Ub[0] = I;
-                    updateU(init, nullptr);
-                    pickStateLastIndex = Ub.size();
-
-                    // Ob[0] = uc0.
-                    // clauses will be added by immediate_satisfible.
-                    // SAT_assume(init, ~p)
-                    // uc from init
-                    // ~p in ~uc
-                    // use uc to initialize O[0] is suitable.
-
-                    for(size_t index = 0; index< O0.size(); ++index)
-                    {
-                        ImplySolver::add_uc(O0[index],0);
-                    }
-                    Onp = OSequence({O0});
-                }
-                break;
-            }    
-
-            case(remem_Ok):
-            {
-                const int boundK = 3;
-                // If we remember all, it will be too many.
-                // NOTE: sonly implement backward now.
-                assert(backwardCAR);
-                
-                if (backwardCAR)
-                {
-                    // Ub[0] = I;
-                    updateU(init, nullptr);
-                    pickStateLastIndex = Ub.size();
-
-                    Onp = last_chker->Onp;
-                    Onp.resize(boundK);
-
-                    for(size_t findex = 0; findex < Onp.size(); ++findex)
-                    {
-                        auto &frame = Onp[findex];
-                        for(size_t index = 0; index < frame.size(); ++index)
+                    if(needImpSolver())
+                        for(size_t index = 0; index< O0.size(); ++index)
                         {
-                            ImplySolver::add_uc(frame[index],findex);
+                            ImplySolver::add_uc(O0[index],0);
                         }
-                        getMainSolver(0)->add_new_frame_M(Onp[0], Onp.size() - 1);
-                    }
-
-                    if(get_rotate())
-                    {
-                        rotates.push_back(init->get_latches());
-                    }
-                    return false;
+                    Onp = OSequence({O0});
                 }
-                break;
-            }
-
-            case(remem_Uk):
-            {
-                assert(backwardCAR);
-                delete init;
-                auto *&last_init = last_chker->Ub[0];
-                init = new State(last_init->get_inputs(), last_init->get_latches());
-                clear_defer(init);
-
-                if (immediateCheck(init, res, O0))
-                    return true;
-
-                updateU(init, nullptr);
-                // backward inits.
-                // Ub[0] = I;   
-                for(car::State *st: last_chker->Ub){
-                    if(!st)
-                        break;
-                    // all its followings
-                    if(last_chker->whichPrior()[st] == init)
-                    {
-                        State* s = new State(st->get_inputs(), st->get_latches());
-                        clear_defer(s);
-                        updateU(s, init);
-                    }
-                }
-
-                pickStateLastIndex = Ub.size();
-
-                // Ob[0] = uc0.
-                // clauses will be added by immediate_satisfible.
-                // SAT_assume(init, ~p)
-                // uc from init
-                // ~p in ~uc
-                // use uc to initialize O[0] is suitable.
-                for(size_t index = 0; index< O0.size(); ++index)
-                {
-                    ImplySolver::add_uc(O0[index],0);
-                }
-                Onp = OSequence({O0});
                 break;
             }
 
         default:
-            if (immediateCheck(init, res, O0))
-                return true;
-            if (!backwardCAR)
-            {
-                // Uf[0] = ~p;
-
-                // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
-                // construct an abstract state
-                updateU(negp,nullptr);
-
-                // O_I
-                // NOTE: O stores the UC, while we actually use negations.
-                OFrame frame;
-                auto& latches = init->get_latches();
-                frame.resize(latches.size());
-                std::transform(latches.begin(), latches.end(), frame.begin(), [](auto lit) {
-                    return std::vector<int>{-lit};
-                });
-                OI = {frame};
-            }
-            // backward inits.
-            if (backwardCAR)
-            {
-                // Ub[0] = I;
-                updateU(init, nullptr);
-
-                // Ob[0] = uc0.
-                // clauses will be added by immediate_satisfible.
-                // SAT_assume(init, ~p)
-                // uc from init
-                // ~p in ~uc
-                // use uc to initialize O[0] is suitable.
-                for(const auto& uc0:O0)
-                {
-                    ImplySolver::add_uc(uc0,0);
-                }
-                Onp = OSequence({O0});
-            }
-            break;
+            assert(false && "should have missed something in remember\n");
         }
-
-
 
         if(get_rotate())
         {
-            rotates.push_back(init->get_latches());
+            rotates.push_back(init->getLatches());
         }
 
         if (backwardCAR)
             getMainSolver(0)->add_new_frame_M(Onp[0], Onp.size() - 1);
-        if (!backwardCAR)
-            getMainSolver(0)->add_new_frame_M(OI[0], OI.size() - 1);
         if (propMode > 0 && backwardCAR)
             prop_solver->add_new_frame_P(Onp[0], Onp.size() - 1);
 
 
-        return false;
+        return RES_UNKNOWN;
     }
 
     //////////////helper functions/////////////////////////////////////////////
 
-    // NOTE: if not updated, it return the same state all the time?
-    State *Checker::enumerateStartStates()
-    {
-        if(partial)
-        {
-            if (start_solver->solve_with_assumption())
-            {
-                Assignment ass = start_solver->get_model();
-                ass.resize(model_->num_inputs() + model_->num_latches());
-                State *partial_res = get_partial_state(ass, nullptr);
-                clear_defer(partial_res);
-                return partial_res;
-            }
-        }
-        else
-        {
-            if (start_solver->solve_with_assumption())
-            {
-                State *res = start_solver->create_new_state();
-                clear_defer(res);
-                return res;
-            }
-        }
-        return NULL;
-    }
 
     // This is used in sequence initialization
-    bool Checker::immediateCheck(State *from, bool &res, OFrame &O0)
+    RESEnum Checker::immediateCheck(State *from, OFrame &O0)
     {
         MainSolver* ms = getMainSolver(0);
         // NOTE: init may not be already set.
-        vector<int> latches = from->get_latches();
+        vector<int> latches = from->getLatches();
 
         int last_max = 0;
         do
@@ -1450,13 +1098,10 @@ namespace car
             if (ms->badcheck(latches, bad_))
             {
                 CARStats.count_main_solver_original_time_end(true,0);
-                // if sat. already find the cex.
-                State *s = ms->get_state(); // no need to shrink here
-                clear_defer(s);
-                whichPrior()[s] = from;
-                whichCEX() = s;
-                res = false;
-                return true;
+                // if sat. already found the cex.
+                State *cex = getModel(from, 0);
+                whichCEX() = cex;
+                return RES_UNSAFE;
             }
             // NOTE: the last bit in uc is added in.
             Cube cu = ms->get_conflict_no_bad(bad_); // filter 'bad'
@@ -1464,9 +1109,8 @@ namespace car
             
             if (cu.empty())
             {
-                // this means, ~p itself is bound to be UNSAT. No need to check.
-                res = true;
-                return true;
+                // this means, ~p itself is bound to be UNSAT. No need to check. But it should not happen in most cases.
+                return RES_SAFE;
             }
 
             if(convMode==0 || convMode == 1)
@@ -1490,40 +1134,12 @@ namespace car
                 break;
             }
         } while (true);
-        return false;
-    }
-
-    bool Checker::finalCheck(State *from)
-    {
-        bool direction = !backwardCAR;
-        MainSolver *ms = getMainSolver(0);
-        if (direction)
-        // in forward CAR, last target state is Init. Initial state is a concrete state, therefore it is bound to be reachable (within 0 steps). Here we only need to update the cex structure.
-        {
-            whichCEX() = from;
-            return true;
-        }
-        else
-        // in backward car, we use uc0 instead of ~P to initialize Ob[0]. This makes it possible to return false, because uc0 is necessary but not essential.
-        {
-            // check whether it's in it.
-            bool res = ms->badcheck(from->get_latches(), bad_);
-            if (res)
-            {
-                // OK. counter example is found.    
-                State *s = ms->get_state();
-                clear_defer(s);
-                whichPrior()[s] = from;
-                whichCEX() = s;
-                return true;
-            }
-        }
-        return false;
+        return RES_UNKNOWN;
     }
 
     /**
      * @brief
-     * @pre s->get_latches() is in abs-increasing order
+     * @pre s->getLatches() is in abs-increasing order
      *
      * @param s
      * @param frame_level
@@ -1693,7 +1309,7 @@ namespace car
 
             case (Imp_Bit):
             {
-                UCMask u_s(s->get_latches());
+                UCMask u_s(s->getLatches());
                 // get frame_level.
                 if(frame_level >= ucs_masks.size())
                 {
@@ -1741,10 +1357,10 @@ namespace car
                 }
 
                 
-                UCMask u_s(s->get_latches());  // remember this also?
+                UCMask u_s(s->getLatches());  // remember this also?
 
                 const auto& masks_this_level = ucs_masks.at(frame_level);
-                size_t framesz = whichFrame(frame_level).size();
+                size_t framesz = masks_this_level.size();
 
                 int i = freshIndex;
                 for (; i<framesz; ++i)

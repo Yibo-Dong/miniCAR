@@ -22,11 +22,7 @@
 #include <algorithm>
 #include <random>
 using namespace std;
-#ifdef MINISAT
-	using namespace Minisat;
-#else
-	using namespace Glucose;
-#endif // DEBUG
+using namespace Glucose;
 
 namespace car
 {
