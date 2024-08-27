@@ -300,7 +300,16 @@ namespace car {
         {
             auto lit = aig->constraints[i].lit;
             auto var = car_var(lit);
-            cls_.push_back({var});
+            if(lit == 1)
+            {
+                // true, do nothing
+            }
+            else if(lit == 0)
+            {
+                cls_.push_back({false_id()});
+            }
+            else // not a constant
+                cls_.push_back({var});
         }
 		// ============================================================================
 		// (2) same next have same previous, initialized to 0.
