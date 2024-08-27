@@ -897,7 +897,7 @@ namespace car
                 if(helper.find(l) != helper.end())
                     rcube.push_back(l);
                 else
-                    rest.push_back(l);
+                    rest.push_back(-l);
             }                 
         }
     }

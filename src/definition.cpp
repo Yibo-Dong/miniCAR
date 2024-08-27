@@ -86,7 +86,7 @@ namespace car {
             }
             for (auto &l : cu)
             {
-                if (lits.find(l) == lits.end())
+                if (lits.find(l) != lits.end())
                     res.push_back(l);
             }
         }
