@@ -18,7 +18,7 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), simp(opt.simplifyCNF), unroll_prime(opt.unrollPrime)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), simp(opt.simplifyCNF)
     {
         if(!multi_solver)
         {
@@ -996,15 +996,6 @@ namespace car
                     whichU().push_back(init);
                     pickStateLastIndex = Ub.size();
 
-                    if(unroll_prime)
-                    {
-                        O0 = {{bad_}};
-                        if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
-                        {
-                            ucs_masks.push_back({});   
-                        }
-                    }
-                    else{
                     // Ob[0] = uc0.
                     // clauses will be added by immediate_satisfible.
                     // SAT_assume(init, ~p)
@@ -1024,10 +1015,7 @@ namespace car
                             masks.push_back(UCMask(O0[index],nlatches,startPos));
                         }
                     }
-                    }
-                   
                     Onp = OSequence({O0});
-                    
                 }
                 break;
             }
@@ -1360,7 +1348,7 @@ namespace car
                 UCMask u_s(s->getLatches());  // remember this also?
 
                 const auto& masks_this_level = ucs_masks.at(frame_level);
-                size_t framesz = masks_this_level.size();
+                size_t framesz = whichFrame(frame_level).size();
 
                 int i = freshIndex;
                 for (; i<framesz; ++i)

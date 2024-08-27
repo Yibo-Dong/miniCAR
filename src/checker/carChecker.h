@@ -51,7 +51,6 @@ namespace car
         bool restart_enabled = false;
         bool multi_solver = false;
         bool simp = false;
-        bool unroll_prime = false;
 
     public:
         /**

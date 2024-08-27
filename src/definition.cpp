@@ -155,19 +155,20 @@ namespace car {
         _true = _max_id - 1;
 		_false = _max_id;
 		
-		collectTrue ();
-		setConstraints ();
-		setOutputs ();
-		setInits ();
+		collectTrue (aig);
 		
-		create_next_map ();
+		set_constraints (aig);
+		set_outputs (aig);
+		set_init (aig);
+		
+		create_next_map (aig);
         if(unroll)
-            unroll_prime();
-		create_clauses ();
+            unroll_prime(aig);
+		create_clauses (aig);
 	}
 	
 	// collect those that are trivially constant
-	void Problem::collectTrue ()
+	void Problem::collectTrue (const aiger* aig)
 	{
 		for(size_t i = 0; i < aig->num_ands; i ++)
 		{
@@ -189,7 +190,7 @@ namespace car {
 		}
 	}
 
-	void Problem::setConstraints ()
+	void Problem::set_constraints (const aiger* aig)
 	{
 		for(size_t i = 0; i < aig->num_constraints; i++)
 		{
@@ -198,7 +199,7 @@ namespace car {
 		}
 	}
 	
-	void Problem::setOutputs ()
+	void Problem::set_outputs (const aiger* aig)
 	{
 		for(size_t i = 0; i < aig->num_outputs; ++i)
 		{
@@ -214,7 +215,7 @@ namespace car {
         assert(_outputs.size() == 1 && "Only 1 output is allowed!\n");
 	}
 
-	void Problem::setInits ()
+	void Problem::set_init (const aiger* aig)
 	{
 		for(size_t i = 0; i < aig->num_latches; ++i)
 		{
@@ -229,7 +230,7 @@ namespace car {
 		}
 	}
 	
-	void Problem::create_next_map ()
+	void Problem::create_next_map (const aiger* aig)
 	{
 		for(size_t i = 0; i < aig->num_latches; i ++)
 		{
@@ -274,7 +275,7 @@ namespace car {
 	        (it->second).push_back (val);
 	}
 	
-	void Problem::create_clauses ()
+	void Problem::create_clauses (const aiger* aig)
 	{
 		// contraints, outputs and latches gates are stored in order,
 		// as the need for start solver construction
@@ -283,7 +284,7 @@ namespace car {
 		// ============================================================================
 		// (1) create clauses for constraints encoding
 		// ============================================================================
-		collect_necessary_gates(aig->constraints, aig->num_constraints, exist_gates, gates);
+		collect_necessary_gates(aig, aig->constraints, aig->num_constraints, exist_gates, gates);
 
 		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
@@ -309,21 +310,23 @@ namespace car {
 		// Also it is needed to add new contraints later
 		
 		set_common_next_start();
+		// @note: even if no gates share a common next, the helper lit will be inserted.
+		create_constraints_for_latches();
 		// ============================================================================
 		// (3) clause for encoding outputs.
 		// ============================================================================
 		// create clauses for outputs
 
-		setOutputs_start();
+		set_outputs_start();
 
 		gates.clear();
 		//  Use Outputs as the start point, recursively add all the rhs lits.
         
         // Assume: only one property to be checked.
         if(aig->num_outputs > 0)
-    		collect_necessary_gates(aig->outputs, aig->num_outputs, exist_gates, gates);
+    		collect_necessary_gates(aig, aig->outputs, aig->num_outputs, exist_gates, gates);
         else
-            collect_necessary_gates(aig->bad, aig->num_bad, exist_gates, gates);
+            collect_necessary_gates(aig, aig->bad, aig->num_bad, exist_gates, gates);
     	for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
@@ -339,7 +342,7 @@ namespace car {
 
 		//  Use Next value of Latches as the start point, recursively add all the rhs lits.
 		gates.clear();
-		collect_necessary_gates(aig->latches, aig->num_latches, exist_gates, gates, true);
+		collect_necessary_gates(aig, aig->latches, aig->num_latches, exist_gates, gates, true);
 		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
@@ -354,59 +357,83 @@ namespace car {
 	}
 
     // when dealing with cosntraints, we need to add primed constraints to solver.
-    // TODO: shrink to only necessary gates, not all the gates.
-    void Problem::unroll_prime()
+    void Problem::unroll_prime(const aiger* aig)
     {
-        for(int i = 0; i < aig->num_inputs; ++i)
-        {
-            int primedI = ++_max_id;
-            auto toInsert = std::pair<int,int>{car_var(aig->inputs[i].lit), primedI};
-            _next_map.insert(toInsert);
-            insert_to_reverse_next_map(primedI, car_var(aig->inputs[i].lit));
-        }
+        // for each andgate, we would like to get its primed version.
 
         for(int i = 0; i < aig->num_ands; ++i)
 		{
 			aiger_and& aa = aig->ands[i];
-            if(is_true(aa.lhs) || is_false(aa.lhs))
-                continue;
             int primedLHS = ++_max_id;
             auto toInsert = std::pair<int,int>{car_var(aa.lhs), primedLHS};
             _next_map.insert(toInsert);
             insert_to_reverse_next_map(primedLHS, car_var(aa.lhs));
-            if (is_true (aa.rhs0))
-            {
-                int primedRHS1 = prime(car_var(aa.rhs1));
-                cls_.push_back (clause ( (primedLHS), -(primedRHS1)));
-                cls_.push_back (clause (- (primedLHS),  (primedRHS1)));
-            }
-            else if (is_true (aa.rhs1))
-            {
-                int primedRHS0 = prime(car_var(aa.rhs0));
-                cls_.push_back (clause ( (primedLHS), -(primedRHS0)));
-                cls_.push_back (clause (- (primedLHS),  (primedRHS0)));
-            }
-            else{
-                int primedRHS0 = prime(car_var(aa.rhs0));
-                int primedRHS1 = prime(car_var(aa.rhs1));
-                cls_.push_back (clause ( (primedLHS), -(primedRHS0), -(primedRHS1)));
-                cls_.push_back (clause (- (primedLHS),  (primedRHS0)));
-                cls_.push_back (clause (- (primedLHS),  (primedRHS1)));
-            }
+            int primedRHS0 = (input_var(car_var(aa.rhs0))) ? car_var(aa.rhs0) : prime(car_var(aa.rhs0));
+            int primedRHS1 = (input_var(car_var(aa.rhs1))) ? car_var(aa.rhs1) :prime(car_var(aa.rhs1));
+            cls_.push_back (clause ( (primedLHS), -(primedRHS0), -(primedRHS1)));
+			cls_.push_back (clause (- (primedLHS),  (primedRHS0)));
+			cls_.push_back (clause (- (primedLHS),  (primedRHS1)));
         }
     }
 
-	void Problem::collect_necessary_gates (const aiger_symbol* as, const int as_size, 
+    /**
+	 * @brief 
+	 * flag1: All latches that share a common next have same value 
+	 * flag2: All latches are initialized to 0
+	 * flags are enabled when assigned to 1.
+	 */
+	void Problem::create_constraints_for_latches()
+	{
+		int flag1 = ++_max_id;
+
+		bool exist = false;
+		for (auto it = _reverse_next_map.begin(); it != _reverse_next_map.end(); ++it)
+		{
+			vector<int> &v = it->second;
+			if (v.size() <= 1)
+				continue;
+			/**
+			 * @brief As to latches { (l1,n), (l2,n), (l3, n) }
+			 * we assume val(l1) == val(l2) == val(l3)
+			 * which means, l1 <-> l2 <-> l3
+			 * <=> (l1, ~l2), (~l1, l2), (l2, ~l3), (~l2, l3)
+			 */
+			// TODO: Try to record this equivalence relationship using a map and simplify the model.
+			exist = true;
+			for(size_t i = 0; i < v.size() - 1; i++)
+			{
+				cls_.push_back({v[i], -v[i + 1], -flag1});
+				cls_.push_back({-v[i], v[i + 1], -flag1});
+			}
+		}
+		if (!exist)
+		{
+			// at last add one clause for flag1 so that the sat solver will not treat flag1 as one literal
+			cls_.push_back({++_max_id, -flag1});
+		}
+
+		// add initial state
+		int flag2 = ++_max_id;
+		for(size_t i = 0; i < _init.size(); i++)
+		{
+			cls_.push_back({_init[i], -flag2});
+		}
+		// either : all latches share a common next
+		// or : this is the initial states, all latches are initialized.
+		cls_.push_back({flag1, flag2});
+	}
+
+	void Problem::collect_necessary_gates (const aiger* aig, const aiger_symbol* as, const int as_size, 
 	                                        std::set<unsigned>& exist_gates, std::set<unsigned>& gates, bool next)
 	{
 		for(int i = 0; i < as_size; i ++)
 		{
 			aiger_and* aa;
 			if (next) 
-			    aa = necessary_gate (as[i].next);
+			    aa = necessary_gate (as[i].next, aig);
 			else
 			{
-			    aa = necessary_gate (as[i].lit);
+			    aa = necessary_gate (as[i].lit, aig);
 			    if (aa == NULL)
 			    {
 			    	if (is_true (as[i].lit))
@@ -415,12 +442,12 @@ namespace car {
 			    		_outputs[i] = _false;
 			    }
 			}
-			iteratively_add (aa, exist_gates, gates);	
+			iteratively_add (aa, aig, exist_gates, gates);	
 		}
 		
 	}
 	
-	aiger_and* Problem::necessary_gate (const unsigned id)
+	aiger_and* Problem::necessary_gate (const unsigned id, const aiger* aig)
 	{
 		if (!is_true (id) && !is_false (id))
 			return aiger_is_and (const_cast<aiger*> (aig), (id % 2 == 0) ? id : (id-1));
@@ -428,8 +455,24 @@ namespace car {
 		return NULL;
 	}
 	
+	// deprecated. Recursion causes stack overflow on large cases.
+	void Problem::recursively_add (const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates)
+	{
+		if (aa == NULL)
+			return;
+		if (exist_gates.find (aa->lhs) != exist_gates.end ())
+			return;
+		
+		gates.insert (aa->lhs);
+		exist_gates.insert (aa->lhs);
+		aiger_and* aa0 = necessary_gate (aa->rhs0, aig);
+		recursively_add (aa0, aig, exist_gates, gates);
+		
+		aiger_and* aa1 = necessary_gate (aa->rhs1, aig);
+		recursively_add (aa1, aig, exist_gates, gates);
+	}
 
-	void Problem::iteratively_add(const aiger_and* aa, std::set<unsigned>& exist_gates, std::set<unsigned>& gates)
+	void Problem::iteratively_add(const aiger_and* aa, const aiger* aig, std::set<unsigned>& exist_gates, std::set<unsigned>& gates)
 	{
 		if(aa == NULL)
 			return;
@@ -446,11 +489,11 @@ namespace car {
 			gates.insert(current->lhs);
 			exist_gates.insert(current->lhs);
 
-			aiger_and* aa0 = necessary_gate(current->rhs0);
+			aiger_and* aa0 = necessary_gate(current->rhs0, aig);
 			if (aa0 != NULL)
 				stk.push(aa0);
 
-			aiger_and* aa1 = necessary_gate(current->rhs1);
+			aiger_and* aa1 = necessary_gate(current->rhs1, aig);
 			if (aa1 != NULL)
 				stk.push(aa1);
 		}
