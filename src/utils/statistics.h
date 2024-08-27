@@ -1,19 +1,12 @@
-/*
-    Copyright (C) 2018, Jianwen Li (lijwen2748@gmail.com), Iowa State University
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+/**
+ * @file statistics.h
+ * @author yibodong (prodongf@gmail.com)
+ * @brief The statistics we would like to collect
+ * @version 0.1.0
+ * @date 2024-07-25
+ * 
+ * 
+ */
 
 #ifndef STATISTICS_H
 #define STATISTICS_H
@@ -21,6 +14,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <map>
 #include <chrono>
 using namespace std::chrono;
@@ -31,48 +25,54 @@ using duration_high = std::chrono::duration<double,std::milli>;
 
 namespace car {
 
+/**
+ * @brief The statistic collector
+ * 
+ */
 class Statistics 
 {
     public:
         Statistics () {}
         ~Statistics () {}
+        // main solver's information.
 
-
-        // main solver's information:
-        
-        // how many are original ones
+        /// how many are original ones
         int num_main_solver_original_calls_total = 0;
-        // how many succeeded
+        /// how many succeeded
         int num_main_solver_original_calls_success = 0;
-        // how many failed
+        /// how many failed
         int num_main_solver_original_calls_failed = 0;
-        // time spent
+        /// time spent
         double time_main_solver_original_calls_ = 0.0;
-        // uc's length in total.
+        /// uc's length in total.
         int sum_main_solver_original_uc_length_ = 0;
         clock_high main_solver_original_begin_, main_solver_original_end_;
+        /// uc's distribution
+        int num_uc_0_3 = 0;
+        int num_uc_3_5 = 0;
+        int num_uc_5_10 = 0;
+        int num_uc_10_50 = 0;
+        int num_uc_50_100 = 0;
+        int num_uc_100_inf = 0;
+        
 
         bool is_counting_main_original;
 
         inline void count_main_solver_original_time_start ()
         {
-#ifdef STAT
             main_solver_original_begin_ = steady_clock::now();
-#endif
-        is_counting_main_original = true;
+            is_counting_main_original = true;
         }
 
         int last_original_uc_sz = 0;
 
         inline void count_main_solver_original_time_end (bool res, int uc_length)
         {
-#ifdef STAT
             main_solver_original_end_ = steady_clock::now();
             duration_high elapsed = main_solver_original_end_ - main_solver_original_begin_;
             double time_delay = elapsed.count();
 
 	        time_main_solver_original_calls_ += time_delay;
-#endif
             is_counting_main_original = false;
 	        num_main_solver_original_calls_total ++;
 	        if(res)
@@ -84,11 +84,22 @@ class Statistics
                 ++num_main_solver_original_calls_failed;
                 sum_main_solver_original_uc_length_ += uc_length;
                 last_original_uc_sz = uc_length;
+                if(uc_length < 3)
+                    ++num_uc_0_3;
+                else if(uc_length < 5)
+                    ++num_uc_3_5;
+                else if(uc_length < 10)
+                    ++num_uc_5_10;
+                else if(uc_length < 50)
+                    ++num_uc_10_50;
+                else if(uc_length < 100)
+                    ++num_uc_50_100;
+                else
+                    ++num_uc_100_inf;                
             }
-            
         }
 
-        // convergence information:
+        /// convergence information:
         int num_main_solver_convergnece_calls_ = 0;
         int num_main_solver_convergence_shorter = 0;
         double time_main_solver_convergence_calls_ = 0.0;
@@ -98,19 +109,15 @@ class Statistics
 
         inline void count_main_solver_convergence_time_start()
         {
-#ifdef STAT
             main_solver_convergence_calls_begin_ = steady_clock::now();
-#endif
             is_counting_convergence = true;
         }
         inline void count_main_solver_convergence_time_end(int uc_length)
         {
-#ifdef STAT
             main_solver_convergence_calls_end_ = steady_clock::now();
             duration_high elapsed = main_solver_convergence_calls_end_ - main_solver_convergence_calls_begin_;
             double time_delay = elapsed.count();
             time_main_solver_convergence_calls_ += time_delay;
-#endif
             is_counting_convergence = false;
             num_main_solver_convergnece_calls_ ++;
             
@@ -119,7 +126,7 @@ class Statistics
                 ++num_main_solver_convergence_shorter;
         }
 
-        // search progress information:
+        /// search progress information:
         int num_rounds = 0;
         int num_try_by = 0;
         clock_high time_enter_new_try_by;
@@ -128,12 +135,10 @@ class Statistics
         }
         inline void count_enter_new_try_by(){
             ++num_try_by;
-#ifdef STAT
             time_enter_new_try_by = steady_clock::now();
-#endif
         }
 
-        // global time
+        /// global time
         clock_high global_begin_, global_end_;
         double time_global = 0.0;
         inline void count_whole_begin() { 
@@ -146,37 +151,31 @@ class Statistics
             time_global = elapsed.count();
         }
 
-        // tried before
+        /// tried before
         int num_tried_before = 0;
         inline void count_tried_before() { 
-#ifdef STAT
             clock_high tried_before_end = steady_clock::now();
             duration_high elapsed = tried_before_end - time_enter_new_try_by;
             time_imply += elapsed.count();
-#endif
             ++num_tried_before; 
         }
 
-        // time for implication calculation
+        /// time for implication calculation
         clock_high imply_begin_, imply_end_;
         int count_imply = 0;
         double time_imply = 0.0;
         bool is_counting_imply;
         inline void count_imply_begin()
         {
-#ifdef STAT
             imply_begin_ = steady_clock::now();
-#endif
-        is_counting_imply = true;
+            is_counting_imply = true;
         }
         inline void count_imply_end()
         {
-#ifdef STAT
             imply_end_ = steady_clock::now();
             duration_high elapsed = imply_end_ - imply_begin_;
             double time_delay = elapsed.count();
             time_imply += time_delay;
-#endif
             count_imply++;
             is_counting_imply = false;
         }
@@ -214,15 +213,15 @@ class Statistics
 
         inline int imply_dec_decide(){
             imply_dec_cnter--;
-            // not the decision time
+            /// not the decision time
             if(imply_dec_cnter!=0)
                 return -1;
-            // sample too few            
+            /// sample too few            
             if(std::max(time_imply_dec_sol,time_imply_dec_man*10) < 100)
             {
                 imply_dec_cnter = 100;
                 return -1;
-            }// decide.
+            }/// decide.
             
             imply_decision = time_imply_dec_sol > (time_imply_dec_man*10) ? 1 : 0;
             return imply_decision;
@@ -252,7 +251,7 @@ class Statistics
             std::cout<<"},"<<std::endl;
         }
 
-        // statistics about subsumption.
+        /// statistics about subsumption.
         int nUC = 0, nSubUC = 0;
         inline void recordUC(bool sub)
         {
@@ -260,7 +259,51 @@ class Statistics
             nSubUC += sub;
         }
 
-        // helper for debug.
+        /// propagation time
+        clock_high prop_begin_, prop_end_;
+        std::vector<int> prop_ticks;
+        double time_prop = 0.0;
+        int ntime_prop = 0;
+        int ntime_prop_succ = 0;
+        int ntime_prop_pure = 0;
+        int num_prop_uc_0_3 = 0;
+        int num_prop_uc_3_5 = 0;
+        int num_prop_uc_5_10 = 0;
+        int num_prop_uc_10_50 = 0;
+        int num_prop_uc_50_100 = 0;
+        int num_prop_uc_100_inf = 0;
+        inline void count_prop_begin() { 
+            prop_begin_ = steady_clock::now(); 
+        }
+        inline void count_prop_end(bool succeed, bool pureInductive, int uc_length, int tick)
+        {
+            ++ntime_prop;
+            if(succeed)
+            {
+                ++ntime_prop_succ;
+                if(pureInductive)
+                    ++ntime_prop_pure;
+                if(uc_length < 3)
+                    ++num_prop_uc_0_3;
+                else if(uc_length < 5)
+                    ++num_prop_uc_3_5;
+                else if(uc_length < 10)
+                    ++num_prop_uc_5_10;
+                else if(uc_length < 50)
+                    ++num_prop_uc_10_50;
+                else if(uc_length < 100)
+                    ++num_prop_uc_50_100;
+                else
+                    ++num_prop_uc_100_inf;     
+                prop_ticks.push_back(tick);   
+            }
+            
+            prop_end_ = steady_clock ::now();
+            duration_high elapsed = prop_end_ - prop_begin_;
+            time_prop += elapsed.count();
+        }
+
+        /// helper for debug.
         clock_high begin_1, end_1;
         double time_1_1 = 0.0;
         double time_1_2 = 0.0;
@@ -308,16 +351,14 @@ class Statistics
             time_2 += time_delay;
         }
 
-        // status
+        /// status
         std::string status = "cex found";
 
         inline void stop_everything(){
             count_whole_end();
-#ifdef STAT
             auto now = steady_clock::now();
             main_solver_original_end_ = now;
             main_solver_convergence_calls_end_ = now;
-#endif
             status = "timeout";
             if(is_counting_convergence)
             {
@@ -360,44 +401,78 @@ class Statistics
 
             std::cout<<"{"<<std::endl;
 
-            std::cout << "      \"Status\": \""<<status <<"\","<<std::endl;
-            std::cout << "      \"Original main solver SAT Calls\": {" <<std::endl;
-            std::cout << "      \"Total Time\": "    << time_main_solver_original_calls_ / 1000.0 <<","<<std::endl;
-            std::cout << "      \"Total Count\": "    << num_main_solver_original_calls_total <<","<<std::endl;            
-            std::cout << "      \"Success\": "  << num_main_solver_original_calls_success <<","<<std::endl;        
-            std::cout << "      \"Failed\": "   << num_main_solver_original_calls_failed <<","<<std::endl;
-            std::cout << "      \"Tried before\": "   << num_tried_before <<","<<std::endl;
-            
-            std::cout << "      \"UC length avergage\": "   << uc_len_original <<""<<std::endl; 
-            std::cout << "      },"<<std::endl;
+            std::cout << "      \"Status\": \"" << status << "\"," << std::endl;
+            std::cout << "      \"Original main solver SAT Calls\": {" << std::endl;
+            std::cout << "      \t\"Total Time\": " << time_main_solver_original_calls_ / 1000.0 << "," << std::endl;
+            std::cout << "      \t\"Total Count\": " << num_main_solver_original_calls_total << "," << std::endl;
+            std::cout << "      \t\"Success\": " << num_main_solver_original_calls_success << "," << std::endl;
+            std::cout << "      \t\"Failed\": " << num_main_solver_original_calls_failed << "," << std::endl;
+            std::cout << "      \t\"Tried before\": " << num_tried_before << "," << std::endl;
 
-            std::cout << "      \"Convergence main solver SAT Calls\": {" <<std::endl;
-            std::cout << "      \"Total Time\": "    << time_main_solver_convergence_calls_ / 1000.0 <<","<<std::endl;
-            std::cout << "      \"Total Count\": "    << num_main_solver_convergnece_calls_ <<","<<std::endl; 
-            std::cout << "      \"shorter UC\": "   << num_main_solver_convergence_shorter <<","<<std::endl; 
-            std::cout << "      \"UC length avergage\": "   << uc_len_conv <<""<<std::endl; 
-            std::cout << "      },"<<std::endl;
+            std::cout << "      \"UC length avergage\": " << uc_len_original << "" << std::endl;
+            std::cout << "      }," << std::endl;
 
-            std::cout << "      \"Implication\": {" <<std::endl;
-            std::cout << "      \"Decision\": "    << imply_decision_str <<","<<std::endl;
-            std::cout << "      \"Solver\": "    << time_imply_dec_sol <<","<<std::endl;
-            std::cout << "      \"Manual\": "    << time_imply_dec_man <<","<<std::endl;
-            
-            std::cout << "      \"Total Time\": "    << time_imply / 1000.0 <<","<<std::endl;
-            std::cout << "      \"Group Count\": "    << count_imply <<std::endl; 
-            std::cout << "      },"<<std::endl;
-            if(!solverWin.empty() || !manualWin.empty())
+            std::cout << "      \"Convergence main solver SAT Calls\": {" << std::endl;
+            std::cout << "      \t\"Total Time\": " << time_main_solver_convergence_calls_ / 1000.0 << "," << std::endl;
+            std::cout << "      \t\"Total Count\": " << num_main_solver_convergnece_calls_ << "," << std::endl;
+            std::cout << "      \t\"shorter UC\": " << num_main_solver_convergence_shorter << "," << std::endl;
+            std::cout << "      \t\"UC length avergage\": " << uc_len_conv << "" << std::endl;
+            std::cout << "      }," << std::endl;
+
+            std::cout << "      \"Implication\": {" << std::endl;
+            std::cout << "      \t\"Decision\": " << imply_decision_str << "," << std::endl;
+            std::cout << "      \t\"Solver\": " << time_imply_dec_sol << "," << std::endl;
+            std::cout << "      \t\"Manual\": " << time_imply_dec_man << "," << std::endl;
+
+            std::cout << "      \t\"Total Time\": " << time_imply / 1000.0 << "," << std::endl;
+            std::cout << "      \t\"Group Count\": " << count_imply << std::endl;
+            std::cout << "      }," << std::endl;
+            if (!solverWin.empty() || !manualWin.empty())
             {
-                std::cout << "      \"Winning History\": "    <<std::endl; 
+                std::cout << "      \"Winning History\": " << std::endl;
                 serialize_winner();
             }
-            std::cout << "      \"nUC\": "  << nUC <<","<<std::endl;
-            std::cout << "      \"nSubUC\": "     << nSubUC <<","<<std::endl;
-            std::cout << "      \"SubUCRate\": "     << float(nSubUC) / float(nUC) <<","<<std::endl;
-            std::cout << "      \"Rounds of iteration\": "  << num_rounds <<","<<std::endl;
-            std::cout << "      \"Counts of try_by\": "     << num_try_by <<","<<std::endl;
+            std::cout << "      \"nUC\": " << nUC << "," << std::endl;
+            std::cout << "      \"nSubUC\": " << nSubUC << "," << std::endl;
+            std::cout << "      \"SubUCRate\": \"" << float(nSubUC) / float(nUC) << "\"," << std::endl;
+            std::cout << "      \"Rounds of iteration\": " << num_rounds << "," << std::endl;
+            std::cout << "      \"Counts of try_by\": " << num_try_by << "," << std::endl;
+            std::cout << "      \"Propagation\": {" << std::endl;
+            std::cout << "      \t\"Amount\": " << ntime_prop << "," << std::endl;
+            std::cout << "      \t\"Succeed\": " << ntime_prop_succ << "," << std::endl;
+            std::cout << "      \t\"Total Time\": " << time_prop / 1000.0 << "," << std::endl;
+            std::cout << "      \"UC distribution\": {" << std::endl;
+            std::cout << "      \t\"[0,3)\": " << num_prop_uc_0_3 << "," << std::endl;
+            std::cout << "      \t\"[3,5)\": " << num_prop_uc_3_5 << "," << std::endl;
+            std::cout << "      \t\"[5,10)\": " << num_prop_uc_5_10 << "," << std::endl;
+            std::cout << "      \t\"[10,50)\": " << num_prop_uc_10_50 << "," << std::endl;
+            std::cout << "      \t\"[50,100)\": " << num_prop_uc_50_100 << "," << std::endl;
+            std::cout << "      \t\"[100,inf)\": " << num_prop_uc_100_inf << "," << std::endl;
+            std::cout << "      }," << std::endl;
+            std::cout << "      \t\"Ticks\" : [";
+            for(int i:prop_ticks)
+                std::cout<<"\""<<i<<"\""<<", ";
+            std::cout << "      ],"<<std::endl;
+            std::cout << "      }," << std::endl;
+            std::cout << "      \"UC distribution\": {" << std::endl;
+            std::cout << "      \t\"[0,3)\": " << num_uc_0_3 << "," << std::endl;
+            std::cout << "      \t\"[3,5)\": " << num_uc_3_5 << "," << std::endl;
+            std::cout << "      \t\"[5,10)\": " << num_uc_5_10 << "," << std::endl;
+            std::cout << "      \t\"[10,50)\": " << num_uc_10_50 << "," << std::endl;
+            std::cout << "      \t\"[50,100)\": " << num_uc_50_100 << "," << std::endl;
+            std::cout << "      \t\"[100,inf)\": " << num_uc_100_inf << "," << std::endl;
+            std::cout << "      }," << std::endl;
+
+            /// for test uses.
+            if(time_1_1> 0 )
+                std::cout << "      \"T1\": "     << time_1_1/ 1000.0 <<","<<std::endl;
+            if(time_1_2> 0 )
+                std::cout << "      \"T2\": "     << time_1_2/ 1000.0 <<","<<std::endl;
+            if(time_1_3> 0 )
+                std::cout << "      \"T3\": "     << time_1_3/ 1000.0 <<","<<std::endl;
             std::cout << "      \"Global Time\": "     << time_global/ 1000.0 <<""<<std::endl;
-            
+
+
             std::cout<<"}"<<std::endl;
 
         }

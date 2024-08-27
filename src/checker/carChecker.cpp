@@ -1,26 +1,7 @@
-/*
-    Copyright (C) 2018, Jianwen Li (lijwen2748@gmail.com), Iowa State University
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
 #include "carChecker.h"
-#include "DEBUG_PRINTING.h"
 #include "implysolver.h"
-#include "newpartialsolver.h"
 #include "statistics.h"
-#include "utility.h"
+#include "definition.h"
 #include <vector>
 #include <iostream>
 #include <stack>
@@ -36,154 +17,103 @@ using clock_high = time_point<steady_clock>;
 
 namespace car
 {
-    // increase one each time. monotonous
-    int storage_id = 0;
-    static vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp);
-
-    Checker::Checker(Model *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
+    Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), simp(opt.simplifyCNF)
     {
-        // TODO: use propagate to accelerate
-        backward_first = !forward;
-        bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
-        #ifdef INC_SAT
-        bi_main_solver->setIncrementalMode();
-        #endif // INC_SAT
-        if(!backward_first)
+        if(!multi_solver)
         {
-            // only forward needs these
-            bi_partial_solver = new PartialSolver(model);
-            // TODO: extend to multi-properties.
-            bi_start_solver = new StartSolver(model, bad_, true);
-        }
-        else{
-            bi_partial_solver = nullptr;
-            bi_start_solver = nullptr;
-        }
-        rotates.clear();
-        rotate.clear();
-        score_dicts.clear();
-        score_dict.clear();
-        restart_enabled = false;
-        importO = false;
-    }
+            main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
+            // also initialize the prop solver.
+            prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
+        }    
 
-    Checker::Checker(int time_limit, Model *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
-    {
-        // TODO: use propagate to accelerate
-        backward_first = !forward;
-        bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
-        #ifdef INC_SAT
-        bi_main_solver->setIncrementalMode();
-        #endif // INC_SAT
-        if(!backward_first)
-        {
-            // only forward needs these
-            bi_partial_solver = new PartialSolver(model);
-            // TODO: extend to multi-properties.
-            bi_start_solver = new StartSolver(model, bad_, true);
-        }
-        else{
-            bi_partial_solver = nullptr;
-            bi_start_solver = nullptr;
-        }
         rotates.clear();
-        rotate.clear();
-        score_dicts.clear();
-        score_dict.clear();
-        restart_enabled = true;
-        importO = false;
-    }
-
-    Checker::Checker(int time_limit, Checker* last_chker, int rememOption, Model *model, std::ostream &out, bool forward, bool evidence, int index_to_check,int convMode, int convParam, bool enable_rotate, int inter_cnt, bool inv_incomplete, bool uc_no_sort, int impMethod, int LOStrategy, int ConvAmount, bool subStat) : model_(model), out(out),  evidence_(evidence),   convMode(convMode), convParam(convParam), rotate_enabled(enable_rotate), inter_cnt(inter_cnt), inv_incomplete(inv_incomplete), uc_no_sort(uc_no_sort), impMethod(impMethod), time_limit_to_restart(time_limit), last_chker(last_chker), rememOption(rememOption), LOStrategy(LOStrategy), ConvAmount(ConvAmount), subStat(subStat)
-    {
-        // TODO: use propagate to accelerate
-        backward_first = !forward;
-        bad_ = model->output(index_to_check);
-        bi_main_solver = new MainSolver(model,get_rotate(),false,uc_no_sort);
-        #ifdef INC_SAT
-        bi_main_solver->setIncrementalMode();
-        #endif // INC_SAT
-        if(!backward_first)
-        {
-            // only forward needs these
-            bi_partial_solver = new PartialSolver(model);
-            // TODO: extend to multi-properties.
-            bi_start_solver = new StartSolver(model, bad_, true);
-        }
-        else{
-            bi_partial_solver = nullptr;
-            bi_start_solver = nullptr;
-        }
-        rotates.clear();
-        rotate.clear();
-        score_dicts.clear();
-        score_dict.clear();
-        restart_enabled = true;
-        importO = true;
+        if(opt.time_limit_to_restart > 0)
+            restart_enabled = true;
     }
 
     Checker::~Checker()
     {
         clean();
-        if (bi_main_solver)
+        if (main_solver)
         {
-            delete bi_main_solver;
-            bi_main_solver = nullptr;
+            delete main_solver;
+            main_solver = nullptr;
         }
-        if (bi_start_solver)
+        if(!main_solvers.empty())
         {
-            delete bi_start_solver;
-            bi_start_solver = nullptr;
+            for(auto& slv: main_solvers)
+            {
+                delete slv;
+                slv = nullptr;
+            }
         }
-        if (bi_partial_solver)
+        if (prop_solver)
         {
-            delete bi_partial_solver;
-            bi_partial_solver = nullptr;
+            delete prop_solver;
+            prop_solver = nullptr;
         }
     }
 
-    bool Checker::check()
+    RESEnum Checker::check()
     {
-        bool res;
-        if (trivialCheck(res))
+        RESEnum res = trivialCheck();
+        if (res == RES_UNKNOWN)
         {
-            return res ? true : false;
+            res = car();
         }
 
-        res = car();
-        if (res && ppstoped)
+        switch (res)
         {
-            // should try the next strategy.
-            // go out, build another checker.
-            return true;
-        }
+        case RES_SAFE:
+            out << "0" << endl;
+            out << "b0" << endl;
+            out << "." << endl;
+            break;
 
-        LOG("End");
-        if (evidence_)
-        {
-            do
-            {
-                if (res)
-                {
-                    out << "0" << endl;
-                    out << "b0" << endl;
-                    out << "." << endl;
-                    break;
-                }
+        case RES_UNSAFE:
+            print_evidence();
 
-                print_evidence();
-            } while (false);
+        case RES_UNKNOWN:
+            break;
+
+        case RES_RESTART:
+            break;
+
+        default:
+            assert(false);
         }
 
         return res;
     }
 
-    bool Checker::car()
+    MainSolver *Checker::getMainSolver(int level)
     {
-        bool res = false;
-        if (initSequence(res))
+        if(!multi_solver)
+            return main_solver;
+        else
+        {
+            if(level >= main_solvers.size())
+            {
+                int needs = level - main_solvers.size() + 1;
+                while(needs > 0)
+                {
+                    auto *new_slv = new MainSolver(model_, !backwardCAR, get_rotate(), uc_no_sort, simp);
+                    main_solvers.push_back(new_slv);                        
+                    --needs;
+                }
+            }
+            if(level <=0)
+                return main_solvers.at(0);
+            else
+                return main_solvers.at(level);
+        }
+    }
+
+    RESEnum Checker::car()
+    {
+        RESEnum res = initSequence();
+        if (RES_UNKNOWN != res)
             return res;
         if (restart_enabled)
         {
@@ -199,124 +129,89 @@ namespace car
          */
 
         while (true)
-        {
-            bool direction = !backward_first;
-            LOG((direction ? "F" : "B"));
-            Usequence &U = direction ? Uf : Ub;
-
-            Osequence &O = direction ? OI : Onp;
-            LOG("Bi-Target:" << (direction ? "I" : "~P"));
-
-            if (trySAT(U, &O, direction, res))
-            {
-                // if this PP phase ends, but has not reached the whole end.
-                if (ppstoped)
-                {
-                    return true;
-                    // continue;
-                }
+        {   
+            res = trySAT();
+            if(RES_UNKNOWN != res)
                 return res;
-            }
 
             if (!inv_incomplete)
             {
-                if (InvFound(&O))
-                    return true;
+                if (InvFound())
+                    return RES_SAFE;
             }
-
         }
 
         // dead code. Should not reach
-        return false;
+        return RES_FAIL;
     }
 
-    bool Checker::trivialCheck(bool &res)
+    RESEnum Checker::trivialCheck()
     {
-        const Model *model = model_;
+        const Problem *model = model_;
         // FIXME: fix for multiple properties.
         if (bad_ == model->true_id())
         {
-            out << "1" << endl;
-            out << "b"
-                << "0" << endl;
-            if (evidence_)
-            {
-                // print init state
-                // FIXME: fix for latch inits.
-                for (int i = 0; i < model->num_latches(); ++i)
-                    out << "0";
-                out << endl;
-                // print an arbitary input vector
-                for (int j = 0; j < model->num_inputs(); j++)
-                    out << "0";
-                out << endl;
-            }
-            out << "." << endl;
-            if (verbose_)
-            {
-                cout << "return SAT since the output is true" << endl;
-            }
-            res = true;
-            return true;
+
+            vector<int> all0(model_->num_inputs(),0);
+            State *init = new State(model_->init());
+            State *neg = new State(all0, model_->init());
+            clear_defer(init);
+            clear_defer(neg);
+            whichPrior()[neg] = init;
+            whichCEX() = neg;
+            return RES_UNSAFE;
         }
         else if (bad_ == model->false_id())
         {
             out << "0" << endl;
             out << "b" << endl;
             out << "." << endl;
-            if (verbose_)
-            {
-                cout << "return UNSAT since the output is false" << endl;
-            }
-            res = false;
-            return true;
+            return RES_SAFE;
         }
-        return false;
+        return RES_UNKNOWN;
     }
 
-    bool Checker::trySAT(Usequence &U, Osequence *O, bool forward, bool &safe_reported)
+    RESEnum Checker::trySAT()
     {
         // NOTE: can eliminate initialization.
-        safe_reported = false;
-        Frame Otmp;
-        MainSolver *main_solver = bi_main_solver;
+        auto& O = whichO();
+        bool safe_reported = false;
+
+        // add a new frame to O, as Otmp
+        O.push_back({});
+
+        // if rotate enabled, push back a new vector to record.
+        if (rotate_enabled)
+            rotates.push_back({});
+
         CARStats.count_enter_new_ronud();
         /**
-         * this procedure is like the old car procedure, but the Osequence is not bound to be OI or Onegp.
+         * this procedure is like the old car procedure, but the OSequence is not bound to be OI or Onegp.
          * @param missionary the state to be checked
          */
-        while (State *missionary = pickState(U))
+        while (State *missionary = pickState())
         {
-            LOG("Pick " << missionary->id);
             /**
              * build a stack <state, depth, target_level>
              */
-            CONTAINER stk;
-            stk.push(item(missionary, 0, O->size() - 1));
+            stack<Obligation> stk;
+            stk.push(Obligation(missionary, 0, OSize() - 1));
             while (!stk.empty())
             {
                 CARStats.count_enter_new_try_by();
                 State *s;
                 int dst, depth;
                 std::tie(s, depth, dst) = stk.top();
-                LOG("Try " << s->id << " " << dst);
-                if (blockedIn(s, dst + 1, O, Otmp))
+                if (blockedIn(s, dst + 1))
                 {
                     // TODO: memorize state's blocking status. Since we do not remove UC, once blocked, forever blocked.
                     stk.pop();
                     CARStats.count_tried_before();
-                    LOG("Tried before");
-                    direct_blocked_counter++;
-                    blocked_ids.insert(s->id);
 
-                    int new_level = minNOTBlocked(s, dst + 2, O->size() - 1, O, Otmp);
-                    if (new_level <= O->size())
+                    int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
+                    if (new_level <= OSize())
                     {
-                        stk.push(item(s, depth, new_level - 1));
-                        LOG("Again " << s->id << " " << dst << " " << new_level - 1);
-                    }
-                    else
-                    {
+                        stk.push(Obligation(s, depth, new_level - 1));
                     }
                     continue;
                 }
@@ -328,71 +223,41 @@ namespace car
                     double time_delay = elapsed.count();
                     if (time_delay > time_limit_to_restart * 1000)
                     {
-                        ppstoped = true;
-                        return true;
+                        return RES_RESTART;
                     }
                 }
 
-                if (satAssume(bi_main_solver, O, s, dst, Otmp, safe_reported))
+                if (satAssume(s, dst, safe_reported))
                 {
-                    LOG("Succeed");
                     if (dst == -1)
                     {
-                        return true;
+                        return RES_UNSAFE;
                     }
-                    State *tprime = getModel(bi_main_solver);
-                    LOG("Get " << tprime->id << " " << dst);
-
-                    updateU(U, tprime, s);
+                    State *tprime = getModel(s, dst);
 
                     // NOTE: why here calculate minNOTBLOCKED, rather than next time when pop?
-                    #ifdef DEPTH
-                    int new_level = minNOTBlocked(tprime, max(0, int(O->size()-1-depth)), dst - 1, O, Otmp);
-                    #else
-                    int new_level = minNOTBlocked(tprime, 0, dst - 1, O, Otmp);               
-                    #endif
+                    int new_level = minNOTBlocked(tprime, 0, dst - 1);               
                     if (new_level <= dst) // if even not one step further, should not try it
                     {
-                        stk.push(item(tprime, depth + 1, new_level - 1));
-                        LOG("Jump " << dst << " " << new_level - 1);
+                        stk.push(Obligation(tprime, depth + 1, new_level - 1));
                     }
                 }
                 else
                 {
-                    LOG("Fail ");
                     stk.pop();
-
                     if (safe_reported)
-                        return true;
+                        return RES_FAIL;
 
-                    int new_level = minNOTBlocked(s, dst + 2, O->size() - 1, O, Otmp);
-                    if (new_level <= O->size())
+                    int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
+                    if (new_level <= OSize())
                     {
-                        stk.push(item(s, depth, new_level - 1));
-                        LOG("Again " << s->id << " " << dst << " " << new_level - 1);
-                    }
-                    else
-                    {
+                        stk.push(Obligation(s, depth, new_level - 1));
                     }
                 }
             }
         }
 
-        // this is same with extend_F_sequence in old CAR.
-        O->push_back(Otmp);
-
-
-        spliter.push_back(State::next_id_);
-        blocked_counter_array.push_back(direct_blocked_counter);
-        direct_blocked_counter = 0;
-        if (rotate_enabled)
-            rotates.push_back(rotate);
-#ifdef SCORE
-        score_dicts.push_back(score_dict);
-#endif // SCORE
-        bi_main_solver->add_new_frame(Otmp, O->size() - 1, O, forward);
-        PRINTIF_PROOF();
-        return false;
+        return RES_UNKNOWN;
     }
 
     /**
@@ -404,29 +269,30 @@ namespace car
      * @return true : invariant found at target level
      * @return false : invariant does not exists at target level
      */
-    bool Checker::InvFoundAt(Osequence &O, int check_level, int minimal_update_level, InvSolver *inv_solver)
+    bool Checker::InvFoundAt(int check_level, int minimal_update_level)
     {
+        OSequence &O = whichO();
         // a portion of `InvFound()`
         if (check_level < minimal_update_level)
         {
-            inv::InvAddOR(O[check_level], check_level, inv_solver);
+            inv_solver->add_constraint_or(O[check_level],check_level);
             return false;
         }
-        inv::InvAddAND(O[check_level], check_level, inv_solver);
+        inv_solver->add_constraint_and(O[check_level], check_level);
 
         bool res = !inv_solver->solve_with_assumption();
 
-        inv::InvRemoveAND(inv_solver, check_level);
-        inv::InvAddOR(O[check_level], check_level, inv_solver);
+        inv_solver->release_constraint_and(check_level);
+        inv_solver->add_constraint_or(O[check_level],check_level);
         return res;
     }
 
-    bool Checker::InvFound(Osequence *o)
+    bool Checker::InvFound()
     {
-        Osequence &O = *o;
+        OSequence &O = whichO();
         bool res = false;
         // FIXME: Should we reuse inv_solver instead of recreating?
-        InvSolver *inv_solver = new InvSolver(model_);
+        inv_solver = new InvSolver(model_);
         // FIXED: shall we start from 0 or 1?
         // 0, to add O[0] into solver.
 
@@ -437,69 +303,30 @@ namespace car
          * 		Each time a modification of low-level frame will possibly modify this minimal level.
          *
          */
-        for (int i = 0; i < O.size(); ++i)
+        for(int i = 0; i < OSize(); ++i)
         {
-            if (InvFoundAt(O, i, fresh_levels[o], inv_solver))
+            if (InvFoundAt(i, fresh_levels))
             {
-#ifdef INV_PRINT
-                cout << "invariant found at " << i << endl;
-                for (int j = 0; j <= i; ++j)
-                {
-                    cout << "level = " << j << endl;
-                    cout << "uc := " << endl;
-                    for (auto uc : O[j])
-                    {
-                        cout << "(";
-                        for (int k : uc)
-                            cout << k << ", ";
-                        cout << ")" << endl;
-                    }
-                }
-#endif
-                while (O.size() > i)
+                while (OSize() > i)
                     O.pop_back();
                 res = true;
                 // already found invariant.
-                fresh_levels[o] = -1;
+                fresh_levels = -1;
                 break;
             }
         }
-        // NOTE: not O.size()-1. because that level is also checked.
-        fresh_levels[o] = o->size();
+        // NOTE: not OSize()-1. because that level is also checked.
+        fresh_levels = OSize();
         delete (inv_solver);
-#ifdef PRINT_INV
-        cout << "END OF ONE ROUND" << endl
-             << endl;
-#endif
+        inv_solver = nullptr;
         return res;
-    }
-
-    Osequence *Checker::createOWith(State *s)
-    {
-        Osequence *o;
-        if (SO_map.find(s) != SO_map.end())
-        {
-            o = SO_map[s];
-        }
-        else
-        {
-            Frame f;
-            for (auto i : s->s())
-                f.push_back({-i});
-            o = new Osequence({f});
-            SO_map[s] = o;
-            fresh_levels[o] = 0;
-            // FIXME: When is the right time to add to solver? And when to set the flag?
-            bi_main_solver->add_new_frame(f, o->size() - 1, o, !backward_first);
-        }
-        assert(o);
-        return o;
     }
 
     // NOTE: when we try to pick a guide state, it is not used as part of the assumption but the target. Therefore, uc is not generated according to it, and therefore will not be updated.
     // Luckily, we do not use Onp or OI to guide. Therefore, here we have nothing to do with start_solver.
-    State *Checker::pickState(Usequence &U)
+    State *Checker::pickState()
     {
+        auto& U = whichU();
         if(pickStateLastIndex <= 0)
         {
             // one round is end.
@@ -508,117 +335,17 @@ namespace car
         }
         --pickStateLastIndex;
         State* s = U[pickStateLastIndex];
-        if(s->is_negp)
-        {
-            // FIXME: check for forward CAR, where we need to enumerate by querying the start solver.
-            // TODO: check for efficiency.
-            State *new_s = enumerateStartStates(bi_start_solver);
-            if(new_s)
-            {
-                updateU(U,new_s,nullptr);
-                if(bi_start_solver)
-                    bi_start_solver->reset();
-                return new_s;
-            }
-            else
-            {
-                // negp should be at position 0.
-                // so when we try to fetch a state, but get negp, it is also the end of one round.
-                pickStateLastIndex = U.size();
-
-                if(bi_start_solver)
-                    bi_start_solver->reset();
-                return nullptr;
-            }
-            return nullptr;
-        }
         return s;
     }
 
 
     /**
-     * @brief About the principle here, see newpartialsolver.h
-     *
-     * @param s
-     * @param prior_state
-     */
-    State *Checker::get_partial_state(Assignment &s, const State *prior_state)
-    {
-        Assignment next_assumptions = s;
-        Assignment old_inputs(s.begin(), s.begin() + model_->num_inputs());
-
-        if (prior_state)
-        // it is not start state
-        {
-            // negate the s' as the cls, put into the solver.
-            Assignment cls = negate(prior_state->s());
-            bi_partial_solver->new_flag();
-            bi_partial_solver->add_clause_with_flag(cls);
-
-            // the assumption being t's input and latches.
-            next_assumptions.push_back(bi_partial_solver->get_flag());
-            bi_partial_solver->set_assumption(next_assumptions);
-
-            // Therefore, it ought to be unsat. If so, we can get the partial state (from the uc)
-            bool res = bi_partial_solver->solve_assumption();
-            // uc actually stores the partial state.
-            s = bi_partial_solver->get_conflict();
-
-            if (res || s.empty())
-            {
-                // all states can reach this state! It means the counter example is found. Sure the initial state can reach this state.
-                // set the next state to be the initial state.
-                assert(Ub.size());
-                State *init = Ub[0];
-                s = init->s();
-            }
-
-            // block this clause.
-            int flag = bi_partial_solver->get_flag();
-            bi_partial_solver->add_clause(flag);
-        }
-        else
-        // for initial states, there is no such "prior state", only "bad"
-        {
-            next_assumptions.push_back(-bad_);
-            bi_partial_solver->set_assumption(next_assumptions);
-            bool res = bi_partial_solver->solve_assumption();
-            s = bi_partial_solver->get_conflict_no_bad(-bad_);
-            // if one-step reachable, should already been found in immediate_satisfiable.
-            assert(!s.empty());
-        }
-
-        // FIXME: is this `inputs` really useful?
-        Assignment inputs, latches;
-        for (auto &it : s)
-        {
-            if (abs(it) <= model_->num_inputs())
-                inputs.push_back(it);
-            else
-                latches.push_back(it);
-        }
-        if (inputs.empty()) // use this inputs as the inputs.
-        {
-            inputs = old_inputs;
-        }
-
-        // this state is not a full state.
-        State *pstate = new State(inputs, latches);
-        clear_defer(pstate);
-        return pstate;
-    }
-
-    /**
-     * @brief print the evidence. reuse backward_first, which exactly reveals present searching direciton.
+     * @brief print the evidence. reuse backwardCAR, which exactly reveals present searching direciton.
      * @pre counterexmple is met already.
      * @param 
      */
     void Checker::print_evidence() const
     {
-        PRINTIF_PRIOR();
-
-        // cout << "Counter Example is found in " << (!backward_first ? "forward" : "backward") << " search" << endl;
-
         // Print Backward chain first.
         bool latch_printed = false;
 
@@ -636,9 +363,9 @@ namespace car
             {
                 State *next = prior_in_trail_b.find(to_print) != prior_in_trail_b.end() ? prior_in_trail_b.at(to_print) : nullptr;
                 if (next)
-                    helper.push(to_print->inputs());
+                    helper.push(to_print->getInputsStr());
                 else
-                    helper.push(to_print->latches());
+                    helper.push(to_print->getLatchesStr());
                 to_print = next;
             }
             while (!helper.empty())
@@ -653,615 +380,412 @@ namespace car
         {
             State *to_print = counter_start_f;
             if (!latch_printed)
-                out << to_print->latches() << endl;
+                out << to_print->getLatchesStr() << endl;
             while (to_print)
             {
                 State *next = prior_in_trail_f.find(to_print) != prior_in_trail_f.end() ? prior_in_trail_f.at(to_print) : nullptr;
-                out << to_print->inputs() << endl;
+                out << to_print->getInputsStr() << endl;
                 to_print = next;
             }
         }
         out << "." << endl;
     }
 
-    void Checker::print_flags(ostream &out)
+
+    std::vector<Cube> Checker::reorderAssumptions(State*s, int level, const vector<Cube>& inter, const Cube &rcube, const Cube &rest)
     {
-        out << endl;
-        out << "------ End Printing Flags ------" << endl;
-        for (auto p : SO_map)
+        switch (LOStrategy)
         {
-            out << "State is: " << p.first->id << endl;
-            auto &flags = bi_main_solver->flag_of_O;
-            if (flags.find(p.second) != flags.end())
-            {
-                auto &flag_for_this_O = flags[p.second];
-                for (int i = 0; i < flag_for_this_O.size(); ++i)
-                    out << i << ":" << flag_for_this_O[i] << ", ";
-            }
-            out << endl;
-        }
-        out << "------ End Printing Flags ------" << endl
-            << endl;
-    }
-
-    bool Checker::updateU(Usequence &U, State *s, State *prior_state_in_trail)
-    {
-        // Counter Example Issue.
-        // Every time we insert a new state into U sequence, it should be updated.
-        // FIXME: without considering bi-direction, one state will only have one prior. Shall we move this into "state"?
-        {
-            whichPrior()[s] = prior_state_in_trail;
-        }
-
-        U.push_back(s);
-
-        return true;
-    }
-
-    static vector<Cube> reorderAssum(const vector<Cube>& inter, const Cube &rres, const Cube &rtmp)
-    {
-        vector<Cube> pref;
-#if defined(ASS_IRRI)
-        pref = inter;
-        if (pref.size() == 0)
-        {
-            pref = {rres, rtmp};
-        }
-        else
-        {
-            pref.insert(pref.begin() + 1, rres);
-            pref.insert(pref.begin() + 2, rtmp);
-        }
-#ifdef PRINT_ASS
-        cerr << "IRRI:" << endl;
-        for (auto &cu : pref)
-            for (int i : cu)
-                cerr << i << ", ";
-        cerr << endl;
-#endif
-#elif defined(ASS_IIRR)
-        pref = inter;
-        if (pref.size() == 0)
-        {
-            pref = {rres, rtmp};
-        }
-        else if (pref.size() == 1)
-        {
-            pref.insert(pref.begin() + 1, rres);
-            pref.insert(pref.begin() + 2, rtmp);
-        }
-        else
-        {
-            pref.insert(pref.begin() + 2, rres);
-            pref.insert(pref.begin() + 3, rtmp);
-        }
-#ifdef PRINT_ASS
-        cerr << "IIRR:" << endl;
-        for (auto &cu : pref)
-            for (int i : cu)
-                cerr << i << ", ";
-        cerr << endl;
-#endif
-#elif defined(ASS_IRIR)
-        pref = inter;
-        if (pref.size() == 0)
-        {
-            pref = {rres, rtmp};
-        }
-        else if (pref.size() == 1)
-        {
-            pref.insert(pref.begin() + 1, rres);
-            pref.insert(pref.begin() + 2, rtmp);
-        }
-        else
-        {
-            pref.insert(pref.begin() + 1, rres);
-            pref.insert(pref.begin() + 3, rtmp);
-        }
-#ifdef PRINT_ASS
-        cerr << "IRIR:" << endl;
-        for (auto &cu : pref)
-            for (int i : cu)
-                cerr << i << ", ";
-        cerr << endl;
-#endif
-#elif defined(ASS_RIRI)
-        pref = inter;
-        if (pref.size() == 0)
-        {
-            pref = {rres, rtmp};
-        }
-        else
-        {
-            pref.insert(pref.begin() + 0, rres);
-            pref.insert(pref.begin() + 2, rtmp);
-        }
-#ifdef PRINT_ASS
-        cerr << "RIRI:" << endl;
-        for (auto &cu : pref)
-            for (int i : cu)
-                cerr << i << ", ";
-        cerr << endl;
-#endif
-#elif defined(ASS_RRII)
-        pref = inter;
-        pref.insert(pref.begin() + 0, rres);
-        pref.insert(pref.begin() + 1, rtmp);
-#ifdef PRINT_ASS
-        cerr << "RRII:" << endl;
-        for (auto &cu : pref)
-            for (int i : cu)
-                cerr << i << ", ";
-        cerr << endl;
-#endif
-#elif defined(ASS_RIIR)
-        pref = inter;
-        if (pref.size() == 0)
-        {
-            pref = {rres, rtmp};
-        }
-        else if (pref.size() == 1)
-        {
-            pref.insert(pref.begin() + 0, rres);
-            pref.insert(pref.begin() + 2, rres);
-        }
-        else
-        {
-            pref.insert(pref.begin() + 0, rres);
-            pref.insert(pref.begin() + 3, rtmp);
-        }
-#ifdef PRINT_ASS
-        cerr << "RIIR:" << endl;
-        for (auto &cu : pref)
-            for (int i : cu)
-                cerr << i << ", ";
-        cerr << endl;
-#endif
-
-#else
-        pref = inter;
-        pref.push_back(rres);
-        pref.push_back(rtmp);
-#endif
-
-        return pref;
-    }
-
-    bool Checker::satAssume(MainSolver *solver, Osequence *O, State *s, int level, Frame &Otmp, bool& safe_reported)
-    {
-        bool forward = !backward_first;
-        vector<Cube> inter;
-        Cube rres, rtmp;
-        Cube score_order;
-        vector<Cube> ucs; // this is used for subsumption test, will cause low-efficiency, do not turn it on in practical scenarios.
-
-        bool res = false;
-        if (level == -1)
-        {
-            // NOTE: in backward CAR, here needs further check.
-            CARStats.count_main_solver_original_time_start();
-            res = lastCheck(s, O);
-            if(res)
-            {
-                // if sat, no uc, we just update it here.
-                CARStats.count_main_solver_original_time_end(res,0);
-            }
-
-            PRINTIF_SIMPLE_SAT();
-        }
-        else
-        {
-            do
-            {
-                // intersection:
-                if (get_inter_cnt())
-                {
-                    // NOTE: the meaning of inter_cnt is not consistent as to ni > 1
-                    const Frame &frame = level + 1 < O->size() ? (*O)[level + 1] : Otmp;
- 
-                    // this index is which iCube we want to create.
-                    int index = 1;
-
-                    int uc_index = frame.size();
-                    // in Conv, not every UC is original UC.
-                    int record_bits = conv_record[level + 1];
-
-                    while (index <= get_inter_cnt() && frame.size() >= index)
-                    {
-                        Cube inter_next;
-
-                        uc_index -= 1;
-                        if (convMode >= 0)
-                        {
-                            // if we generated more than UC, we shall just use the original one.
-                            uc_index -= (record_bits & (1 << (index - 1))) ? 1 : 0;
-                            if (uc_index < 0)
-                                break;
-                            // cerr<<"uc index is "<< uc_index<<"/"<<frame.size()<<endl;
-                            // cerr<<"index is "<<index<<", record bit is "<< ((record_bits & (1<<(index-1))) ? 1 : 0 )<<endl;
-                            // cerr<<"picked uc at "<<uc_index<<endl;
-                        }
-                        const Cube &last_uc = frame[uc_index];
-
-                        inter_next = s->intersect(last_uc);
-
-                        // otherwise, do not do this!
-                        #ifdef LAST_FIRST
-                        if (inter_next.size() > 1)
-                        {
-                            // insert the last bit to the front.
-                            inter_next.insert(inter_next.begin(), inter_next.back());
-                            inter_next.pop_back();
-                        }
-                        #endif
-                        inter.push_back(inter_next);
-                        ++index;
-                    }
-                    if (inter.empty())
-                        inter.push_back({});
-                }
-            } while (0);
-
-            do
-            {
-                if(get_rotate())
-                {
-                // rotates[i]
-                if (!rotate_enabled)
-                    break;
-                Cube &rcu = level + 1 < rotates.size() ? rotates[level + 1] : rotate;
-                if (rcu.empty())
-                {
-                    rres = {};
-                    rtmp = s->s();
-                    // TODO: try this to be inter?
-                    break;
-                }
-
-                // calculate intersection and put the others behind.
-                for (int i = 0; i < rcu.size(); ++i)
-                {
-                    // full state
-                    if (s->size() == model_->num_latches())
-                    {
-                        if (s->element(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
-                            rres.push_back(rcu[i]);
-                        else
-                            rtmp.push_back(-rcu[i]);
-                    }
-                    else
-                    // TODO: merge with "intersection"
-                    // a partial state
-                    {
-                        int i = 0, j = 0;
-                        while (i < s->size() && j < rcu.size())
-                        {
-                            if (rcu[j] == s->element(i))
-                            {
-                                rres.push_back(rcu[j]);
-                                i++;
-                                j++;
-                            }
-                            else
-                            {
-                                rtmp.push_back(s->element(i));
-                                if (rcu[j] < s->element(i))
-                                    j++;
-                                else
-                                    i++;
-                            }
-                        }
-                    }
-                }
-                // inter ++ (s ∩ rcu) ++ (s - rcu) ++ s
-                }
-            } while (0);
-
-            
-            do
-            {
-            #ifdef SCORE
-                // use score to order the state
-
-                // reference to the dict.
-                std::unordered_map<int, int> &dict_ref = level + 1 < score_dicts.size() ? score_dicts[level + 1] : score_dict;
-
-                // first assign to the original order.
-                score_order = s->s();
-
-                #ifdef SCORE_REVERSE
-                    // from low to high, for sanity check check.
-                    std::sort(score_order.begin(), score_order.end(), [&](const int &a, const int &b)
-                    {
-                    if(dict_ref[a] < dict_ref[b])
-                        return true;
-                    else if(dict_ref[a] > dict_ref[b])
-                        return false;
-                    else
-                    {
-                        return false;
-                    } });
-                #else
-                    // then sort according to the score.
-                    // high -> low
-                    // tie : ignore
-                    std::sort(score_order.begin(), score_order.end(), [&](const int &a, const int &b)
-                        {
-                    if(dict_ref[a] < dict_ref[b])
-                        return false;
-                    else if(dict_ref[a] > dict_ref[b])
-                        return true;
-                    else
-                    {
-                        // tie
-                        // TODO: add dealing here.
-
-                        // at present: do not change it.
-                        return false;
-                    } });
-                #endif
-
-                // cerr<<"state: ";
-                // for(int i:score_order)
-                // cerr<<i<<"("<<dict_ref[i]<<"), ";
-                // cerr<<endl;
-
-            #endif
-            } while (0);
-
-            #ifdef SCORE
-                    // NOTE: rotate and score are contradictory, because they both contain the whole state.
-                    vector<Cube> pref = inter;
-                    pref.push_back(score_order);
-            #else
-                    vector<Cube> pref = reorderAssum(inter, rres, rtmp);
-            #endif
-
-            
-
-            switch (LOStrategy)
-            {
-            case 1: // random
+            case LO_Rand: // random
             {
                 std::random_device rd;
                 std::mt19937 gen(rd());
-                vector<int> shuff_helper = s->s();
-                for (int i = shuff_helper.size() - 1; i > 0; --i) {
+                vector<int> shuff_helper = s->getLatches();
+                for(int i = shuff_helper.size() - 1; i > 0; --i) {
                     // starting from 1, because 0 is the flag.
                     std::uniform_int_distribution<int> dis(0, i);
                     int j = dis(gen);
                     std::swap(shuff_helper[i], shuff_helper[j]);
                 }
-                solver->set_assumption(O, s, level, forward, {shuff_helper});
-                break;
-            }
-
-            case 3: // expectation test
-            {
-                // FIXME: implement this part to be a real decision procedure.
-                std::vector<int> exp = s->s();
-                solver->set_expectation(exp, forward);
-                solver->set_assumption(O, s, level, forward, pref);
-                break;
-            }
-
-            case 2:
-            case 0: // traditional one, no need to shuffel
-            default:
-            {
-                solver->set_assumption(O, s, level, forward, pref);
-                // do nothing
-                break;
-            }
+                return {shuff_helper};
             }
             
-            CARStats.count_main_solver_original_time_start();
-            res = solver->solve_with_assumption();
-            if(res)
+            case LO_Classic_Pos:
             {
-                // if sat, no uc, we just update it here.
-                CARStats.count_main_solver_original_time_end(res,0);
+                if(level == -1)
+                    return {s->getLatches()};
+                vector<Cube> pref;
+                pref.reserve(inter.size() + 2);
+                pref = inter;
+                pref.push_back(std::move(rcube));
+                pref.push_back(std::move(rest));
+                return pref;
+            }
+            
+            case LO_Classic: // traditional one, no need to shuffel
+            default:
+            {                
+                vector<Cube> pref;
+                pref.reserve(inter.size() + 2);
+                pref = inter;
+                pref.push_back(std::move(rcube));
+                pref.push_back(std::move(rest));
+                return pref;
             }
         }
-        if(!res)
-        {
-            // update the UC.
-            Cube uc = bi_main_solver->get_conflict(!backward_first);
+    }
 
+    bool Checker::satAssume(State *s, int level, bool& safe_reported)
+    {
+        MainSolver* ms = getMainSolver(level);
+        bool res = false;
+
+        vector<Cube> inter;
+        get_inter_res(s,level, inter);
+        Cube rcube, rest;
+        get_rotate_res(s,level,rcube,rest);
+        auto prefers = reorderAssumptions(s, level, inter, rcube, rest);
+
+        ms->set_assumption_M(s, level, prefers);
+
+        CARStats.count_main_solver_original_time_start();
+        res = ms->solve_assumption();
+
+        if(res)
+        {
+            CARStats.count_main_solver_original_time_end(res,0); //uc size == 0
+            if(level == -1)
+            {
+                // TODO: consider to use immediateCheck() here, to get more than 1 uc when level == -1.
+                assert(backwardCAR);
+                State *cex = getModel(s, level);
+                whichCEX() = cex;
+                return true;
+            }
+        }
+        else
+        {
+            Cube uc = ms->get_shrunk_uc();
+            CARStats.count_main_solver_original_time_end(res,uc.size());
+            
+            if (uc.empty())
+            {
+                safe_reported = true;
+                cerr<<"uc is empty@1!"<<endl;
+                cerr<<"error level is "<<level<<endl;
+                cerr<<"corresponding O frame is "<<endl;
+                for(auto &cls: whichFrame(level))
+                {
+                    for(auto &lit: cls)
+                    {
+                        cerr<<lit<<" ";
+                    }
+                    cerr<<endl;
+                }
+                cerr<<"end printing the O frame"<<endl;
+            }
+
+            // add uc to solver.
+            // note: should do this before propagation.
+            addUCtoSolver(uc, level + 1);
+
+            if (propMode > 0 && level > 0 && level + 1 <= OSize())
+                propagate(uc, level);
+            
+            if (uc.empty())
+            {
+                // watch dog for propagation.
+                cerr<<"uc is empty@2!"<<endl;
+                safe_reported = true;
+            }
+
+            if(rotate_enabled)
+            {
+                // update rotate
+                Cube &rcu = rotates[level + 1];
+                rcu = rcube;
+                rcu.insert(rcu.end(), rest.begin(), rest.end());
+            }
+
+            if(convMode >= 0)
+            {
+                mUC(uc, level);
+            }
+        }
+
+        return res;
+    }
+
+    /**
+     * @brief Check for UC propagation to lower frames(in Backward CAR)
+     * 
+     * basis: at level l+1: !uc
+     *     |= !uc /\ T -> (!uc')
+     * <=> UNSAT(!uc /\ T /\ (uc'))
+     * @todo record whether the UC to propagate is already within lower frame.
+     * @pre  should be right after an UNSAT call.
+     */
+    void Checker::propagate(Cube& uc, int level)
+    {
+        if(level <= 0 ||  level + 1 > OSize())
+            return;
+
+        switch (propMode)
+        {
+            case PropAlways:
+            {
+                // do it.
+                break;
+            }
+            case PropShortCont:
+            case PropShort:
+            {
+                if(uc.size() > propParam)
+                    return;
+                // do it.
+                break;
+            }
+            case PropContinue:
+            {
+                break;
+            }
+            case PropFresh:
+            {
+                if(level < OSize()-1)
+                    return;
+                break;
+            }
+            case PropShortFresh:
+            {
+                if(uc.size() > propParam)
+                    return;
+                if(level < OSize()-1)
+                    return;
+                break;
+            }
+            default: // fall through.
+            case PropNone:
+            {
+                return;
+            }
+        }
+
+        CARStats.count_prop_begin();
+        prop_solver->clear_assumption();
+        
+        vector<int> assumption; 
+        // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
+        assumption.reserve(1 + prop_solver->PTFlag.size() + 1 + uc.size());
+
+        int Oflag = prop_solver->MFlagOf(level+1);
+        assumption.push_back(Oflag);
+
+        // deactivate all the previous ones.
+        for(int flg: prop_solver->PTFlag)
+        {
+            assumption.push_back(flg);
+        }
+        int new_flag = prop_solver->getNewPTFlag();
+        // activate the current one:
+        assumption.push_back(-new_flag);
+
+        // the UC(will be primed later in `set_assumption_primed`):
+        assumption.insert(assumption.end(), uc.begin(), uc.end());
+
+        prop_solver->set_assumption_primed(assumption); 
+
+        // clause ::= !uc , current flag.
+        prop_solver->add_clause_from_cube(uc,new_flag, true);  // !uc
+        
+        // check if !uc is inductive
+        bool prop_res = prop_solver->solve_assumption();
+
+        // do minimization of UC:
+        bool strongInductive = false;
+
+        int originalUCsize = uc.size();
+
+        static std::map<int,int> prop_tick;
+        ++prop_tick[level];
+        if(!prop_res)
+        {
+            auto upcoming_uc = prop_solver -> get_uc();
+            /**
+             * The upcoming UC ::= <subset of uc> [<activation flag>] [<Oflag>]
+             * Reason:
+             * 1) O flag is the first in the assumption vector;
+             *  either it appears ==> should be in the back
+             *  or it does not appear
+             * 2) The deactivation literals are pure literals, should not appear.
+             * 3) The activation flag is likely to appear -- Otherwise, T /\ uc' is tautology.
+            */
+
+            strongInductive = false;// regardless of the frame.
+
+            // again, remember:
+            // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
+            // assert: flag should only appear in the back, or not.
+            if(prop_solver->MLevelOf(upcoming_uc.back()) == NOT_M_FLAG)
+            {
+                // O flag does not participate.
+                strongInductive = true;
+            }
+            else
+            {
+                upcoming_uc.pop_back();
+                strongInductive = false;
+            }
+
+            if(upcoming_uc.back() == -new_flag)
+            {
+                upcoming_uc.pop_back();
+            }
+            
+            if(upcoming_uc.size() < uc.size())
+            {
+                // map prop_uc -> 'previous' version.
+                // note: not unique, just take the first one.
+                model_->transform_uc_to_previous(upcoming_uc);
+                uc = upcoming_uc;
+            }
+
+            if(strongInductive)
+            {
+                // propagate to all previous levels                
+                for (int f = level; f >= 0; --f)
+                {
+                    addUCtoSolver(uc, f);
+                }                
+            }
+            else{
+                // propagate to only level l.
+                addUCtoSolver(uc, level);
+                // we could check whether it could be propagate further.
+                if(propMode == PropContinue || propMode == PropShortCont)
+                    propagate(uc,level - 1);
+            }
+        }
+
+        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize, prop_tick[level]);
+    }
+
+    bool Checker::convTriggered(int level)
+    {
+        bool trigger = false;
+        switch(convMode)
+        {
+            case ConvModeAlways:
+            {    
+                trigger = true;
+                // cerr<<"conv mode = Always"<<endl;
+                break;
+            }
+            case ConvModeHigh:
+            {    
+                if(convParam <=0)
+                {
+                    trigger = false;
+                    break;
+                }
+                if (convParam == 1)
+                {
+                    trigger = true;
+                    break;
+                }
+                if(level > 0 && level > OSize() - (OSize() / convParam))
+                {
+                    trigger = true;
+                }
+                else{
+                    trigger = false;
+                }
+                // cerr<<"conv mode = High, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
+                break;
+            }
+            case ConvModeLow:
+            {
+                if(convParam <=0)
+                {
+                    // static bool printed = false;
+                    // if(!printed)
+                    // {
+                    //     printed = true;
+                    //     cerr<<"always no"<<endl;
+                    // }
+                    trigger = false;
+                    break;
+                }
+                if (convParam == 1)
+                {
+                    // static bool printed = false;
+                    // if(!printed)
+                    // {
+                    //     printed = true;
+                    //     cerr<<"always yes"<<endl;
+                    // }
+                    trigger = true;
+                    break;
+                }
+
+                if (level < 0 || level <  1 + (OSize() / convParam))
+                {
+                    trigger = true;
+                }
+                else{
+                    trigger = false;
+                }
+                // cerr<<"conv mode = Low, res = "<<trigger<<" level="<<level<<"/"<<OSize()<<endl;
+                break;
+            }
+            case ConvModeRand:
+            {
+                assert(convParam != 0);
+                static mt19937 mt_rand(1);
+                            
+                trigger = ((mt_rand() % convParam) == 0) ? true : false;
+                
+                // cerr<<"conv mode = Random, res = "<<trigger<<endl;
+                break;
+            }
+            case ConvModeStuck:
+            {
+                // TODO: fill in here.
+                break;
+            }
+
+            default:
+                trigger = true;
+        }
+        return trigger;
+    }
+
+    void Checker::mUC(const Cube &uc, int level)
+    {
+        if(convMode < 0)
+            return;
+
+        // whether to calculate another UC.
+        bool trigger = convTriggered(level);
+        if (trigger)
+        {
+            vector<Cube> ucs; // this is used for subsumption test, will cause low-efficiency, do not turn it on in practical scenarios.
             if(subStat)
             {
                 ucs.push_back(uc);
                 CARStats.recordUC(false);
             }
-
-            if (uc.empty())
+            int amount = 0;
+            while(++amount <= convAmount)
             {
-                cerr<<"uc is empty!"<<endl;
-                safe_reported = true;
-            }
-            CARStats.count_main_solver_original_time_end(res,uc.size());
-
-            addUCtoSolver(uc, O, level + 1, Otmp);
-        }
-
-        if (get_rotate() && !res)
-        {
-            // update rotate
-            Cube &rcu = level + 1 < rotates.size() ? rotates[level + 1] : rotate;
-            rcu = rres;
-            rcu.insert(rcu.end(), rtmp.begin(), rtmp.end());
-        }
-
-#ifdef SCORE
-        if (!res)
-        {
-            std::unordered_map<int, int> &dict_ref = level + 1 < score_dicts.size() ? score_dicts[level + 1] : score_dict;
-
-    #ifdef SCORE_DECAY
-            // multiplicative decay
-            if (decayCounter[level + 1] == 0)
-            {
-                // Magic Number 20.
-                decayCounter[level + 1] = 20;
-
-                if (decayStep[level + 1] == 0)
-                    decayStep[level + 1] = 1000;
-                else
-                    decayStep[level + 1] *= 1.01;
-
-                // to avoid overflow
-                if (decayStep[level + 1] > 1000000000)
-                {
-                    auto &dict = score_dicts[level + 1];
-                    for (auto &pair : dict)
-                    {
-                        pair.second >>= 28;
-                    }
-                    decayStep[level + 1] = 1000;
-                }
-            }
-            decayCounter[level + 1]--;
-
-            // plus bumping
-            for (auto &lit : s->s())
-            {
-    #ifdef SCORE_ABS
-                dict_ref[abs(lit)] += decayStep[level + 1];
-    #else
-                dict_ref[lit] += decayStep[level + 1];
-    #endif
-            }
-    #else
-            for (auto &lit : s->s())
-            {
-    #ifdef SCORE_ABS
-                dict_ref[abs(lit)]++;
-    #else
-                dict_ref[lit]++;
-    #endif
-            }
-    #endif
-            // cerr<<"state:";
-            // for(int i:s->s())
-            // cerr<<i<<", ";
-            // cerr<<endl;
-
-            // cerr<<"score:";
-            // for(auto i:dict_ref)
-            // cerr<<i.first <<":"<<i.second<<", ";
-            // cerr<<endl;
-
-            // TODO: As to those appear in UC, should we add more scores?
-        }
-
-#endif // !SCORE
-
-        if(convMode >= 0)
-        {
-            // <others> <skipped> <previousUC>
-
-            // whether to calculate another UC.
-            bool trigger = false;
-            switch(convMode)
-            {
-                case ConvModeAlways:
-                {    
-                    trigger = true;
-                    // cerr<<"conv mode = Always"<<endl;
-                    break;
-                }
-                case ConvModeHigh:
-                {    
-                    if(convParam <=0)
-                    {
-                        trigger = false;
-                        break;
-                    }
-                    if (convParam == 1)
-                    {
-                        trigger = true;
-                        break;
-                    }
-                    if(level > 0 && level > O->size() - (O->size() / convParam))
-                    {
-                        trigger = true;
-                    }
-                    else{
-                        trigger = false;
-                    }
-                    // cerr<<"conv mode = High, res = "<<trigger<<" level="<<level<<"/"<<O->size()<<endl;
-                    break;
-                }
-                case ConvModeLow:
-                {
-                    if(convParam <=0)
-                    {
-                        // static bool printed = false;
-                        // if(!printed)
-                        // {
-                        //     printed = true;
-                        //     cerr<<"always no"<<endl;
-                        // }
-                        trigger = false;
-                        break;
-                    }
-                    if (convParam == 1)
-                    {
-                        // static bool printed = false;
-                        // if(!printed)
-                        // {
-                        //     printed = true;
-                        //     cerr<<"always yes"<<endl;
-                        // }
-                        trigger = true;
-                        break;
-                    }
-
-                    if (level < 0 || level <  1 + (O->size() / convParam))
-                    {
-                        trigger = true;
-                    }
-                    else{
-                        trigger = false;
-                    }
-                    // cerr<<"conv mode = Low, res = "<<trigger<<" level="<<level<<"/"<<O->size()<<endl;
-                    break;
-                }
-                case ConvModeRand:
-                {
-                    assert(convParam != 0);
-                    static mt19937 mt_rand(1);
-                                
-                    trigger = ((mt_rand() % convParam) == 0) ? true : false;
-                    
-                    // cerr<<"conv mode = Random, res = "<<trigger<<endl;
-                    break;
-                }
-                case ConvModeStuck:
-                {
-                    // TODO: fill in here.
-                    break;
-                }
-
-                default:
-                    trigger = true;
-            }
-
-            if (!res && trigger)
-            {
-                int amount = 0;
-                while(++amount <= ConvAmount)
-                {
                 // retrieve another bit.
                 conv_record[level + 1] <<= 1;
 
                 // mark as inserted
                 conv_record[level + 1] += 1;
 
-
                 CARStats.count_main_solver_convergence_time_start();
                 // get another conflict!
-                auto nextuc = solver->get_conflict_another(!backward_first, LOStrategy, amount);
+                auto nextuc = getMainSolver(level)->get_conflict_another(LOStrategy, amount);
                 
                 if(subStat)
                 {
@@ -1269,7 +793,7 @@ namespace car
                     bool sub = false;
                     for(auto& uc: ucs)
                     {
-                        if(imply(nextuc, uc))
+                        if(imply_heavy(nextuc, uc))
                         {
                             CARStats.recordUC(true);
                             sub = true;
@@ -1286,49 +810,119 @@ namespace car
                 CARStats.count_main_solver_convergence_time_end(nextuc.size());
                 //TODO: analyse, whether imply or implied.
 
-                addUCtoSolver(nextuc, O, level + 1, Otmp);
-                }
-                // TODO: subsumption test is not cost-effective as we tested before, but we may use it to illustrate the diminishing effects.
-                
-            }
+                addUCtoSolver(nextuc, level + 1);
+            }            
         }
-        PRINTIF_QUERY();
-        PRINTIF_SIMPLE_SAT();       
-
-        return res;
     }
 
-    State *Checker::getModel(MainSolver *solver)
-    {
-        bool forward = !backward_first;
-        State *s = solver->get_state(forward);
-        // NOTE: if it is the last state, it will be set last-inputs later.
-        clear_defer(s);
-        return s;
-    }
+    void Checker::get_inter_res(State *s, int level, vector<Cube>&inter)
+    {        
+        inter.clear();
+        if (!get_inter_cnt()) return;
 
-    State *Checker::getModel(MainSolver *solver, State *prior)
-    {
-        bool forward = !backward_first;
-        if (!forward)
+        // NOTE: the meaning of inter_cnt is not consistent as to ni > 1
+        const OFrame &frame = whichFrame(level + 1);
+
+        // this index is which iCube we want to create.
+        int index = 1;
+
+        int uc_index = frame.size();
+        // in Conv, not every UC is original UC.
+        int record_bits = conv_record[level + 1];
+
+        while (index <= get_inter_cnt() && frame.size() >= size_t(index))
         {
-            State *s = solver->get_state(forward);
-            // NOTE: if it is the last state, it will be set last-inputs later.
-            clear_defer(s);
-            return s;
+            Cube inter_next;
+
+            uc_index -= 1;
+            if (convMode >= 0)
+            {
+                // if we generated more than UC, we shall just use the original one.
+                uc_index -= (record_bits & (1 << (index - 1))) ? 1 : 0;
+                if (uc_index < 0)
+                    break;
+                // cerr<<"uc index is "<< uc_index<<"/"<<frame.size()<<endl;
+                // cerr<<"index is "<<index<<", record bit is "<< ((record_bits & (1<<(index-1))) ? 1 : 0 )<<endl;
+                // cerr<<"picked uc at "<<uc_index<<endl;
+            }
+            const Cube &last_uc = frame[uc_index];
+
+            inter_next = s->intersect(last_uc);
+
+            // otherwise, do not do this!
+            inter.push_back(inter_next);
+            ++index;
+        }
+        return;
+    }
+
+    void Checker::get_rotate_res(State *s, int level, Cube &rcube, Cube &rest)
+    {
+        rcube.clear();
+        rest.clear();
+        if(!rotate_enabled) return;
+
+        // rotates[i]
+        Cube &rcu = rotates[level + 1];
+        if (rcu.empty())
+        {
+            rcube = {};
+            rest = s->getLatches();
+            // TODO: try this to be inter?
+            return;
+        }
+
+        // a full state
+        if (!s->isPartial())
+        {
+            // calculate intersection and put the others behind.
+            for(size_t i = 0; i < rcu.size(); ++i)
+            {
+                if (s->getLatchAt(abs(rcu[i]) - model_->num_inputs() - 1) == rcu[i])
+                    rcube.push_back(rcu[i]);
+                else
+                    rest.push_back(-rcu[i]);
+            }
         }
         else
         {
-#ifdef PARTIAL
-            Assignment full = solver->get_state_full_assignment(forward);
-            return get_partial_state(full, prior);
-#else
-            State *s = solver->get_state(forward);
-            clear_defer(s);
-            return s;
-#endif
+            // a partial state
+            std::unordered_set<int> helper;
+            for(auto lit: s->getLatches())
+            {
+                helper.insert(lit);
+            }
+            for(auto l: rcu)
+            {
+                if(helper.find(l) != helper.end())
+                    rcube.push_back(l);
+                else
+                    rest.push_back(l);
+            }                 
         }
     }
+
+    State *Checker::getModel(State *s, int level)
+    {
+        State *t = getMainSolver(level)->get_state();
+        clear_defer(t);
+        whichU().push_back(t);
+        if(s->isPartial())
+        {
+            // if predecessor is partial, we would like to initialize it.
+            // why not s->set_latches() ? because s may be reused, but newInit will not be used in the search(but only in CEX printing).
+            State* newInit = getMainSolver(level)->getInitState();
+            newInit->setInputs(s->getInputs()); // although, it should be empty here in backward CAR.
+            clear_defer(newInit);
+            whichPrior()[t] = newInit;
+        }
+        else{
+            whichPrior()[t] = s;
+        }
+        // NOTE: if it is the last state, it will be set last-inputs later.
+        return t;
+    }
+
 
     void Checker::clean()
     {
@@ -1340,151 +934,66 @@ namespace car
                 duty = nullptr;
             }
         }
-        for (MainSolver *solver : clear_duties_mainsolver)
-        {
-            if (solver)
-            {
-                delete solver;
-                solver = nullptr;
-            }
-        }
-        for (auto &os : SO_map)
-        {
-            if (os.second)
-            {
-                if (os.second == &Onp || os.second == &OI)
-                    continue;
-                delete os.second;
-                os.second = nullptr;
-            }
-        }
     }
 
-    void Checker::clearO(State *s, Osequence *Os)
+    void Checker::addUCtoSolver(Cube &uc, int dst_level_plus_one)
     {
-        assert(s);
-        assert(Os);
-        Os->clear();
-        delete (Os);
-        SO_map.erase(s);
-    }
+        if (dst_level_plus_one < fresh_levels)
+            fresh_levels = dst_level_plus_one;
 
-    void Checker::insert_to_uc_index(Cube&uc, int index, int level)
-    {
-        if (impMethod != Imp_Sort)
-            return;
-        // about length based manual:
-        // level+2: [0,level]
-        while(uc_len_indexes.size() < level+1)
-            uc_len_indexes.emplace_back((std::set<std::pair<int,int>>){});
-        
-        auto& index_set = uc_len_indexes[level];
-        // sort according to sz
-        index_set.insert({uc.size(),index});
-    }
+        OFrame &frame = whichFrame(dst_level_plus_one);
 
-    void Checker::addUCtoSolver(Cube &uc, Osequence *O, int dst_level_plus_one, Frame &Otmp)
-    {
-        if (dst_level_plus_one < fresh_levels[O])
-            fresh_levels[O] = dst_level_plus_one;
-
-        Frame &frame = (dst_level_plus_one < int(O->size())) ? (*O)[dst_level_plus_one] : Otmp;
-
-#ifdef FRESH_UC
-        // To add \@ cu to \@ frame, there must be
-        // 1. \@ cu does not imply any clause in \@ frame
-        // 2. if a clause in \@ frame implies \@ cu, replace it by \@cu
-        Frame tmp_frame;
-        for (int i = 0; i < frame.size(); i++)
-        {
-            if (!imply(frame[i], uc, true))
-            {
-                tmp_frame.push_back(frame[i]);
-            }
-        }
-        tmp_frame.push_back(uc);
-
-        frame = tmp_frame;
-#else
         frame.push_back(uc);
-#endif // FRESH_UC
 
-        if(impMethod != Imp_MOM)
+        if(needImpSolver())
             ImplySolver::add_uc(uc,dst_level_plus_one);
-        else
-            ImplySolver::add_uc_MOM(uc,dst_level_plus_one);
+        
 
-        insert_to_uc_index(uc,frame.size()-1,dst_level_plus_one);
-
-        if (dst_level_plus_one < O->size())
-            bi_main_solver->add_clause_from_cube(uc, dst_level_plus_one, O, !backward_first);
-        else if (dst_level_plus_one == O->size())
+        if (dst_level_plus_one <= OSize())
         {
-            if (!backward_first)
+            getMainSolver(dst_level_plus_one)->add_clause_from_cube_M(uc, dst_level_plus_one);
+            if(propMode > 0)
             {
-                // FIXME: test me later.
-                // Not always. Only if the start state is ~p.
-                bi_start_solver->add_clause_with_flag(uc);
+                // also update the propagation solver
+                prop_solver->add_clause_from_cube_P(uc, dst_level_plus_one);
             }
         }
-    }
-
-    void Checker::updateO(Osequence *O, int dst, Frame &Otmp, bool &safe_reported)
-    {
-        Cube uc = bi_main_solver->get_conflict(!backward_first);
-
-        if (uc.empty())
+        
+        if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
         {
-            // this state is not reachable?
-            // FIXME: fix here. It is not really blocked forever.
-            PRINTIF_UNREACHABLE();
-            safe_reported = true;
+            while(ucs_masks.size() <= dst_level_plus_one + 1)
+            {
+                ucs_masks.push_back({});
+            }
+            auto& masks = ucs_masks[dst_level_plus_one];
+            const int nlatches = model_->num_latches();
+            const int startPos = model_->num_inputs() + 1;
+            masks.push_back(UCMask(uc,nlatches,startPos));
         }
-
-        addUCtoSolver(uc, O, dst + 1, Otmp);
-
     }
 
-    bool Checker::initSequence(bool &res)
+    // TODO: rewrite this part.
+    RESEnum Checker::initSequence()
     {
-        State *init = new State(model->init());
+        State *init = new State(model_->init());
         State *negp = new State(true);
         clear_defer(init);
         clear_defer(negp);
-        Frame O0; // a frame with only one uc.
+        OFrame O0; // a frame with only one uc.
 
         switch (rememOption)
         {
             case(remem_None):
             {
-                if (immediateCheck(init, bad_, res, O0))
-                    return true;
-
-                // forward inits.
-                if (!backward_first)
-                {
-                    // Uf[0] = ~p;
-
-                    // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
-                    // construct an abstract state
-                    updateU(Uf, negp,nullptr);
-                    pickStateLastIndex = Uf.size();
-                    
-                    // O_I
-                    // NOTE: O stores the UC, while we actually use negations.
-                    Frame frame;
-                    for (auto lit : init->s())
-                    {
-                        frame.push_back({-lit});
-                    }
-                    OI = {frame};
-                    SO_map[init] = &OI;
-                }
+                RESEnum res = immediateCheck(init, O0);
+                if (RES_UNKNOWN != res)
+                    return res;
                 // backward inits.
-                if (backward_first)
+                assert(backwardCAR);
                 {
                     // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
+                    whichPrior()[init] = nullptr;
+                    whichU().push_back(init);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1493,16 +1002,20 @@ namespace car
                     // uc from init
                     // ~p in ~uc
                     // use uc to initialize O[0] is suitable.
-                    for(int index = 0; index< O0.size(); ++index)
+                    for(size_t index = 0; index< O0.size(); ++index)
                     {
-                        if(impMethod != Imp_MOM)
+                        if(needImpSolver())
                             ImplySolver::add_uc(O0[index],0);
-                        else
-                            ImplySolver::add_uc_MOM(O0[index],0);
-                        insert_to_uc_index(O0[index],index,0);
+                        if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
+                        {
+                            ucs_masks.push_back({});   
+                            auto& masks = ucs_masks[0];
+                            const int nlatches = model_->num_latches();
+                            const int startPos = model_->num_inputs() + 1;
+                            masks.push_back(UCMask(O0[index],nlatches,startPos));
+                        }
                     }
-                    Onp = Osequence({O0});
-                    SO_map[negp] = &Onp;
+                    Onp = OSequence({O0});
                 }
                 break;
             }
@@ -1510,14 +1023,15 @@ namespace car
             case(remem_O0):
             {
                 // If we remember all, it will be too many.
-                // NOTE: sonly implement backward now.
-                assert(backward_first);
+                // NOTE: only implement backward now.
+                assert(backwardCAR);
                 O0 = last_chker->Onp[0];
                 
-                if (backward_first)
+                if (backwardCAR)
                 {
                     // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
+                    whichPrior()[init] = nullptr;
+                    whichU().push_back(init);
                     pickStateLastIndex = Ub.size();
 
                     // Ob[0] = uc0.
@@ -1527,275 +1041,64 @@ namespace car
                     // ~p in ~uc
                     // use uc to initialize O[0] is suitable.
 
-                    for(int index = 0; index< O0.size(); ++index)
-                    {
-                        if(impMethod != Imp_MOM)
-                            ImplySolver::add_uc(O0[index],0);
-                        else
-                            ImplySolver::add_uc_MOM(O0[index],0);
-                        insert_to_uc_index(O0[index],index,0);
-                    }
-                    Onp = Osequence({O0});
-                    SO_map[negp] = &Onp;
-                }
-                break;
-            }
-            case(remem_short):
-            {
-                // If we remember all, it will be too many.
-                // NOTE: sonly implement backward now.
-                assert(backward_first);
-                O0 = last_chker->Onp[0];
-                
-                sort(O0.begin(),O0.end(),[](const vector<int>& a, const vector<int>& b){return a.size() < b.size();});
-                
-                // int len = 0;
-                // for(auto &uc:O0)
-                //     len+=uc.size();
-                // cerr<<"before: sz = "<<O0.size()<<", avg = "<<len/O0.size()<<endl;
-
-                static float portion = 2;
-                O0.resize(O0.size() * (1-(1/portion)));
-                portion++;
-
-                // int after_len = 0;
-                // for(auto &uc:O0)
-                //     after_len+=uc.size();
-
-                // cerr<<"after: sz = "<<O0.size()<<", avg = "<<after_len/O0.size()<<endl;
-
-                if (backward_first)
-                {
-                    // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
-                    pickStateLastIndex = Ub.size();
-
-                    // Ob[0] = uc0.
-                    // clauses will be added by immediate_satisfible.
-                    // SAT_assume(init, ~p)
-                    // uc from init
-                    // ~p in ~uc
-                    // use uc to initialize O[0] is suitable.
-
-                    for(int index = 0; index< O0.size(); ++index)
-                    {
-                        if(impMethod != Imp_MOM)
-                            ImplySolver::add_uc(O0[index],0);
-                        else
-                            ImplySolver::add_uc_MOM(O0[index],0);
-                        insert_to_uc_index(O0[index],index,0);
-                    }
-                    Onp = Osequence({O0});
-                    SO_map[negp] = &Onp;
-                }
-                break;
-            }    
-
-            case(remem_Ok):
-            {
-                int boundK = 3;
-                // If we remember all, it will be too many.
-                // NOTE: sonly implement backward now.
-                assert(backward_first);
-                
-                if (backward_first)
-                {
-                    // Ub[0] = I;
-                    updateU(Ub, init, nullptr);
-                    pickStateLastIndex = Ub.size();
-
-                    Onp = last_chker->Onp;
-                    Onp.resize(boundK);
-                    SO_map[negp] = &Onp;
-
-                    for(int findex = 0; findex < Onp.size(); ++findex)
-                    {
-                        auto &frame = Onp[findex];
-                        for(int index = 0; index < frame.size(); ++index)
+                    if(needImpSolver())
+                        for(size_t index = 0; index< O0.size(); ++index)
                         {
-                            if(impMethod != Imp_MOM)
-                                ImplySolver::add_uc(frame[index],findex);
-                            else
-                                ImplySolver::add_uc_MOM(frame[index],findex);
-                            insert_to_uc_index(frame[index], index, findex);
+                            ImplySolver::add_uc(O0[index],0);
                         }
-                        bi_main_solver->add_new_frame(Onp[0], Onp.size() - 1, &Onp, false);
-                    }
-
-                    if(get_rotate())
-                    {
-                        rotates.push_back(init->s());
-                    }
-                    return false;
+                    Onp = OSequence({O0});
                 }
-                break;
-            }
-
-            case(remem_Uk):
-            {
-                assert(backward_first);
-                delete init;
-                auto *&last_init = last_chker->Ub[0];
-                auto * init = new State(last_init->inputs_vec(), last_init->s());
-                clear_defer(init);
-
-                if (immediateCheck(init, bad_, res, O0))
-                    return true;
-
-                updateU(Ub, init, nullptr);
-                // backward inits.
-                // Ub[0] = I;   
-                for(car::State *st: last_chker->Ub){
-                    if(!st)
-                        break;
-                    // all its followings
-                    if(last_chker->whichPrior()[st] == init)
-                    {
-                        State* s = new State(st->inputs_vec(), st->s());
-                        clear_defer(s);
-                        updateU(Ub, s, init);
-                    }
-                }
-
-                pickStateLastIndex = Ub.size();
-
-                // Ob[0] = uc0.
-                // clauses will be added by immediate_satisfible.
-                // SAT_assume(init, ~p)
-                // uc from init
-                // ~p in ~uc
-                // use uc to initialize O[0] is suitable.
-                for(int index = 0; index< O0.size(); ++index)
-                {
-                    if(impMethod != Imp_MOM)
-                        ImplySolver::add_uc(O0[index],0);
-                    else
-                        ImplySolver::add_uc_MOM(O0[index],0);
-                    insert_to_uc_index(O0[index],index,0);
-                }
-                Onp = Osequence({O0});
-                SO_map[negp] = &Onp;
                 break;
             }
 
         default:
-            if (immediateCheck(init, bad_, res, O0))
-                return true;
-            if (!backward_first)
-            {
-                // Uf[0] = ~p;
-
-                // NOTE: we do not explicitly construct Uf[0] data strcutre. Because there may be too many states.  We actually need concrete states to get its prime. Therefore, we keep an StartSolver here, and provide a method to enumerate states in Uf[0].
-                // construct an abstract state
-                updateU(Uf, negp,nullptr);
-
-                // O_I
-                // NOTE: O stores the UC, while we actually use negations.
-                Frame frame;
-                for (auto lit : init->s())
-                {
-                    frame.push_back({-lit});
-                }
-                OI = {frame};
-                SO_map[init] = &OI;
-            }
-            // backward inits.
-            if (backward_first)
-            {
-                // Ub[0] = I;
-                updateU(Ub, init, nullptr);
-
-                // Ob[0] = uc0.
-                // clauses will be added by immediate_satisfible.
-                // SAT_assume(init, ~p)
-                // uc from init
-                // ~p in ~uc
-                // use uc to initialize O[0] is suitable.
-                for(const auto& uc0:O0)
-                {
-                    ImplySolver::add_uc(uc0,0);
-                }
-                Onp = Osequence({O0});
-                SO_map[negp] = &Onp;
-            }
-            break;
+            assert(false && "should have missed something in remember\n");
         }
-
-
 
         if(get_rotate())
         {
-            rotates.push_back(init->s());
+            rotates.push_back(init->getLatches());
         }
 
-        if (backward_first)
-            bi_main_solver->add_new_frame(Onp[0], Onp.size() - 1, &Onp, false);
-        if (!backward_first)
-            bi_main_solver->add_new_frame(OI[0], OI.size() - 1, &OI, true);
+        if (backwardCAR)
+            getMainSolver(0)->add_new_frame_M(Onp[0], Onp.size() - 1);
+        if (propMode > 0 && backwardCAR)
+            prop_solver->add_new_frame_P(Onp[0], Onp.size() - 1);
 
 
-
-        return false;
+        return RES_UNKNOWN;
     }
 
     //////////////helper functions/////////////////////////////////////////////
 
-    // NOTE: if not updated, it return the same state all the time?
-    State *Checker::enumerateStartStates(StartSolver *start_solver)
-    {
-// partial state:
-#ifdef PARTIAL
-        if (start_solver->solve_with_assumption())
-        {
-            Assignment ass = start_solver->get_model();
-            ass.resize(model_->num_inputs() + model_->num_latches());
-            State *partial_res = get_partial_state(ass, nullptr);
-            clear_defer(partial_res);
-            return partial_res;
-        }
-#else
-        if (start_solver->solve_with_assumption())
-        {
-            State *res = start_solver->create_new_state();
-            clear_defer(res);
-            return res;
-        }
-#endif
-        return NULL;
-    }
 
     // This is used in sequence initialization
-    bool Checker::immediateCheck(State *from, int target, bool &res, Frame &O0)
+    RESEnum Checker::immediateCheck(State *from, OFrame &O0)
     {
-        // bi_main_solver.
-        auto &solver = bi_main_solver;
+        MainSolver* ms = getMainSolver(0);
         // NOTE: init may not be already set.
-        vector<int> latches = from->s();
+        vector<int> latches = from->getLatches();
 
         int last_max = 0;
         do
         {
             CARStats.count_main_solver_original_time_start();
-            if (solver->solve_with_assumption(latches, target))
+            if (ms->badcheck(latches, bad_))
             {
                 CARStats.count_main_solver_original_time_end(true,0);
-                // if sat. already find the cex.
-                State *s = solver->get_state(true); // no need to shrink here
-                clear_defer(s);
-                whichPrior()[s] = from;
-                whichCEX() = s;
-                res = false;
-                return true;
+                // if sat. already found the cex.
+                State *cex = getModel(from, 0);
+                whichCEX() = cex;
+                return RES_UNSAFE;
             }
             // NOTE: the last bit in uc is added in.
-            Cube cu = solver->get_conflict_no_bad(target); // filter 'bad'
+            Cube cu = ms->get_conflict_no_bad(bad_); // filter 'bad'
             CARStats.count_main_solver_original_time_end(false,cu.size());
             
             if (cu.empty())
             {
-                // this means, ~p itself is bound to be UNSAT. No need to check.
-                res = true;
-                return true;
+                // this means, ~p itself is bound to be UNSAT. No need to check. But it should not happen in most cases.
+                return RES_SAFE;
             }
 
             if(convMode==0 || convMode == 1)
@@ -1819,75 +1122,27 @@ namespace car
                 break;
             }
         } while (true);
-        return false;
-    }
-
-    bool Checker::lastCheck(State *from, Osequence *O)
-    {
-        // if(SO_map[State::negp_state] != O)
-        // 	return true;
-        bool direction = !backward_first;
-        if (direction)
-        // in forward CAR, last target state is Init. Initial state is a concrete state, therefore it is bound to be reachable (within 0 steps). Here we only need to update the cex structure.
-        {
-            whichCEX() = from;
-            return true;
-        }
-        else
-        // in backward car, we use uc0 instead of ~P to initialize Ob[0]. This makes it possible to return false, because uc0 is necessary but not essential.
-        {
-            // check whether it's in it.
-            bool res = bi_main_solver->solve_with_assumption(from->s(), bad_);
-            if (res)
-            {
-                // OK. counter example is found.
-                State *s = bi_main_solver->get_state(direction);
-                clear_defer(s);
-                whichPrior()[s] = from;
-                whichCEX() = s;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void Checker::print_sat_query(MainSolver *solver, State *s, Osequence *o, int level, bool res, ostream &out)
-    {
-        static int sat_cnt = 0;
-        out << endl;
-        out << "[SAT] times: " << ++sat_cnt << "\tlevel=" << level << endl;
-        //<<"\tflag="<<solver->flag_of(o,level)<<endl;
-        out << "SAT solver clause size: " << solver->size() << endl;
-        out << "State: ";
-        for (int i : s->s())
-            out << i << ", ";
-        out << endl;
-        // cout<<"state: \n\tlatches: "<<s->latches()<<"\n\tinputs: "<<s->inputs()<<endl;
-        // solver->print_clauses();
-        solver->print_assumption(out);
-        out << "res: " << (res ? "SAT" : "UNSAT") << endl;
-        out << "-----End of printing-------" << endl;
+        return RES_UNKNOWN;
     }
 
     /**
      * @brief
-     * @pre s->s() is in abs-increasing order
+     * @pre s->getLatches() is in abs-increasing order
      *
      * @param s
      * @param frame_level
      * @param O
-     * @param Otmp
      * @return true
      * @return false
      */
-    bool Checker::blockedIn(State *s, const int frame_level, Osequence *O, Frame &Otmp)
+    bool Checker::blockedIn(State *s, const int frame_level)
     {
         bool res = false;
         switch (impMethod)
         {
             case(Imp_Manual):
             {
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                OFrame &frame = whichFrame(frame_level);
                 for (const auto &uc : frame)
                 {
                     res = s->imply(uc);
@@ -1926,7 +1181,7 @@ namespace car
                 {
                     if(imply_decision == -1)
                         CARStats.count_imply_dec_begin();
-                    Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                    OFrame &frame = whichFrame(frame_level);
                     for (const auto &uc : frame)
                     {
                         res = s->imply(uc);
@@ -1945,28 +1200,6 @@ namespace car
                 break;
             }
 
-            case(Imp_Sort):
-            {
-                if(frame_level+1 > uc_len_indexes.size())
-                {
-                    res = false;
-                    break;
-                }
-                auto& helper = uc_len_indexes[frame_level];
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
-                for (auto& pr: helper)
-                {
-                    int index = pr.second;
-                    const auto& uc = frame[index];
-                    res = s->imply(uc);
-                    if (res)
-                    {
-                        break;
-                    }
-                }
-                break;
-                // assert(frame.size() == helper.size());
-            }
 
             case (Imp_Exp):
             {
@@ -1982,7 +1215,7 @@ namespace car
                 // manual
                 begin = steady_clock::now();
                 
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                OFrame &frame = whichFrame(frame_level);
                 for (const auto &uc : frame)
                 {
                     res = s->imply(uc);
@@ -2001,13 +1234,13 @@ namespace car
 
             case (Imp_Thresh):
             {
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
+                OFrame &frame = whichFrame(frame_level);
                 if(frame.size() > 10000)
                 {
                     res = ImplySolver::is_blocked(s,frame_level);
                 }
                 else{
-                    for (int i = frame.size()-1; i>=0; --i)
+                    for(int i = frame.size()-1; i>=0; --i)
                     {
                         const auto &uc = frame[i];
                         res = s->imply(uc);
@@ -2020,12 +1253,6 @@ namespace car
                 break;
             }
 
-            case (Imp_MOM):
-            {
-                res = ImplySolver::is_blocked_MOM(s,frame_level);
-                break;
-            }
-
             case (Imp_Fresh):
             {
                 /**
@@ -2033,20 +1260,24 @@ namespace car
                  * 
                  */
                 // get its fresh index!
-                if(impFreshRecord.find(frame_level)  == impFreshRecord.end())
+                if(impFreshRecord.find(frame_level) == impFreshRecord.end())
                 {
+                    // this level has not been tested before.
                     impFreshRecord[frame_level] = std::unordered_map<int,int>({});
                 }
                 auto &this_level_map = impFreshRecord[frame_level];
+
+                // fresh index: the index we should start testing
                 int freshIndex = 0;
                 if(this_level_map.find(s->id) != this_level_map.end())
                 {
+                    // found the fresh index! We could start from the last time
                     freshIndex = this_level_map[s->id];
-                    // cerr<<"id = "<<s->id<<", level = "<<frame_level<<", fresh = "<<freshIndex<<endl;
                 }
 
-                Frame &frame = (frame_level < O->size()) ? (*O)[frame_level] : Otmp;
-                for (int i = frame.size()-1; i>= freshIndex; --i)
+                auto &frame = whichFrame(frame_level);
+                int i = freshIndex;
+                for (; i<frame.size(); ++i)
                 {
                     auto& uc = frame[i];
                     res = s->imply(uc);
@@ -2055,8 +1286,84 @@ namespace car
                         break;
                     }
                 }
-                // reach here, then we can update!
-                this_level_map[s->id] = frame.size();
+                if(res)
+                    this_level_map[s->id] = i;          // the one that blocks it
+                else
+                    this_level_map[s->id] = frame.size();  // end of the frame.
+                // cerr<<s->id<<"@"<<frame_level<<":"<<this_level_map[s->id]<<" ";
+
+                break;
+            }
+
+            case (Imp_Bit):
+            {
+                UCMask u_s(s->getLatches());
+                // get frame_level.
+                if(frame_level >= ucs_masks.size())
+                {
+                    res = false;
+                    break;
+                }
+                const auto& masks_this_level = ucs_masks.at(frame_level);
+                for(const auto& m: masks_this_level)
+                    if(u_s.imply(m))
+                    {
+                        res = true;
+                        break;
+                    }
+                break;
+            }
+
+            case (Imp_BitFresh):
+            {
+                /**
+                 * @brief Record what has been tested as to each state
+                 * 
+                 */
+
+                // no uc yet. Return False.
+                if(frame_level >= ucs_masks.size())
+                {
+                    res = false;
+                    break;
+                }
+
+                // get its fresh index!
+                if(impFreshRecord.find(frame_level) == impFreshRecord.end())
+                {
+                    // this level has not been tested before.
+                    impFreshRecord[frame_level] = std::unordered_map<int,int>({});
+                }
+                auto &this_level_map = impFreshRecord[frame_level];
+
+                // fresh index: the index we should start testing
+                int freshIndex = 0;
+                if(this_level_map.find(s->id) != this_level_map.end())
+                {
+                    // found the fresh index! We could start from the last time
+                    freshIndex = this_level_map[s->id];
+                }
+
+                
+                UCMask u_s(s->getLatches());  // remember this also?
+
+                const auto& masks_this_level = ucs_masks.at(frame_level);
+                size_t framesz = whichFrame(frame_level).size();
+
+                int i = freshIndex;
+                for (; i<framesz; ++i)
+                {
+                    auto& uc = masks_this_level[i];
+                    res = u_s.imply(uc);
+                    if (res)
+                    {
+                        break;
+                    }
+                }
+                if(res)
+                    this_level_map[s->id] = i;          // the one that blocks it
+                else
+                    this_level_map[s->id] = framesz;  // end of the frame.
 
                 break;
             }
@@ -2074,16 +1381,15 @@ namespace car
      * @param min 
      * @param max 
      * @param O 
-     * @param Otmp 
      * @return int 
      */
-    int Checker::minNOTBlocked(State *s, const int min, const int max, Osequence *O, Frame &Otmp)
+    int Checker::minNOTBlocked(State *s, const int min, const int max)
     {
         CARStats.count_imply_begin();
         int start = min;
         while (start <= max)
         {
-            if (!blockedIn(s, start, O, Otmp))
+            if (!blockedIn(s, start))
             {
                 break;
             }
@@ -2092,78 +1398,4 @@ namespace car
         CARStats.count_imply_end();
         return start;
     }
-
-
-    namespace inv
-    {
-        /**
-         * @brief
-         * Add the negation of this frame into the solver
-         * @param frame
-         */
-        void InvAddOR(Frame &frame, int level, InvSolver *inv_solver_)
-        {
-            inv_solver_->add_constraint_or(frame, level);
-        }
-
-        /**
-         * @brief
-         * Add the real states into this solver.
-         * @param frame
-         */
-        void InvAddAND(Frame &frame, int level, InvSolver *inv_solver_)
-        {
-            inv_solver_->add_constraint_and(frame, level);
-        }
-
-        /**
-         * @brief pop the last lit of assumption, and negate it.
-         *
-         */
-        void InvRemoveAND(InvSolver *inv_solver_, int level)
-        {
-            inv_solver_->release_constraint_and(level);
-        }
-
-        bool InvFoundAt(Fsequence &F_, const int frame_level, InvSolver *inv_solver_, int minimal_update_level_)
-        {
-            if (frame_level <= minimal_update_level_)
-            {
-                InvAddOR(F_[frame_level], frame_level, inv_solver_);
-                return false;
-            }
-            InvAddAND(F_[frame_level], frame_level, inv_solver_);
-            bool res = !inv_solver_->solve_with_assumption();
-            InvRemoveAND(inv_solver_, frame_level);
-            InvAddOR(F_[frame_level], frame_level, inv_solver_);
-            return res;
-        }
-
-        // -1 for not found.
-        // >=0 for level
-        int InvFound(Model *model_, Fsequence &F_, int &minimal_update_level_, int frame_level)
-        {
-            if (frame_level == 0)
-                return -1;
-            int res = -1;
-            InvSolver *new_inv_solver_ = new InvSolver(model_);
-            for (int i = 0; i < frame_level; i++)
-            {
-                if (InvFoundAt(F_, i, new_inv_solver_, minimal_update_level_))
-                {
-                    res = i;
-                    std::cerr<<"inv found at"<<res<<std::endl;
-                    // delete frames after i, and the left F_ is the invariant
-                    // NOTE: this is temporarily blocked for testing incremental-enumratiing-start-solver.
-                    // while (F_.size() > i + 1)
-                    // {
-                    // 	F_.pop_back();
-                    // }
-                    break;
-                }
-            }
-            delete new_inv_solver_;
-            return res;
-        }
-    };
 }

@@ -17,3 +17,7 @@ log
 bin
 pbs
 unsafe_res
+minicar*
+miniCAR*
+doc/*
+!doc/Doxyfile
