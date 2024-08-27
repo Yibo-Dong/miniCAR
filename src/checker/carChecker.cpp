@@ -63,27 +63,6 @@ namespace car
             res = car();
         }
 
-        switch (res)
-        {
-        case RES_SAFE:
-            out << "0" << endl;
-            out << "b0" << endl;
-            out << "." << endl;
-            break;
-
-        case RES_UNSAFE:
-            print_evidence();
-
-        case RES_UNKNOWN:
-            break;
-
-        case RES_RESTART:
-            break;
-
-        default:
-            assert(false);
-        }
-
         return res;
     }
 
@@ -184,7 +163,7 @@ namespace car
         if (rotate_enabled)
             rotates.push_back({});
 
-        CARStats.count_enter_new_ronud();
+        
         /**
          * this procedure is like the old car procedure, but the OSequence is not bound to be OI or Onegp.
          * @param missionary the state to be checked
@@ -198,7 +177,7 @@ namespace car
             stk.push(Obligation(missionary, 0, OSize() - 1));
             while (!stk.empty())
             {
-                CARStats.count_enter_new_try_by();
+                
                 State *s;
                 int dst, depth;
                 std::tie(s, depth, dst) = stk.top();
@@ -206,7 +185,7 @@ namespace car
                 {
                     // TODO: memorize state's blocking status. Since we do not remove UC, once blocked, forever blocked.
                     stk.pop();
-                    CARStats.count_tried_before();
+                    
 
                     int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
                     if (new_level <= OSize())
@@ -448,16 +427,16 @@ namespace car
 
         ms->set_assumption_M(s, level, prefers);
 
-        CARStats.count_main_solver_original_time_start();
+        
         res = ms->solve_assumption();
 
         if(res)
         {
-            CARStats.count_main_solver_original_time_end(res,0); //uc size == 0
+            
             if(level == -1)
             {
                 // TODO: consider to use immediateCheck() here, to get more than 1 uc when level == -1.
-                assert(backwardCAR);
+                MAssert(backwardCAR);
                 State *cex = getModel(s, level);
                 whichCEX() = cex;
                 return true;
@@ -466,23 +445,11 @@ namespace car
         else
         {
             Cube uc = ms->get_shrunk_uc();
-            CARStats.count_main_solver_original_time_end(res,uc.size());
+            
             
             if (uc.empty())
             {
-                safe_reported = true;
-                cerr<<"uc is empty@1!"<<endl;
-                cerr<<"error level is "<<level<<endl;
-                cerr<<"corresponding O frame is "<<endl;
-                for(auto &cls: whichFrame(level))
-                {
-                    for(auto &lit: cls)
-                    {
-                        cerr<<lit<<" ";
-                    }
-                    cerr<<endl;
-                }
-                cerr<<"end printing the O frame"<<endl;
+               MAssert(false); // should not happend. A known bug to be fixed.
             }
 
             // add uc to solver.
@@ -491,13 +458,6 @@ namespace car
 
             if (propMode > 0 && level > 0 && level + 1 <= OSize())
                 propagate(uc, level);
-            
-            if (uc.empty())
-            {
-                // watch dog for propagation.
-                cerr<<"uc is empty@2!"<<endl;
-                safe_reported = true;
-            }
 
             if(rotate_enabled)
             {
@@ -570,7 +530,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_begin();
+        
         prop_solver->clear_assumption();
         
         vector<int> assumption; 
@@ -666,7 +626,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize, prop_tick[level]);
+        
     }
 
     bool Checker::convTriggered(int level)
@@ -739,7 +699,7 @@ namespace car
             }
             case ConvModeRand:
             {
-                assert(convParam != 0);
+                MAssert(convParam != 0);
                 static mt19937 mt_rand(1);
                             
                 trigger = ((mt_rand() % convParam) == 0) ? true : false;
@@ -772,7 +732,7 @@ namespace car
             if(subStat)
             {
                 ucs.push_back(uc);
-                CARStats.recordUC(false);
+                
             }
             int amount = 0;
             while(++amount <= convAmount)
@@ -783,7 +743,7 @@ namespace car
                 // mark as inserted
                 conv_record[level + 1] += 1;
 
-                CARStats.count_main_solver_convergence_time_start();
+                
                 // get another conflict!
                 auto nextuc = getMainSolver(level)->get_conflict_another(LOStrategy, amount);
                 
@@ -795,19 +755,19 @@ namespace car
                     {
                         if(imply_heavy(nextuc, uc))
                         {
-                            CARStats.recordUC(true);
+                            
                             sub = true;
                             break;
                         }
                     }
                     if(!sub)
                     {
-                        CARStats.recordUC(false);
+                        
                         ucs.push_back(nextuc);
                     }
                 }
 
-                CARStats.count_main_solver_convergence_time_end(nextuc.size());
+                
                 //TODO: analyse, whether imply or implied.
 
                 addUCtoSolver(nextuc, level + 1);
@@ -989,7 +949,7 @@ namespace car
                 if (RES_UNKNOWN != res)
                     return res;
                 // backward inits.
-                assert(backwardCAR);
+                MAssert(backwardCAR);
                 {
                     // Ub[0] = I;
                     whichPrior()[init] = nullptr;
@@ -1036,7 +996,7 @@ namespace car
             {
                 // If we remember all, it will be too many.
                 // NOTE: only implement backward now.
-                assert(backwardCAR);
+                MAssert(backwardCAR);
                 O0 = last_chker->Onp[0];
                 
                 if (backwardCAR)
@@ -1064,7 +1024,7 @@ namespace car
             }
 
         default:
-            assert(false && "should have missed something in remember\n");
+            MAssert(false && "should have missed something in remember\n");
         }
 
         if(get_rotate())
@@ -1094,10 +1054,10 @@ namespace car
         int last_max = 0;
         do
         {
-            CARStats.count_main_solver_original_time_start();
+            
             if (ms->badcheck(latches, bad_))
             {
-                CARStats.count_main_solver_original_time_end(true,0);
+                
                 // if sat. already found the cex.
                 State *cex = getModel(from, 0);
                 whichCEX() = cex;
@@ -1105,12 +1065,12 @@ namespace car
             }
             // NOTE: the last bit in uc is added in.
             Cube cu = ms->get_conflict_no_bad(bad_); // filter 'bad'
-            CARStats.count_main_solver_original_time_end(false,cu.size());
+            
             
             if (cu.empty())
             {
                 // this means, ~p itself is bound to be UNSAT. No need to check. But it should not happen in most cases.
-                return RES_SAFE;
+                return RES_FAIL;
             }
 
             if(convMode==0 || convMode == 1)
@@ -1172,47 +1132,6 @@ namespace car
                 break;   
             }
 
-            case(Imp_Sample):
-            {
-                // -1: not decided
-                // 0: use solver
-                // 1: manually 
-
-                if(imply_decision != 1)
-                {
-                    // use solver
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_begin();
-                    res = ImplySolver::is_blocked(s,frame_level);
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_end(1);
-                }
-
-                // manually.
-                if(imply_decision != 0)
-                {
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_begin();
-                    OFrame &frame = whichFrame(frame_level);
-                    for (const auto &uc : frame)
-                    {
-                        res = s->imply(uc);
-                        if (res)
-                        {
-                            break;
-                        }
-                    }
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_end(2);
-                }
-                // do dicision
-                if(imply_decision == -1)
-                    imply_decision = CARStats.imply_dec_decide();
-                
-                break;
-            }
-
-
             case (Imp_Exp):
             {
                 // count for sz and winning rate.
@@ -1239,7 +1158,6 @@ namespace car
                 end = steady_clock::now();
                 elapsed = end - begin;
                 bool solver_win = elapsed.count()> time_delay_for_solver ? true : false;
-                CARStats.record_winner(solver_win,frame.size());
 
                 break;
             }
@@ -1397,7 +1315,7 @@ namespace car
      */
     int Checker::minNOTBlocked(State *s, const int min, const int max)
     {
-        CARStats.count_imply_begin();
+        
         int start = min;
         while (start <= max)
         {
@@ -1407,7 +1325,7 @@ namespace car
             }
             start++;
         }
-        CARStats.count_imply_end();
+        
         return start;
     }
 }

@@ -55,7 +55,7 @@ namespace car {
             {
                 // get the offset of this literal.
                 int index = abs(uc[i]) - _num_inputs - 1;
-                assert(index >= 0);
+                MAssert(index >= 0);
                 if (_latches[index] ^ uc[i])
                 {
                     return false;
@@ -95,7 +95,7 @@ namespace car {
             for (size_t i = 0; i < cu.size(); i++)
             {
                 int index = abs(cu[i]) - _num_inputs - 1;
-                assert(index >= 0);
+                MAssert(index >= 0);
                 if (_latches[index] == cu[i])
                     res.push_back(cu[i]);
             }
@@ -173,7 +173,7 @@ namespace car {
 		{
 			aiger_and& aa = aig->ands[i];
 			// lhs of an and gate is always even in aiger
-			assert (aa.lhs % 2 == 0);
+			MAssert(aa.lhs % 2 == 0);
             // ? = T && T
 			if (is_true (aa.rhs0) && is_true (aa.rhs1))
 				_true_set.insert (aa.lhs);
@@ -211,7 +211,7 @@ namespace car {
 			_outputs.push_back(car_var(lit));
         }
         _num_outputs = _outputs.size();
-        assert(_outputs.size() == 1 && "Only 1 output is allowed!\n");
+        MAssert(_outputs.size() == 1 && "Only 1 output is allowed!\n");
 	}
 
 	void Problem::setInits ()
@@ -235,10 +235,10 @@ namespace car {
 		{
 			int val = (int)aig->latches[i].lit;
 			//a latch should not be a negative number
-			assert (val % 2 == 0);
+			MAssert(val % 2 == 0);
 			val = val / 2;
 			//make sure our assumption about latches is correct
-			assert (val == (_num_inputs + 1 + i));
+			MAssert(val == (_num_inputs + 1 + i));
 			
 			//pay attention to the special case when next_val = 0 or 1
 			if (is_false (aig->latches[i].next))  //FALSE
@@ -288,7 +288,7 @@ namespace car {
 		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
-			assert(aa != NULL);
+			MAssert(aa != NULL);
 			add_clauses_from_equation(aa);
 		}
 
@@ -336,7 +336,7 @@ namespace car {
     	for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
-			assert(aa != NULL);
+			MAssert(aa != NULL);
 			add_clauses_from_equation(aa);
 		}
 		// ============================================================================
@@ -352,7 +352,7 @@ namespace car {
 		for (std::set<unsigned>::iterator it = gates.begin(); it != gates.end(); ++it)
 		{
 			aiger_and *aa = aiger_is_and(const_cast<aiger *>(aig), *it);
-			assert(aa != NULL);
+			MAssert(aa != NULL);
 			add_clauses_from_equation(aa);
 		}
 		// ============================================================================
@@ -472,8 +472,8 @@ namespace car {
 	 */
 	void Problem::add_clauses_from_equation (const aiger_and* aa)
 	{
-		assert (aa != NULL);
-		assert (!is_true (aa->lhs) && !is_false (aa->lhs));
+		MAssert(aa != NULL);
+		MAssert(!is_true (aa->lhs) && !is_false (aa->lhs));
 		
 		if (is_true (aa->rhs0))
 		{
@@ -511,8 +511,7 @@ namespace car {
 		auto it = _next_map.find (abs (id));
 		if (it == _next_map.end ())
 		{
-			cerr<<"[Fatal Error] Cannot find its prime:" << id<< endl;
-			assert(false && "cannot find its prime");
+			MAssert(false && "cannot find its prime");
 		    return 0; //not found
 		}
 		return (id > 0 ? it->second : -(it->second));
@@ -567,7 +566,7 @@ namespace car {
 		    vector<int> ids = previous (abs (uc[i]));
 			if (ids.empty ())
             {
-                assert(false && "should not happen");
+                MAssert(false && "should not happen");
             }
 			else
                 // take the first one.
@@ -586,7 +585,7 @@ namespace car {
             uc.pop_back();
         // for(auto i :uc)
         // {
-        //     assert(latch_var(abs(i)));
+        //     MAssert(latch_var(abs(i)));
         // }
 	}
 

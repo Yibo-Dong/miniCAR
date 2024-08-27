@@ -30,6 +30,7 @@ extern "C" {
 #include "assert.h"
 #define NOT_M_FLAG -2
 #define NOT_P_FLAG -3
+#define MAssert(v) if(!(v)){exit(1);}
 namespace car
 {
     /// ##################################################

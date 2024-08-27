@@ -55,7 +55,7 @@ namespace car
             }
         }
         else{
-            assert(_model->num_constraints() == 0);
+            MAssert(_model->num_constraints() == 0);
             loadSimpCNF();
         }
     }
@@ -92,7 +92,7 @@ namespace car
             int index = 0;
             for(int id : cl)
             {
-                assert(id != 0);
+                MAssert(id != 0);
                 int var = abs(id) - 1;
                 Lit l = (id > 0) ? mkLit(var) : ~mkLit(var);
                 lits[index++] = l;
@@ -132,7 +132,7 @@ namespace car
     }
 
     void MainSolver::push_flags_M(const int level){
-        assert(level > -1);
+        MAssert(level > -1);
         // activate this frame
         auto flagOfThisFrame = MFlagOf(level);
         assumptions.push (SAT_lit (flagOfThisFrame));
@@ -196,7 +196,7 @@ namespace car
         // if level == -1: badcheck.
         if(frame_level == -1)
         {
-            assert(!reverseT);
+            MAssert(!reverseT);
             push_to_assumption({bad});
         }
         else
@@ -221,17 +221,17 @@ namespace car
 
     void MainSolver::set_expectation(const std::vector<int>& expectations)
     {
-        assert(!reverseT && "temporarily not avaiable for forward-car");
+        MAssert(!reverseT && "temporarily not avaiable for forward-car");
         for(auto& id : expectations)
         {
             bool sgn = (id > 0 ? true : false);
             int var = sgn ? id : -id;
             // see whether they are state literals
-            assert(_model->latch_var(var));
+            MAssert(_model->latch_var(var));
             // get the prime version of the literals
             auto id_prime = _model->prime(var);
             // it shall already be encoded.
-            assert(nVars() >= id_prime);
+            MAssert(nVars() >= id_prime);
             
             // set the polarity. It will work by default.
             if(reverseT)
@@ -246,7 +246,7 @@ namespace car
 	//NOTE: this State* is not owned by this solver, but the checker. It should be immediately added into clear duty.	
 	State* MainSolver::get_state()
 	{
-		assert(unroll_level == 1);
+		MAssert(unroll_level == 1);
 		Assignment model = get_model();
 		if(!reverseT)
 			shrink_model (model);
@@ -258,7 +258,7 @@ namespace car
 
     State* MainSolver::getInitState()
     {
-        assert(unroll_level == 1);
+        MAssert(unroll_level == 1);
 		Assignment model = get_model();
         Assignment initLatches(model.begin() + _model->num_inputs(),model.begin() + _model->num_inputs()+_model->num_latches());
         State *newInit = new State(initLatches);
@@ -294,7 +294,7 @@ namespace car
 	{
 		Cube conflict = get_uc ();
 
-		assert(!conflict.empty());
+		MAssert(!conflict.empty());
 		if (reverseT)
 		{
 		    _model->shrink_to_previous_vars (conflict);
@@ -314,7 +314,7 @@ namespace car
     Cube MainSolver::get_conflict_another (int option, int nth)
 	{
 		Cube conflict = get_uc_another (option, nth);
-		assert(!conflict.empty());
+		MAssert(!conflict.empty());
 		if (reverseT)
 		{
 		    _model->shrink_to_previous_vars (conflict);
@@ -365,7 +365,7 @@ namespace car
 
 	void MainSolver::add_clause_from_cube_P(const Cube &cu, const int frame_level)
 	{
-		assert(!reverseT && "backward CAR only for propagation\n");
+		MAssert(!reverseT && "backward CAR only for propagation\n");
 		int flag = PFlagOf(frame_level);
 		vector<int> cl = {-flag};
 		for(size_t i = 0; i < cu.size (); i ++)
@@ -401,10 +401,10 @@ namespace car
 		for(int i = num_inputs + 1; i <= num_inputs + num_latches; i++)
 		{
 			int p = _model->prime(i);
-			assert(p != 0);
+			MAssert(p != 0);
 			
 			int abs_p = abs(p);
-			assert(model.size() >= size_t(abs_p));
+			MAssert(model.size() >= size_t(abs_p));
 			
 			int val = model[abs_p - 1];
 			
