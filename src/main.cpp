@@ -44,7 +44,8 @@ namespace car
  */
 void signal_handler(int sig_num)
 {
-    
+    CARStats.stop_everything();
+    CARStats.print();
     exit(0);
 }
 
@@ -236,6 +237,7 @@ void check_aiger(int argc, char **argv)
     if (!aiger_is_reencoded(aig))
         aiger_reencode(aig);
 
+    CARStats.count_whole_begin();
     car::model = new Problem(aig, opt.unrollPrime);
     State::setProblemSize(model->num_inputs(), model->num_latches());
 
@@ -296,12 +298,14 @@ void check_aiger(int argc, char **argv)
         
         delete chk;
     }
+    CARStats.count_whole_end();
 
     // cleaning work
     aiger_reset(aig);
     delete model;
     res_file.close();
 
+    CARStats.print();
     return;
 }
 
