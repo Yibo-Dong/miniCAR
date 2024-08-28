@@ -409,6 +409,8 @@ public:
         // unroll primed version. Must ON for CONSTRAINTS. Think about it: Whether we should used bad' instead of O0?
         bool unrollPrime = false;
 
+        bool log = false;
+
         std::string inputPath;
         std::string outputPath;
     };

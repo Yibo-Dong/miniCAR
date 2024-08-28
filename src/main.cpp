@@ -45,7 +45,6 @@ namespace car
 void signal_handler(int sig_num)
 {
     CARStats.stop_everything();
-    CARStats.print();
     exit(0);
 }
 
@@ -191,6 +190,10 @@ OPTIONS parse_args(int argc, char **argv)
         {
             opt.unrollPrime = true;
         }
+        else if (strcmp(argv[i], "--log") == 0)
+        {
+            opt.log = true;
+        }
         else if (opt.inputPath.empty())
         {
             opt.inputPath = string(argv[i]);
@@ -248,10 +251,13 @@ void check_aiger(int argc, char **argv)
     {
     case RES_SAFE:
     {
-        res_file.open(res_file_name.c_str());
-        res_file << "0" << endl;
-        res_file << "b0" << endl;
-        res_file << "." << endl;
+        if(!opt.inv_incomplete)
+        {
+            res_file.open(res_file_name.c_str());
+            res_file << "0" << endl;
+            res_file << "b0" << endl;
+            res_file << "." << endl;
+        }
         break;
     }
 
@@ -305,7 +311,11 @@ void check_aiger(int argc, char **argv)
     delete model;
     res_file.close();
 
-    CARStats.print();
+    if(opt.log)
+    {
+        auto __fs = freopen(stdout_filename.c_str(), "w", stdout);
+        CARStats.print();
+    }
     return;
 }
 

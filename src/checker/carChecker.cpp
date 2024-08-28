@@ -130,7 +130,6 @@ namespace car
         // FIXME: fix for multiple properties.
         if (bad_ == model->true_id())
         {
-
             vector<int> all0(model_->num_inputs(),0);
             State *init = new State(model_->init());
             State *neg = new State(all0, model_->init());
@@ -142,9 +141,6 @@ namespace car
         }
         else if (bad_ == model->false_id())
         {
-            out << "0" << endl;
-            out << "b" << endl;
-            out << "." << endl;
             return RES_SAFE;
         }
         return RES_UNKNOWN;
