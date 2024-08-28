@@ -71,6 +71,8 @@ namespace car
             PropShortCont   = 4,    // Short && Continue
             PropFresh       = 5,    // Only Propagate when it's at highest level.
             PropShortFresh  = 6,    // Only Short and Fresh.
+            PropEarlyStop   = 7,    // Only early at this level.
+            PropEarlyShortFresh = 8,// Early+Short+Fresh
         };
         int propMode = 0;
         int propParam = 0;

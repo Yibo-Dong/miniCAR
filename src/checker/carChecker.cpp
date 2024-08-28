@@ -679,6 +679,9 @@ namespace car
         if(level <= 0 ||  level + 1 > OSize())
             return;
 
+        static std::map<int,int> prop_tick;
+        ++prop_tick[level];
+
         switch (propMode)
         {
             case PropAlways:
@@ -712,6 +715,23 @@ namespace car
                     return;
                 break;
             }
+            case PropEarlyStop:
+            {
+                if(prop_tick[level] > 2048) // a magic number.
+                    return;
+                break;
+            }
+            case PropEarlyShortFresh:
+            {
+                if(uc.size() > propParam)
+                    return;
+                if(level < OSize()-1)
+                    return;
+                if(prop_tick[level] > 2048)
+                    return;
+                break;
+            }
+            
             default: // fall through.
             case PropNone:
             {
@@ -754,8 +774,7 @@ namespace car
 
         int originalUCsize = uc.size();
 
-        static std::map<int,int> prop_tick;
-        ++prop_tick[level];
+        
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
