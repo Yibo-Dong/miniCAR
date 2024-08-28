@@ -81,6 +81,12 @@ namespace car
             sslv->setFrozen(id - 1, true);
             sslv->setFrozen(abs(m->prime(id)) - 1, true);
         }
+        for(auto lit: m->_constraints)
+        {
+            Var id = abs(lit) - 1;
+            sslv->setFrozen(id, true);
+        }
+        
         // true && false
         sslv->setFrozen(abs(m->output(0)) - 1, true);
         sslv->setFrozen(abs(m->true_id()) - 1, true);
