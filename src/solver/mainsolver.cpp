@@ -49,7 +49,6 @@ namespace car
         {
             add_clause(m->element(i));
         }
-        delete sslv;
     }
 
     bool MainSolver::badcheck(const Assignment &st, const int bad)
