@@ -35,7 +35,7 @@ namespace car
 	 */
  	Lit CARSolver::SAT_lit (int id) 
  	{
- 		assert (id != 0);
+ 		MAssert(id != 0);
         int var = abs(id)-1;
         int varsNeeded = var - nVars() + 1; // how many needed
         while (varsNeeded > 0) {
@@ -176,7 +176,7 @@ namespace car
         // {not_used, used} for later
         // FIXME: It's too heavy here, as we tested before.
         // problem is: the assumption may have duplicate literals, which makes complex to figure out {not_used}, because the rest literals may have already appeared in the front part.
-        assert(false && "Don't use me");
+        MAssert(false && "Don't use me");
         return {};
     }
 
@@ -247,7 +247,7 @@ namespace car
 		for(int id : v)
 			lits[index++] = SAT_lit(id);
  		bool res = addClause (lits);
-		assert(res && "Warning: Adding clause does not success\n");
+		MAssert(res && "Warning: Adding clause does not success\n");
  	}
 
 	/**

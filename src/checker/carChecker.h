@@ -51,6 +51,7 @@ namespace car
         bool restart_enabled = false;
         bool multi_solver = false;
         bool simp = false;
+        bool unroll_prime = false;
 
     public:
         /**
@@ -249,6 +250,8 @@ namespace car
         /// used in picking state randomly
         std::vector<std::pair<State *, int>> Uset;
 
+        /// @brief print evidence.
+        void print_evidence() const;
     private:
         /// entrance for CAR
         RESEnum car();
@@ -267,8 +270,7 @@ namespace car
          */
         RESEnum trySAT();
 
-        /// @brief print evidence.
-        void print_evidence() const;
+
 
         /**
          * @brief iteratively pick state from the given sequence.

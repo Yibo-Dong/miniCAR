@@ -45,7 +45,6 @@ namespace car
 void signal_handler(int sig_num)
 {
     CARStats.stop_everything();
-    CARStats.print();
     exit(0);
 }
 
@@ -66,7 +65,7 @@ string get_file_name(string &s)
     size_t end_pos = s.find(".aig", start_pos);
     if(end_pos == std::string::npos)
         end_pos = s.find(".aag", start_pos);
-    assert(end_pos != std::string::npos);
+    MAssert(end_pos != std::string::npos);
 
     return s.substr(start_pos, end_pos - start_pos);
 }
@@ -88,26 +87,26 @@ OPTIONS parse_args(int argc, char **argv)
         }
         else if (strcmp(argv[i], "-f") == 0)
         {
-            assert(false && "is deprecated\n");
+            MAssert(false && "is deprecated\n");
             opt.forward = true;
         }
         else if (strcmp(argv[i], "-b") == 0)
             opt.forward = false;
         else if (strcmp(argv[i], "--propMode") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.propMode = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--propParam") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.propParam = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--partial") == 0)
         {
-            assert(false && "is deprecated\n");
+            MAssert(false && "is deprecated\n");
             opt.partial = true;
         }
         else if (strcmp(argv[i], "-h") == 0)
@@ -116,30 +115,30 @@ OPTIONS parse_args(int argc, char **argv)
             opt.enable_rotate = true;
         else if (strcmp(argv[i], "--inter") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.inter_cnt = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--restart") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.time_limit_to_restart = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--rem") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.rememOption = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--bmc") == 0)
         {
             opt.bmc = true;
-            assert(false && "BMC is deprecated\n");
+            MAssert(false && "BMC is deprecated\n");
         }
         else if (strcmp(argv[i], "--imp") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.impMethod = atoi(argv[i]);
         }
@@ -153,25 +152,25 @@ OPTIONS parse_args(int argc, char **argv)
         }
         else if (strcmp(argv[i], "--convMode") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.convMode = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--convParam") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.convParam = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--convAmount") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.convAmount = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--order") == 0)
         {
-            assert(i + 1 < argc);
+            MAssert(i + 1 < argc);
             ++i;
             opt.LOStrategy = atoi(argv[i]);
         }
@@ -186,6 +185,14 @@ OPTIONS parse_args(int argc, char **argv)
         else if (strcmp(argv[i], "--simp") == 0)
         {
             opt.simplifyCNF = true;
+        }
+        else if (strcmp(argv[i], "--unroll") == 0)
+        {
+            opt.unrollPrime = true;
+        }
+        else if (strcmp(argv[i], "--log") == 0)
+        {
+            opt.log = true;
         }
         else if (opt.inputPath.empty())
         {
@@ -218,10 +225,8 @@ void check_aiger(int argc, char **argv)
     std::string filename = get_file_name(opt.inputPath);
     std::string stdout_filename = opt.outputPath + filename + ".log";
     std::string res_file_name = opt.outputPath + filename + ".res";
-    // redirect to log file.
-    auto __fs = freopen(stdout_filename.c_str(), "w", stdout);
     ofstream res_file;
-    res_file.open(res_file_name.c_str());
+
 
     // get aiger object
     aiger *aig = aiger_init();
@@ -235,31 +240,60 @@ void check_aiger(int argc, char **argv)
     if (!aiger_is_reencoded(aig))
         aiger_reencode(aig);
 
+    CARStats.count_whole_begin();
     car::model = new Problem(aig, opt.unrollPrime);
     State::setProblemSize(model->num_inputs(), model->num_latches());
 
-    CARStats.count_whole_begin();
+    
     chk = new Checker(model, opt, res_file, nullptr);
     RESEnum res = chk->check();
+    switch (res)
+    {
+    case RES_SAFE:
+    {
+        if(!opt.inv_incomplete)
+        {
+            res_file.open(res_file_name.c_str());
+            res_file << "0" << endl;
+            res_file << "b0" << endl;
+            res_file << "." << endl;
+        }
+        break;
+    }
+
+    case RES_UNSAFE:
+    {
+        res_file.open(res_file_name.c_str());
+        chk->print_evidence();
+        break;
+    }
+
+    case RES_UNKNOWN:
+        break;
+
+    case RES_RESTART:
+        break;
+
+    default:
+        MAssert(false);
+    }
 
     if (opt.time_limit_to_restart <= 0)
     {
         // if Restart NOT enabled, use one checker to check.
-        CARStats.count_whole_end();
+        
         delete chk;
     }
     else
     {
         // if RESTART enabled:
-        // TODO: verify the result of restart
-        assert(opt.convMode >= 0 && "restart with multiple UCs, mode should be given");
+        MAssert(opt.convMode >= 0 && "restart with multiple UCs, mode should be given");
         auto clear_delay = chk;
         while (RES_RESTART == res)
         {
             ++opt.convParam;
             ImplySolver::reset_all();
-            CARStats.reset_imply_cnter();
-            // TODO: check whether we need to clean sth else?
+            
 
             // check, with information of last check avaiable.
             chk = new Checker(model, opt, res_file, clear_delay);
@@ -267,16 +301,21 @@ void check_aiger(int argc, char **argv)
             delete clear_delay;
             clear_delay = chk;
         }
-        CARStats.count_whole_end();
+        
         delete chk;
     }
+    CARStats.count_whole_end();
 
     // cleaning work
     aiger_reset(aig);
     delete model;
     res_file.close();
 
-    CARStats.print();
+    if(opt.log)
+    {
+        auto __fs = freopen(stdout_filename.c_str(), "w", stdout);
+        CARStats.print();
+    }
     return;
 }
 
