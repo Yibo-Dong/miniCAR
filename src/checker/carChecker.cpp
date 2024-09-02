@@ -679,6 +679,9 @@ namespace car
         if(level <= 0 ||  level + 1 > OSize())
             return;
 
+        static std::map<int,int> prop_tick;
+        ++prop_tick[level];
+
         switch (propMode)
         {
             case PropAlways:
@@ -712,6 +715,23 @@ namespace car
                     return;
                 break;
             }
+            case PropEarlyStop:
+            {
+                if(prop_tick[level] > 2048) // a magic number.
+                    return;
+                break;
+            }
+            case PropEarlyShortFresh:
+            {
+                if(uc.size() > propParam)
+                    return;
+                if(level < OSize()-1)
+                    return;
+                if(prop_tick[level] > 2048)
+                    return;
+                break;
+            }
+            
             default: // fall through.
             case PropNone:
             {
@@ -753,6 +773,8 @@ namespace car
         bool strongInductive = false;
 
         int originalUCsize = uc.size();
+
+        
         if(!prop_res)
         {
             auto upcoming_uc = prop_solver -> get_uc();
@@ -812,7 +834,7 @@ namespace car
             }
         }
 
-        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize);
+        CARStats.count_prop_end(!prop_res,strongInductive, originalUCsize, prop_tick[level]);
     }
 
     bool Checker::convTriggered(int level)
@@ -1085,7 +1107,8 @@ namespace car
 
         frame.push_back(uc);
 
-        ImplySolver::add_uc(uc,dst_level_plus_one);
+        if(needImpSolver())
+            ImplySolver::add_uc(uc,dst_level_plus_one);
         
 
         if (dst_level_plus_one <= OSize())
@@ -1173,7 +1196,8 @@ namespace car
                     // use uc to initialize O[0] is suitable.
                     for(size_t index = 0; index< O0.size(); ++index)
                     {
-                        ImplySolver::add_uc(O0[index],0);
+                        if(needImpSolver())
+                            ImplySolver::add_uc(O0[index],0);
                         if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
                         {
                             ucs_masks.push_back({});   
@@ -1208,10 +1232,11 @@ namespace car
                     // ~p in ~uc
                     // use uc to initialize O[0] is suitable.
 
-                    for(size_t index = 0; index< O0.size(); ++index)
-                    {
-                        ImplySolver::add_uc(O0[index],0);
-                    }
+                    if(needImpSolver())
+                        for(size_t index = 0; index< O0.size(); ++index)
+                        {
+                            ImplySolver::add_uc(O0[index],0);
+                        }
                     Onp = OSequence({O0});
                 }
                 break;

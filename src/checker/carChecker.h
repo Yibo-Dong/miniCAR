@@ -71,6 +71,8 @@ namespace car
             PropShortCont   = 4,    // Short && Continue
             PropFresh       = 5,    // Only Propagate when it's at highest level.
             PropShortFresh  = 6,    // Only Short and Fresh.
+            PropEarlyStop   = 7,    // Only early at this level.
+            PropEarlyShortFresh = 8,// Early+Short+Fresh
         };
         int propMode = 0;
         int propParam = 0;
@@ -167,6 +169,12 @@ namespace car
             Imp_Bit         = 8, /// Use Bit Masks to represent UCs.
             Imp_BitFresh    = 9, /// Use Bit Masks, also record fresh indexes.
         };
+
+        inline bool needImpSolver()
+        {
+            static std::unordered_set<int> __needImpSolver{Imp_Solver, Imp_Sample, Imp_Exp, Imp_Thresh};
+            return __needImpSolver.count(impMethod)!=0;
+        }
 
         /// level -> id -> freshIndex
         std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;
