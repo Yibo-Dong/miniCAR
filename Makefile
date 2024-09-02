@@ -26,7 +26,7 @@ INCLUDE_DIRS = -I./src -I./src/thirdParty/aiger -I./src/checker -I./src/debug -I
 OBJECTS = carsolver.o implysolver.o mainsolver.o main.o aiger.o $(SOLVER_OBJECTS) carChecker.o definition.o
 
 CFLAG = $(INCLUDE_DIRS) -D__STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -c -g
-LFLAG = -g -lz -lpthread 
+LFLAG = -g -lz -lpthread -static -flto
 OPTFLAG = $(OPT_LEVEL) -march=native -frename-registers -funroll-loops -fno-signed-zeros # consider using -fprofile-generate and -fprofile-use
 
 GCC = gcc
