@@ -129,7 +129,7 @@ namespace car
 
 		inline int MFlagOf(const int frame_level)
 		{
-			assert(frame_level >= 0);
+			MAssert(frame_level >= 0);
 			while(size_t(frame_level) >= MFlags.size())
 			{
                 int flag = max_flag++;
@@ -164,7 +164,7 @@ namespace car
 
 		inline int PFlagOf(const int frame_level)
 		{
-			assert(frame_level >= 0);
+			MAssert(frame_level >= 0);
 			while(size_t(frame_level) >= PFlags.size())
 			{
                 int flag = max_flag++;

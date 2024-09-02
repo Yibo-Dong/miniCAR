@@ -73,7 +73,7 @@ namespace car
 			inline void add_constraint_or (const OFrame &frame, int level)
 			{
 				// there should be no prior flag for this frame. 
-				assert(or_flag.find(level) == or_flag.end());
+				MAssert(or_flag.find(level) == or_flag.end());
 				
 				// get a new frame flag
 				or_flag[level] = new_var();
@@ -158,7 +158,7 @@ namespace car
 				
 				// invalidate old frame flag.
 				int old_flag = or_flag[level];
-				assert(old_flag!=0);
+				MAssert(old_flag!=0);
 				for(size_t i = 0; i < old_flags.size(); ++i)
 				{
 					if(old_flags[i] == old_flag)
@@ -251,8 +251,8 @@ namespace car
 				for(int i = model_->num_inputs ()+1; i <= model_->num_inputs () + model_->num_latches (); i ++)
 				{
 					int p = model_->prime (i);
-					assert (p != 0);
-					assert (model.size () > abs (p));
+					MAssert (p != 0);
+					MAssert (model.size () > abs (p));
 					
 					int val = model[abs(p)-1];
 					if (p == val)
