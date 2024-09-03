@@ -27,6 +27,7 @@
 #ifndef NEW_MAIN_SOLVER_H
 #define NEW_MAIN_SOLVER_H
 
+#include "SimpSolver.h"
 #include "carsolver.h"
 #include "definition.h"
 #include "statistics.h"
@@ -48,8 +49,8 @@ namespace car
         int bad;
 
 	public:
-		MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort);
-		MainSolver(Problem* m, bool forward, bool rotate_is_on, bool uc_no_sort, int unroll_level) ;
+        void loadSimpCNF();
+		MainSolver(Problem *m, bool forward, bool rotate_is_on, bool uc_no_sort, bool simp);
 		~MainSolver() {}
 
         /**
@@ -84,6 +85,7 @@ namespace car
 
 		// @note: can only be used if the unroll level is 1. For unroll level>1, use `get_states`.
 		State* get_state();
+        State* getInitState();
 
 		// this version is used for bad check only
 		Cube get_conflict_no_bad(const int bad);
@@ -185,19 +187,11 @@ namespace car
         
 
     public: 
-        // unroll for BMC:
-        void enable_level(int level);
-
 		inline int lits_per_round() const
 		{
 			// flag for each level, with the first layer's flag remaining unused
 			return _model->max_id() + 1;
 		}
-		
-        // NOTE: this is deprecated for now, because we only pop one frame flag at present.
-		void unroll();
-
-        void get_states(std::vector<State*>& states);
 	};
 
 }

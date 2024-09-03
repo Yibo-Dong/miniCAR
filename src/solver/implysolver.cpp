@@ -18,13 +18,13 @@ namespace car
     {
         // not so good to those with large latches scales.
         std::shared_ptr<ImplySolver> solver = getSolver(level);
-        solver->set_assumption(s->get_latches());
+        solver->set_assumption(s->getLatches());
 
         /* note, we set the budget of solver in this level.
            we do not actually need the solution. We just want to check whether it is blocked by any UC.
            if blocked, it's clear, that to propagate the state will already make the assignment of the UC's clause to be UNSAT.
         */
-        solver->Solver::setPropBudget(s->num_latches_);
+        solver->Solver::setPropBudget(s->getProblemLatchSize());
         return solver->Solver::solve_()==l_False;
     };
 
