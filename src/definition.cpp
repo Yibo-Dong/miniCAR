@@ -170,7 +170,16 @@ namespace car {
 		for(size_t i = 0; i < aig->num_outputs; i++)
 		{
 			int lit = (int)aig->outputs[i].lit;
-			outputs_.push_back(car_var(lit));
+            if(is_true(lit))
+            {
+                outputs_.push_back(true_id());
+            }
+            else if(is_false(lit))
+            {
+                outputs_.push_back(false_id());
+            }
+            else
+    			outputs_.push_back(car_var(lit));
 		}
 	}
 
