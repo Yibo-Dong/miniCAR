@@ -55,12 +55,12 @@ namespace car
     /// Many States, representing an Under-Approximation.
 	using USequence = std::vector<State *>;
     /// <state, depth, target level> to be verified.
-	using Obligation = std::tuple<car::State *, int, std::size_t>;
+	using Obligation = std::tuple<car::State *, int, int>;
 	/// how to compare.
     struct CompareItem {
 		bool operator()(const Obligation &a, const Obligation &b) const {
             /// use the third member to sort.
-			return int(std::get<2>(a)) >= int(std::get<2>(b)); 
+			return std::get<2>(a) >= std::get<2>(b); 
 		}
 	};
 
