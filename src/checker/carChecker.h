@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
+#include <stack>
+#include <queue>
 #include <fstream>
 #include <map>
 
@@ -104,6 +106,74 @@ namespace car
         bool convTriggered(int level);
         void mUC(const Cube &uc, int level);
         
+        ///////////////////////////////////
+        /// @subsection container       ///
+        ///////////////////////////////////
+        ContainerEnum container_option;
+        
+        std::stack<Obligation> _container_stk;
+        std::priority_queue<Obligation, std::vector<Obligation>, CompareItem> _container_pq;
+        
+        void containerClear(){
+            switch (container_option)
+            {
+            case CONT_PRIQ:
+                while(!_container_pq.empty())
+                    _container_pq.pop();
+                break;
+            case CONT_STACK:
+            default:
+                while(!_container_stk.empty())
+                    _container_stk.pop();
+                break;
+            }
+        };
+        void containerPush(const Obligation &o){
+            switch (container_option)
+            {
+            case CONT_PRIQ:
+                _container_pq.push(o);
+                break;
+            case CONT_STACK:
+            default:
+                _container_stk.push(o);
+                break;
+            }
+        }
+        void containerPop(){
+            switch (container_option)
+            {
+            case CONT_PRIQ:
+                _container_pq.pop();
+                break;
+            case CONT_STACK:
+            default:
+                _container_stk.pop();
+                break;
+            }
+        }
+        const Obligation & containerTopOrFront(){
+            switch (container_option)
+            {
+            case CONT_PRIQ:
+                return _container_pq.top();
+            case CONT_STACK:
+            default:
+                return _container_stk.top();
+            }
+        }
+        bool containerEmpty(){
+            switch (container_option)
+            {
+            case CONT_PRIQ:
+                return _container_pq.empty();
+            case CONT_STACK:
+            default:
+                return _container_stk.empty();
+            }
+        }
+
+
         ///////////////////////////////////
         /// @subsection restart         ///
         ///////////////////////////////////

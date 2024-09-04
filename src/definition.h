@@ -362,6 +362,21 @@ public:
     }
 
 
+    /// The status of checking.
+    enum RESEnum{
+        RES_UNSAFE  = 0,
+        RES_SAFE    = 1,
+        RES_UNKNOWN = 2,
+        RES_FAIL    = 3,
+        RES_RESTART = 4,
+    };
+
+
+    enum ContainerEnum{
+        CONT_STACK  = 0,    // Stack.
+        CONT_PRIQ   = 1,    // Priority Queue.
+    };
+
     /// ##################################################
     /// #####               CLI OPTIONS             ######
     /// ##################################################
@@ -406,18 +421,15 @@ public:
         int propMode = 0;
         int propParam = 0;
 
+        // the container, STK or PRIORITY_QUEUE 
+        ContainerEnum container_option;
+
         std::string inputPath;
         std::string outputPath;
     };
 
-    /// The status of checking.
-    enum RESEnum{
-        RES_UNSAFE  = 0,
-        RES_SAFE    = 1,
-        RES_UNKNOWN = 2,
-        RES_FAIL    = 3,
-        RES_RESTART = 4,
-    };
+
+    
 }
 
 #endif

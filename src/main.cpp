@@ -180,6 +180,14 @@ OPTIONS parse_args(int argc, char **argv)
         {
             opt.multi_solver = true;
         }
+        else if (strcmp(argv[i], "--stack") == 0)
+        {
+            opt.container_option = CONT_STACK;
+        }
+        else if (strcmp(argv[i], "--pq") == 0)
+        {
+            opt.container_option = CONT_PRIQ;
+        }
         else if (opt.inputPath.empty())
         {
             opt.inputPath = string(argv[i]);

@@ -19,7 +19,7 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), container_option(opt.container_option)
     {
         if(!multi_solver)
         {
@@ -223,26 +223,25 @@ namespace car
         while (State *missionary = pickState())
         {
             /**
-             * build a stack <state, depth, target_level>
+             * build a container <state, depth, target_level>
              */
-            stack<Obligation> stk;
-            stk.push(Obligation(missionary, 0, OSize() - 1));
-            while (!stk.empty())
+            containerClear();
+            containerPush(Obligation(missionary, 0, OSize() - 1));
+            while (!containerEmpty())
             {
                 CARStats.count_enter_new_try_by();
                 State *s;
                 int dst, depth;
-                std::tie(s, depth, dst) = stk.top();
+                std::tie(s, depth, dst) = containerTopOrFront();
                 if (blockedIn(s, dst + 1))
                 {
-                    // TODO: memorize state's blocking status. Since we do not remove UC, once blocked, forever blocked.
-                    stk.pop();
+                    containerPop();
                     CARStats.count_tried_before();
 
                     int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
                     if (new_level <= OSize())
                     {
-                        stk.push(Obligation(s, depth, new_level - 1));
+                        containerPush(Obligation(s, depth, new_level - 1));
                     }
                     continue;
                 }
@@ -272,19 +271,19 @@ namespace car
                     int new_level = minNOTBlocked(tprime, 0, dst - 1);               
                     if (new_level <= dst) // if even not one step further, should not try it
                     {
-                        stk.push(Obligation(tprime, depth + 1, new_level - 1));
+                        containerPush(Obligation(tprime, depth + 1, new_level - 1));
                     }
                 }
                 else
                 {
-                    stk.pop();
+                    containerPop();
                     if (safe_reported)
                         return RES_FAIL;
 
                     int new_level = minNOTBlocked(s, dst + 2, OSize() - 1);
                     if (new_level <= OSize())
                     {
-                        stk.push(Obligation(s, depth, new_level - 1));
+                        containerPush(Obligation(s, depth, new_level - 1));
                     }
                 }
             }
