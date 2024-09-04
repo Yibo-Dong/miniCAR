@@ -4,9 +4,7 @@
 #include "definition.h"
 #include "implysolver.h"
 #include "invsolver.h"
-#include "startsolver.h"
 #include "mainsolver.h"
-#include "newpartialsolver.h"
 #include <assert.h>
 #include "statistics.h"
 #include <unordered_map>
@@ -54,6 +52,7 @@ namespace car
         bool partial = false;
         bool restart_enabled = false;
         bool multi_solver = false;
+        bool simp = false;
 
     public:
         /**
@@ -297,8 +296,6 @@ namespace car
         const bool backwardCAR;
         const int bad_;
         Problem         *model_         = nullptr;
-        StartSolver     *start_solver   = nullptr;
-        PartialSolver   *partial_solver = nullptr;
         InvSolver       *inv_solver     = nullptr;
         /// @brief if one solver shared among all the frames, use this
         MainSolver      *main_solver    = nullptr;
@@ -357,27 +354,11 @@ namespace car
         int pickStateLastIndex = -1;
 
         /**
-         * @brief Get the partial state with assignment s. This is used in forward CAR.
+         * @brief Get the solution from SAT solver, update it to U sequence.
          *
-         * @param s
-         * @param prior_state
-         * @return State*
+         * @return State* : the state retrieved.
          */
-        State *get_partial_state(Assignment &s, const State *prior_state);
-
-        /**
-         * @brief Get the solution from SAT solver.
-         *
-         * @return State* : the state representing the solution, which is to be added to the U sequence.
-         */
-        State *getModel(int level);
-
-        /**
-         * @brief Update U sequence, and push into cex vector
-         *
-         * @return whether it is already seen at a lower level.
-         */
-        bool updateU(State *, State *prior_in_trail);
+        State *getModel(State *s, int level);
 
         /**
          * @brief SAT_Assume(assum, clauses)
@@ -409,13 +390,6 @@ namespace car
         RESEnum initSequence();
 
         /**
-         * @brief Use start solver to get a state. Usually in ~p.
-         *
-         * @return State*
-         */
-        State *enumerateStartStates();
-
-        /**
          * @brief Check SAT_ASSUME(I, ~P).
          *
          * to generate uc from init
@@ -425,15 +399,6 @@ namespace car
          */
         RESEnum immediateCheck(State *from, OFrame &UCs);
 
-        /**
-         * @brief Check whether this in O[0] is actually a CEX.
-         *
-         * @param from
-         * @param O
-         * @return true
-         * @return false
-         */
-        bool finalCheck(State *from);
 
         /**
          * @brief Whether this state is blocked in this O frame, namely O[frame_level] (or Otmp, if frame_level == O.size)

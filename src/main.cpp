@@ -15,7 +15,6 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "bmcChecker.h"
 #include "carChecker.h"
 #include "statistics.h"
 #include "definition.h"
@@ -53,11 +52,6 @@ void signal_handler(int sig_num)
 void print_usage()
 {
     printf("Usage: simplecar <-f|-b|-p|-e|-v|-h> <aiger file> <output directory>\n");
-    printf("       -f          forward checking (Default = backward checking)\n");
-    printf("       -b          backward checking \n");
-    printf("       -p          enable propagation (Default = off)\n");
-    printf("       -e          print witness (Default = off)\n");
-    printf("       -h          print help information\n");
 }
 
 // cut filename from path.
@@ -70,6 +64,8 @@ string get_file_name(string &s)
     else
         start_pos += 1;
     size_t end_pos = s.find(".aig", start_pos);
+    if(end_pos == std::string::npos)
+        end_pos = s.find(".aag", start_pos);
     assert(end_pos != std::string::npos);
 
     return s.substr(start_pos, end_pos - start_pos);
@@ -91,7 +87,10 @@ OPTIONS parse_args(int argc, char **argv)
             opt.LOStrategy = 3;
         }
         else if (strcmp(argv[i], "-f") == 0)
+        {
+            assert(false && "is deprecated\n");
             opt.forward = true;
+        }
         else if (strcmp(argv[i], "-b") == 0)
             opt.forward = false;
         else if (strcmp(argv[i], "--propMode") == 0)
@@ -107,7 +106,10 @@ OPTIONS parse_args(int argc, char **argv)
             opt.propParam = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "--partial") == 0)
+        {
+            assert(false && "is deprecated\n");
             opt.partial = true;
+        }
         else if (strcmp(argv[i], "-h") == 0)
             print_usage();
         else if (strcmp(argv[i], "--rotate") == 0)
@@ -133,6 +135,7 @@ OPTIONS parse_args(int argc, char **argv)
         else if (strcmp(argv[i], "--bmc") == 0)
         {
             opt.bmc = true;
+            assert(false && "BMC is deprecated\n");
         }
         else if (strcmp(argv[i], "--imp") == 0)
         {
@@ -179,6 +182,10 @@ OPTIONS parse_args(int argc, char **argv)
         else if (strcmp(argv[i], "--ms") == 0)
         {
             opt.multi_solver = true;
+        }
+        else if (strcmp(argv[i], "--simp") == 0)
+        {
+            opt.simplifyCNF = true;
         }
         else if (strcmp(argv[i], "--stack") == 0)
         {
@@ -236,21 +243,8 @@ void check_aiger(int argc, char **argv)
     if (!aiger_is_reencoded(aig))
         aiger_reencode(aig);
 
-    car::model = new Problem(aig);
-    State::set_num_inputs_and_latches(model->num_inputs(), model->num_latches());
-
-    // assume that there is only one output needs to be checked in each aiger model,
-    // which is consistent with the HWMCC format
-    assert(model->num_outputs() == 1);
-
-    // if BMC, then use BMC checker to check.
-    if (opt.bmc)
-    {
-        auto bchker = new bmc::BMCChecker(model);
-        bchker->check();
-        bchker->printEvidence(res_file);
-        return;
-    }
+    car::model = new Problem(aig, opt.unrollPrime);
+    State::setProblemSize(model->num_inputs(), model->num_latches());
 
     CARStats.count_whole_begin();
     chk = new Checker(model, opt, res_file, nullptr);
