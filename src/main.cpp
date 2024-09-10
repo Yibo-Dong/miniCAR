@@ -269,7 +269,6 @@ void check_aiger(int argc, char **argv)
         while (RES_RESTART == res)
         {
             ++opt.convParam;
-            ImplySolver::reset_all();
             CARStats.reset_imply_cnter();
             // TODO: check whether we need to clean sth else?
 

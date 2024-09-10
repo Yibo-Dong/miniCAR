@@ -229,22 +229,16 @@ namespace car
         /// how to calculate imply.
         enum ImpHowEnum{
             Imp_Manual      = 0,
-            Imp_Solver      = 1,
-            Imp_Sample      = 2,
-            /// Imp_Sort    = 3, /// proved not to be useful. depricated.
-            Imp_Exp         = 4,
-            Imp_Thresh      = 5,
-            /// Imp_MOM     = 6, /// proved not to be useful. depricated.
+            // Imp_Solver      = 1,
+            // Imp_Sample      = 2,
+            // Imp_Sort    = 3, /// proved not to be useful. depricated.
+            // Imp_Exp         = 4,
+            // Imp_Thresh      = 5,
+            // Imp_MOM     = 6, /// proved not to be useful. depricated.
             Imp_Fresh       = 7, /// record the checking process of state.
             Imp_Bit         = 8, /// Use Bit Masks to represent UCs.
             Imp_BitFresh    = 9, /// Use Bit Masks, also record fresh indexes.
         };
-
-        inline bool needImpSolver()
-        {
-            static std::unordered_set<int> __needImpSolver{Imp_Solver, Imp_Sample, Imp_Exp, Imp_Thresh};
-            return __needImpSolver.count(impMethod)!=0;
-        }
 
         /// level -> id -> freshIndex
         std::unordered_map<int, std::unordered_map <int, int>> impFreshRecord;

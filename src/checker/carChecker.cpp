@@ -985,10 +985,6 @@ namespace car
         OFrame &frame = whichFrame(dst_level_plus_one);
         frame.push_back(uc);
 
-        if(needImpSolver())
-            ImplySolver::add_uc(uc,dst_level_plus_one);
-        
-
         if (dst_level_plus_one <= OSize())
         {
             getMainSolver(dst_level_plus_one)->addNotCubeToLevel(uc,dst_level_plus_one,SolverFlag_Main, backwardCAR);
@@ -1044,8 +1040,6 @@ namespace car
                     // use uc to initialize O[0] is suitable.
                     for(size_t index = 0; index< O0.size(); ++index)
                     {
-                        if(needImpSolver())
-                            ImplySolver::add_uc(O0[index],0);
                         if(impMethod == Imp_Bit || impMethod == Imp_BitFresh)
                         {
                             ucs_masks.push_back({});   
@@ -1081,11 +1075,6 @@ namespace car
                     // ~p in ~uc
                     // use uc to initialize O[0] is suitable.
 
-                    if(needImpSolver())
-                        for(size_t index = 0; index< O0.size(); ++index)
-                        {
-                            ImplySolver::add_uc(O0[index],0);
-                        }
                     Onp = OSequence({O0});
                 }
                 break;
@@ -1198,105 +1187,6 @@ namespace car
                     if (res)
                     {
                         break;
-                    }
-                }
-                break;
-            }
-
-            case(Imp_Solver):
-            {
-                res = ImplySolver::is_blocked(s,frame_level);
-                break;   
-            }
-
-            case(Imp_Sample):
-            {
-                // -1: not decided
-                // 0: use solver
-                // 1: manually 
-
-                if(imply_decision != 1)
-                {
-                    // use solver
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_begin();
-                    res = ImplySolver::is_blocked(s,frame_level);
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_end(1);
-                }
-
-                // manually.
-                if(imply_decision != 0)
-                {
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_begin();
-                    OFrame &frame = whichFrame(frame_level);
-                    for (const auto &uc : frame)
-                    {
-                        res = s->imply(uc);
-                        if (res)
-                        {
-                            break;
-                        }
-                    }
-                    if(imply_decision == -1)
-                        CARStats.count_imply_dec_end(2);
-                }
-                // do dicision
-                if(imply_decision == -1)
-                    imply_decision = CARStats.imply_dec_decide();
-                
-                break;
-            }
-
-
-            case (Imp_Exp):
-            {
-                // count for sz and winning rate.
-
-                // solver
-                clock_high begin = steady_clock::now();
-                res = ImplySolver::is_blocked(s,frame_level);
-                clock_high end = steady_clock::now();
-                duration_high elapsed = end - begin;
-                double time_delay_for_solver = elapsed.count(); 
-
-                // manual
-                begin = steady_clock::now();
-                
-                OFrame &frame = whichFrame(frame_level);
-                for (const auto &uc : frame)
-                {
-                    res = s->imply(uc);
-                    if (res)
-                    {
-                        break;
-                    }
-                }
-                end = steady_clock::now();
-                elapsed = end - begin;
-                bool solver_win = elapsed.count()> time_delay_for_solver ? true : false;
-                CARStats.record_winner(solver_win,frame.size());
-
-                break;
-            }
-
-            case (Imp_Thresh):
-            {
-                OFrame &frame = whichFrame(frame_level);
-                if(frame.size() > 10000)
-                {
-                    res = ImplySolver::is_blocked(s,frame_level);
-                }
-                else{
-                    for(int i = frame.size()-1; i>=0; --i)
-                    {
-                        const auto &uc = frame[i];
-                        res = s->imply(uc);
-                        if (res)
-                        {
-                            break;
-                        }
                     }
                 }
                 break;

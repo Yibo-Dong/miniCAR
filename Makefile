@@ -20,11 +20,11 @@ endif
 SOURCES = src/thirdParty/aiger/aiger.c \
 			src/checker/carChecker.cpp \
 			src/sat/GlucoseSolver.cpp \
-			src/solver/carsolver.cpp src/solver/ModelSolver.cpp src/solver/implysolver.cpp\
+			src/solver/carsolver.cpp src/solver/ModelSolver.cpp \
 			src/definition.cpp src/main.cpp \
 			$(SOLVER_SOURCES)
 INCLUDE_DIRS = -I./src -I./src/thirdParty/aiger -I./src/checker -I./src/debug -I./src/solver -I./src/utils -I src/sat $(SOLVER_INCLUDE_DIRS)
-OBJECTS = carsolver.o implysolver.o GlucoseSolver.o ModelSolver.o main.o aiger.o $(SOLVER_OBJECTS) carChecker.o definition.o 
+OBJECTS = carsolver.o GlucoseSolver.o ModelSolver.o main.o aiger.o $(SOLVER_OBJECTS) carChecker.o definition.o 
 
 CFLAG = $(INCLUDE_DIRS) -D__STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS -c -g
 LFLAG = -g -lz -lpthread 
