@@ -22,9 +22,8 @@ namespace car
     {
         if(!multi_solver)
         {
-            main_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
-            // also initialize the prop solver.
-            prop_solver = new MainSolver(model, opt.forward, get_rotate(), uc_no_sort, simp);
+            main_solver = new ModelSolver(model, simp);
+            prop_solver = new ModelSolver(model, simp);
         }    
 
         rotates.clear();
@@ -87,7 +86,7 @@ namespace car
         return res;
     }
 
-    MainSolver *Checker::getMainSolver(int level)
+    ModelSolver *Checker::getMainSolver(int level)
     {
         if(!multi_solver)
             return main_solver;
@@ -98,7 +97,7 @@ namespace car
                 int needs = level - main_solvers.size() + 1;
                 while(needs > 0)
                 {
-                    auto *new_slv = new MainSolver(model_, !backwardCAR, get_rotate(), uc_no_sort, simp);
+                    auto *new_slv = new ModelSolver(model_,simp);
                     main_solvers.push_back(new_slv);                        
                     --needs;
                 }
@@ -391,7 +390,7 @@ namespace car
     }
 
 
-    std::vector<Cube> Checker::reorderAssumptions(State*s, int level, const vector<Cube>& inter, const Cube &rcube, const Cube &rest)
+    Cube Checker::reorderAssumptions(State*s, int level, const vector<Cube>& inter, const Cube &rcube, const Cube &rest)
     {
         switch (LOStrategy)
         {
@@ -406,29 +405,33 @@ namespace car
                     int j = dis(gen);
                     std::swap(shuff_helper[i], shuff_helper[j]);
                 }
-                return {shuff_helper};
+                return shuff_helper;
             }
             
             case LO_Classic_Pos:
             {
                 if(level == -1)
-                    return {s->getLatches()};
-                vector<Cube> pref;
-                pref.reserve(inter.size() + 2);
-                pref = inter;
-                pref.push_back(std::move(rcube));
-                pref.push_back(std::move(rest));
+                    return s->getLatches();
+                Cube pref;
+                for(const auto& cu : inter)
+                    pref.insert(pref.end(), cu.begin(), cu.end());
+                pref.insert(pref.end(), rcube.begin(), rcube.end());
+                pref.insert(pref.end(), rest.begin(), rest.end());
+                vector<int> sl = s->getLatches();
+                pref.insert(pref.end(),sl.begin(),sl.end());
                 return pref;
             }
             
             case LO_Classic: // traditional one, no need to shuffel
             default:
             {                
-                vector<Cube> pref;
-                pref.reserve(inter.size() + 2);
-                pref = inter;
-                pref.push_back(std::move(rcube));
-                pref.push_back(std::move(rest));
+                Cube pref;
+                for(const auto& cu : inter)
+                    pref.insert(pref.end(), cu.begin(), cu.end());
+                pref.insert(pref.end(), rcube.begin(), rcube.end());
+                pref.insert(pref.end(), rest.begin(), rest.end());
+                vector<int> sl = s->getLatches();
+                pref.insert(pref.end(),sl.begin(),sl.end());
                 return pref;
             }
         }
@@ -436,19 +439,20 @@ namespace car
 
     bool Checker::satAssume(State *s, int level, bool& safe_reported)
     {
-        MainSolver* ms = getMainSolver(level);
+        ModelSolver* ms = getMainSolver(level);
         bool res = false;
 
         vector<Cube> inter;
         get_inter_res(s,level, inter);
         Cube rcube, rest;
         get_rotate_res(s,level,rcube,rest);
-        auto prefers = reorderAssumptions(s, level, inter, rcube, rest);
-
-        ms->set_assumption_M(s, level, prefers);
+        auto asm_vec = reorderAssumptions(s, level, inter, rcube, rest);
 
         CARStats.count_main_solver_original_time_start();
-        res = ms->solve_assumption();
+        if(level == -1)
+            res = ms->zeroStepReachable(asm_vec, bad_);
+        else
+            res = ms->oneStepReachable(asm_vec, level, backwardCAR);
 
         if(res)
         {
@@ -464,7 +468,7 @@ namespace car
         }
         else
         {
-            Cube uc = ms->get_shrunk_uc();
+            Cube uc = ms->getUCofLatch(!backwardCAR);
             CARStats.count_main_solver_original_time_end(res,uc.size());
             
             if (uc.empty())
@@ -590,34 +594,42 @@ namespace car
         }
 
         CARStats.count_prop_begin();
-        prop_solver->clear_assumption();
+        prop_solver->SATslv->clear_assumption();
         
         vector<int> assumption; 
         // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
-        assumption.reserve(1 + prop_solver->PTFlags.size() + 1 + uc.size());
+        assumption.reserve(1 + FlagManager::PTFlags.size() + 1 + uc.size());
 
-        int Oflag = prop_solver->MFlagOf(level+1);
+        int Oflag = FlagManager::FlagOf(level+1, SolverFlag_Main);
         assumption.push_back(Oflag);
 
         // deactivate all the previous ones.
-        for(int flg: prop_solver->PTFlags)
+        for(int flg: FlagManager::PTFlags)
         {
             assumption.push_back(flg);
         }
-        int new_flag = prop_solver->getNewPTFlag();
+        int new_flag = FlagManager::getNewPTFlag();
         // activate the current one:
         assumption.push_back(-new_flag);
 
         // the UC(will be primed later in `set_assumption_primed`):
         assumption.insert(assumption.end(), uc.begin(), uc.end());
 
-        prop_solver->set_assumption_primed(assumption); 
+        // get its primed version.
+        for(auto& lit: assumption)
+        {
+            if(model_ -> latch_var(lit))
+                lit = model_->prime(lit);
+        }
+        
+        prop_solver->SATslv->push_assumption(assumption); 
 
+        // FIXME: CHECK ME.
         // clause ::= !uc , current flag.
-        prop_solver->add_clause_from_cube(uc,new_flag, true);  // !uc
+        prop_solver->addNotCubeToLevel(uc,level,SolverFlag_PropTemp, false); // !uc
         
         // check if !uc is inductive
-        bool prop_res = prop_solver->solve_assumption();
+        bool prop_res = prop_solver->SATslv->solve_assumption();
 
         // do minimization of UC:
         bool strongInductive = false;
@@ -626,7 +638,7 @@ namespace car
 
         if(!prop_res)
         {
-            auto upcoming_uc = prop_solver -> get_uc();
+            auto upcoming_uc = prop_solver->SATslv->get_uc();
             /**
              * The upcoming UC ::= <subset of uc> [<activation flag>] [<Oflag>]
              * Reason:
@@ -642,7 +654,7 @@ namespace car
             // again, remember:
             // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
             // assert: flag should only appear in the back, or not.
-            if(prop_solver->MLevelOf(upcoming_uc.back()) == NOT_M_FLAG)
+            if(FlagManager::LevelOf(upcoming_uc.back(),SolverFlag_Main) == NOT_M_FLAG)
             {
                 // O flag does not participate.
                 strongInductive = true;
@@ -776,6 +788,12 @@ namespace car
         return trigger;
     }
 
+    Cube Checker::getNextAsm()
+    {
+        // FIXME: fill in here
+        return Cube({});
+    }
+
     void Checker::mUC(const Cube &uc, int level)
     {
         if(convMode < 0)
@@ -802,7 +820,14 @@ namespace car
 
                 CARStats.count_main_solver_convergence_time_start();
                 // get another conflict!
-                auto nextuc = getMainSolver(level)->get_conflict_another(LOStrategy, amount);
+
+                ModelSolver* ms = getMainSolver(level);
+                Cube next_asm = getNextAsm();
+                if(level == -1)
+                    ms->zeroStepReachable(next_asm, bad_);
+                else
+                    ms->oneStepReachable(next_asm,level, backwardCAR);
+                auto nextuc = ms->getUCofLatch(backwardCAR);
                 
                 if(subStat)
                 {
@@ -921,15 +946,14 @@ namespace car
 
     State *Checker::getModel(State *s, int level)
     {
-        State *t = getMainSolver(level)->get_state();
+        State *t = getMainSolver(level)->getState(backwardCAR);
         clear_defer(t);
         whichU().push_back(t);
         if(s->isPartial())
         {
             // if predecessor is partial, we would like to initialize it.
             // why not s->set_latches() ? because s may be reused, but newInit will not be used in the search(but only in CEX printing).
-            State* newInit = getMainSolver(level)->getInitState();
-            newInit->setInputs(s->getInputs()); // although, it should be empty here in backward CAR.
+            State* newInit = getMainSolver(level)->getState(false);
             clear_defer(newInit);
             whichPrior()[t] = newInit;
         }
@@ -959,7 +983,6 @@ namespace car
             fresh_levels = dst_level_plus_one;
 
         OFrame &frame = whichFrame(dst_level_plus_one);
-
         frame.push_back(uc);
 
         if(needImpSolver())
@@ -968,11 +991,11 @@ namespace car
 
         if (dst_level_plus_one <= OSize())
         {
-            getMainSolver(dst_level_plus_one)->add_clause_from_cube_M(uc, dst_level_plus_one);
+            getMainSolver(dst_level_plus_one)->addNotCubeToLevel(uc,dst_level_plus_one,SolverFlag_Main, backwardCAR);
             if(propMode > 0)
             {
                 // also update the propagation solver
-                prop_solver->add_clause_from_cube_P(uc, dst_level_plus_one);
+                prop_solver->addNotCubeToLevel(uc,dst_level_plus_one,SolverFlag_Prop,!backwardCAR);
             }
         }
         
@@ -1078,9 +1101,18 @@ namespace car
         }
 
         if (backwardCAR)
-            getMainSolver(0)->add_new_frame_M(Onp[0], Onp.size() - 1);
-        if (propMode > 0 && backwardCAR)
-            prop_solver->add_new_frame_P(Onp[0], Onp.size() - 1);
+        {
+            auto ms = getMainSolver(0);
+            for(const auto& cu: Onp[0])
+            {
+                ms->addNotCubeToLevel(cu,Onp.size() - 1,SolverFlag_Main,backwardCAR);
+            }
+            if (propMode > 0 && backwardCAR)
+            for(const auto& cu: Onp[0])
+            {
+                prop_solver->addNotCubeToLevel(cu,Onp.size() - 1,SolverFlag_Prop,backwardCAR);
+            }
+        }
 
 
         return RES_UNKNOWN;
@@ -1092,7 +1124,7 @@ namespace car
     // This is used in sequence initialization
     RESEnum Checker::immediateCheck(State *from, OFrame &O0)
     {
-        MainSolver* ms = getMainSolver(0);
+        ModelSolver* ms = getMainSolver(0);
         // NOTE: init may not be already set.
         vector<int> latches = from->getLatches();
 
@@ -1100,7 +1132,7 @@ namespace car
         do
         {
             CARStats.count_main_solver_original_time_start();
-            if (ms->badcheck(latches, bad_))
+            if (ms->zeroStepReachable(latches, bad_))
             {
                 CARStats.count_main_solver_original_time_end(true,0);
                 // if sat. already found the cex.
@@ -1109,7 +1141,7 @@ namespace car
                 return RES_UNSAFE;
             }
             // NOTE: the last bit in uc is added in.
-            Cube cu = ms->get_conflict_no_bad(bad_); // filter 'bad'
+            Cube cu = ms->getUCofLatch(false); // filter 'bad'
             CARStats.count_main_solver_original_time_end(false,cu.size());
             
             if (cu.empty())

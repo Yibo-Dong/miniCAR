@@ -189,7 +189,7 @@ namespace car
         SATslv->clear_assumption();
         activateLevel(level, SolverFlag_Main); // FIXME
         SATslv->push_assumption(from);
-        
+
         return SATslv->solve_assumption();
     }
 
@@ -266,7 +266,7 @@ namespace car
         if (shrink_to_previous)
             m->shrink_to_previous_vars(conflict);
         else
-            m->shrink_to_latch_vars (conflict);
+            m->shrink_to_latch_vars(conflict);
 
         return conflict;
     }

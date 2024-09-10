@@ -45,9 +45,8 @@ namespace car
     class SATSolverFactory
     {
         public:
-            static std::unique_ptr<SATSolver> create_solver(const std::string& name){
-                if(name == "Glucose")
-                    return (std::unique_ptr<SATSolver>)(std::make_unique<GlucoseSolver>());
+            static SATSolver* create_solver(const std::string& name){
+                return new GlucoseSolver();
             }
 
     };

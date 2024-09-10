@@ -47,8 +47,9 @@ namespace car
 
     class ModelSolver
     {
+    public:
         // SAT solver
-        std::unique_ptr<SATSolver> SATslv;
+        SATSolver *SATslv;
         // Problem instance, containing TransitionFn and size info.
         const Problem *m;
 
@@ -65,7 +66,7 @@ namespace car
             else
                 loadTrans();
         }
-        ~ModelSolver() {}
+        ~ModelSolver() { delete SATslv; }
 
     public:
         /**
@@ -76,16 +77,15 @@ namespace car
          * => negated, add to the solver.
          */
         void addNotCubeToLevel(const Cube &cu, int level, SolverFlagEnum ftype, bool primed);
-        
-        bool zeroStepReachable(const Cube& from, int target);
+
+        bool zeroStepReachable(const Cube &from, int target);
         bool oneStepReachable(const Cube &from, int level, bool forwardT);
         void activateLevel(int level, SolverFlagEnum ftype);
 
-        State* getState(bool shrink_to_previous);
-        void shrinkModelToPrevious(Assignment&);
+        State *getState(bool shrink_to_previous);
+        void shrinkModelToPrevious(Assignment &);
 
         Cube getUCofLatch(bool shrink_to_previous);
-        
     };
 
 }

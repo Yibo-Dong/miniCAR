@@ -4,7 +4,7 @@
 #include "definition.h"
 #include "implysolver.h"
 #include "invsolver.h"
-#include "mainsolver.h"
+#include "ModelSolver.h"
 #include <assert.h>
 #include "statistics.h"
 #include <unordered_map>
@@ -102,8 +102,9 @@ namespace car
             ConvModeRand = 4
         };
         // whether to calculate more UC.
-        bool convTriggered(int level);
         void mUC(const Cube &uc, int level);
+        bool convTriggered(int level);
+        Cube getNextAsm();
         
         ///////////////////////////////////
         /// @subsection container       ///
@@ -208,7 +209,7 @@ namespace car
         inline bool get_rotate()                { return rotate_enabled; }
         void get_inter_res(State*s, int level, std::vector<Cube>&);
         void get_rotate_res(State*s, int level, Cube& rcube, Cube& rest);
-        std::vector<Cube> reorderAssumptions(State*s, int level, const std::vector<Cube>& inter, const Cube &rres, const Cube &rtmp);
+        Cube reorderAssumptions(State*s, int level, const std::vector<Cube>& inter, const Cube &rres, const Cube &rtmp);
 
         /// rotation calculation:
         std::vector<Cube> rotates;  /// corresponding to O[i]
@@ -298,16 +299,16 @@ namespace car
         Problem         *model_         = nullptr;
         InvSolver       *inv_solver     = nullptr;
         /// @brief if one solver shared among all the frames, use this
-        MainSolver      *main_solver    = nullptr;
+        ModelSolver      *main_solver    = nullptr;
         /// else, use this.
-        std::vector<MainSolver*> main_solvers = {};
+        std::vector<ModelSolver*> main_solvers = {};
         // Propagation Solver.
-        MainSolver      *prop_solver    = nullptr;
+        ModelSolver      *prop_solver    = nullptr;
         /**
          * @brief Get the Main Solver of `level`. 
          * @note if level < 0, reuse that of level 0.
          */
-        MainSolver* getMainSolver(int level);
+        ModelSolver* getMainSolver(int level);
 
         USequence Uf, Ub; /// Uf[0] is not explicitly constructed
         OSequence Onp, OI;
