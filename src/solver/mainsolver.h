@@ -119,7 +119,7 @@ namespace car
          * Categories of flags:
          * 1. O flags used in main solver.      ==> MFlag
          * 2. O flags use din propagation solver.   ==> PFlag
-         * 3. propagation flags used in propagation test(to add temporary clauses) ==> PTFlag
+         * 3. propagation flags used in propagation test(to add temporary clauses) ==> PTFlags
          */
         
 
@@ -151,11 +151,11 @@ namespace car
         }
 
         // 2) Temporary flags used in inductive checking(propagation).
-        std::vector<int> PTFlag;
+        std::vector<int> PTFlags;
         inline int getNewPTFlag()
         {
             int flag = max_flag++;
-            PTFlag.push_back(flag);
+            PTFlags.push_back(flag);
             return flag;
         }
         
@@ -184,14 +184,6 @@ namespace car
             }
             return NOT_P_FLAG; // does not exists.
         }
-        
-
-    public: 
-		inline int lits_per_round() const
-		{
-			// flag for each level, with the first layer's flag remaining unused
-			return _model->max_id() + 1;
-		}
 	};
 
 }

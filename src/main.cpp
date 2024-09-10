@@ -19,6 +19,7 @@
 #include "statistics.h"
 #include "definition.h"
 #include "implysolver.h"
+#include "ModelSolver.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -35,6 +36,8 @@ namespace car
     Statistics CARStats;
     Checker *chk;
     Problem *model;
+    int FlagManager::max_flag;
+    std::vector<int> FlagManager::MFlags, FlagManager::PTFlags, FlagManager::PFlags;
 }
 
 /**
@@ -245,6 +248,7 @@ void check_aiger(int argc, char **argv)
 
     car::model = new Problem(aig, opt.unrollPrime);
     State::setProblemSize(model->num_inputs(), model->num_latches());
+    FlagManager::setStartFlag(model->max_id() + 1);
 
     CARStats.count_whole_begin();
     chk = new Checker(model, opt, res_file, nullptr);

@@ -53,7 +53,7 @@ namespace car
              */
 			inline bool solve_assumption() { auto res = solve_(); return res == l_True; }								// Solve with the assumptions in _assumption.
 			inline void clear_assumption() { assumptions.clear(); } // clear the assumptions
-			inline int size() { return clauses.size(); }			// Solve with the assumptions in _assumption.
+			inline int size() { return clauses.size(); }			
 			std::vector<int> get_assumption() const;				// get the assumption
 			std::vector<int> get_model() const;						// get the model from SAT solver
 			std::vector<int> get_uc() const;						// get UC from SAT solver

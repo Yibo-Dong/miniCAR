@@ -594,13 +594,13 @@ namespace car
         
         vector<int> assumption; 
         // assumption ::= <Oflag of l+1>, <deactivation flags>, <activation flag>,<uc'>
-        assumption.reserve(1 + prop_solver->PTFlag.size() + 1 + uc.size());
+        assumption.reserve(1 + prop_solver->PTFlags.size() + 1 + uc.size());
 
         int Oflag = prop_solver->MFlagOf(level+1);
         assumption.push_back(Oflag);
 
         // deactivate all the previous ones.
-        for(int flg: prop_solver->PTFlag)
+        for(int flg: prop_solver->PTFlags)
         {
             assumption.push_back(flg);
         }
