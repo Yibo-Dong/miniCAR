@@ -852,7 +852,7 @@ namespace car
             {
                 if(helper.find(l) != helper.end())
                     rcube.push_back(l);
-                else
+                else if(helper.find(-l) != helper.end())
                     rest.push_back(-l);
             }                 
         }
@@ -1223,6 +1223,20 @@ namespace car
 
             case (Imp_Bit):
             {
+                if(s->isPartial())
+                {
+                    // partial state, has no mask.
+                    OFrame &frame = whichFrame(frame_level);
+                    for (const auto &uc : frame)
+                    {
+                        res = s->imply(uc);
+                        if (res)
+                        {
+                            break;
+                        }
+                    }
+                    break;
+                }
                 UCMask u_s(s->getLatches());
                 // get frame_level.
                 if(frame_level >= ucs_masks.size())
@@ -1246,6 +1260,21 @@ namespace car
                  * @brief Record what has been tested as to each state
                  * 
                  */
+
+                if(s->isPartial())
+                {
+                    // partial state, has no mask.
+                    OFrame &frame = whichFrame(frame_level);
+                    for (const auto &uc : frame)
+                    {
+                        res = s->imply(uc);
+                        if (res)
+                        {
+                            break;
+                        }
+                    }
+                    break;
+                }
 
                 // no uc yet. Return False.
                 if(frame_level >= ucs_masks.size())

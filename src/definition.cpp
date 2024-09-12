@@ -416,13 +416,6 @@ namespace car {
 			else
 			{
 			    aa = necessary_gate (as[i].lit);
-			    if (aa == NULL)
-			    {
-			    	if (is_true (as[i].lit))
-			    		_outputs[i] = _true;
-			    	else if (is_false (as[i].lit))
-			    		_outputs[i] = _false;
-			    }
 			}
 			iteratively_add (aa, exist_gates, gates);	
 		}
