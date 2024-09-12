@@ -30,8 +30,8 @@ extern "C" {
 #include "assert.h"
 #define NOT_M_FLAG -2
 #define NOT_P_FLAG -3
-// #define MAssert(v) if(!(v)){exit(1);}
-#define MAssert(v) assert(v);
+#define MAssert(v) if(!(v)){exit(1);}
+// #define MAssert(v) assert(v);
 
 namespace car
 {
@@ -101,7 +101,7 @@ namespace car
             const Assignment &getLatches() const { return _latches; }
             int getLatchAt(int i) const
             {
-                assert(i >= 0 && i < _latches.size());
+                MAssert(i >= 0 && i < _latches.size());
                 return _latches.at(i);
             }
             std::string getInputsStr() const;
@@ -256,7 +256,7 @@ public:
 	
 	inline int car_var (const unsigned id) const
 	{
-		assert (id != 0);
+		MAssert (id != 0);
 		return ((id % 2 == 0) ? (id/2) : -(id/2));
 	}
 	

@@ -90,7 +90,7 @@ namespace car
                 // Which latch it is.
                 int offset = abs(lit) - startPos;
                 unsigned char Value = lit > 0 ? 0b1 : 0b0;
-                assert(offset >= 0);
+                MAssert(offset >= 0);
                 // each UInt contains 64 lits. Mod 64 to see which UInt it is at.
                 size_t whichUInt = offset >> 6;
                 // % 64, get its position within this UInt. From Low To High.
@@ -106,7 +106,7 @@ namespace car
 
         UCMask(const Cube &state) : isState(true)
         {
-            assert(!state.empty());
+            MAssert(!state.empty());
             int startPos = abs(state[0]);
 
             size_t nUInts = (state.size() + 0x3f) >> 6;
@@ -117,7 +117,7 @@ namespace car
                 // Which latch it is.
                 int offset = abs(lit) - startPos;
                 unsigned char Value = lit > 0 ? 0b1 : 0b0;
-                assert(offset >= 0);
+                MAssert(offset >= 0);
                 // each UInt contains 64 lits. Mod 64 to see which UInt it is at.
                 size_t whichUInt = offset >> 6;
                 // % 64, get its position within this UInt. From Low To High.
@@ -132,7 +132,7 @@ namespace car
 
         bool imply(const UCMask &another) const
         {
-            assert(true == isState && false == another.isState);
+            MAssert(true == isState && false == another.isState);
             for (size_t i = 0; i < another.mask.size(); ++i)
             {
                 if (((value[i] ^ another.value[i]) & another.mask[i]))
