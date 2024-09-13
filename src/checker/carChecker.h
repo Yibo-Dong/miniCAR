@@ -2,8 +2,8 @@
 #define carChecker_H
 
 #include "definition.h"
-#include "implysolver.h"
-#include "invsolver.h"
+#include "UCMask.h"
+#include "InvSolver.h"
 #include "ModelSolver.h"
 #include <assert.h>
 #include "statistics.h"
@@ -425,7 +425,6 @@ namespace car
          * @return false : no invariant is found
          */
         bool InvFound();
-        bool InvFoundAt(int check_level, int minimal_update_level);
 
     };
 }

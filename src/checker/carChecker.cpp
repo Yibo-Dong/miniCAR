@@ -1,5 +1,6 @@
 #include "carChecker.h"
-#include "implysolver.h"
+#include "UCMask.h"
+#include "InvSolver.h"
 #include "statistics.h"
 #include "definition.h"
 #include <vector>
@@ -258,41 +259,12 @@ namespace car
         return RES_UNKNOWN;
     }
 
-    /**
-     * @brief
-     *
-     * @pre level less than check_level has been checked before
-     * @param O
-     * @param check_level
-     * @return true : invariant found at target level
-     * @return false : invariant does not exists at target level
-     */
-    bool Checker::InvFoundAt(int check_level, int minimal_update_level)
-    {
-        OSequence &O = whichO();
-        // a portion of `InvFound()`
-        if (check_level < minimal_update_level)
-        {
-            inv_solver->add_constraint_or(O[check_level],check_level);
-            return false;
-        }
-        inv_solver->add_constraint_and(O[check_level], check_level);
-
-        bool res = !inv_solver->solve_with_assumption();
-
-        inv_solver->release_constraint_and(check_level);
-        inv_solver->add_constraint_or(O[check_level],check_level);
-        return res;
-    }
-
     bool Checker::InvFound()
     {
         OSequence &O = whichO();
-        bool res = false;
         // FIXME: Should we reuse inv_solver instead of recreating?
         inv_solver = new InvSolver(model_);
-        // FIXED: shall we start from 0 or 1?
-        // 0, to add O[0] into solver.
+        bool res = inv_solver->invFound(O, fresh_levels);
 
         /**
          * @brief About minimal update level:
@@ -301,20 +273,8 @@ namespace car
          * 		Each time a modification of low-level frame will possibly modify this minimal level.
          *
          */
-        for(int i = 0; i < OSize(); ++i)
-        {
-            if (InvFoundAt(i, fresh_levels))
-            {
-                while (OSize() > i)
-                    O.pop_back();
-                res = true;
-                // already found invariant.
-                fresh_levels = -1;
-                break;
-            }
-        }
-        // NOTE: not OSize()-1. because that level is also checked.
-        fresh_levels = OSize();
+        fresh_levels = O.size();
+        
         delete (inv_solver);
         inv_solver = nullptr;
         return res;

@@ -68,8 +68,25 @@ namespace car{
         return res;
     }
 
-    void GlucoseSolver::print_assumption(std::ostream &out_stream)
+    void GlucoseSolver::print_clauses(std::ostream &out)
     {
-        // TODO: fill in here.
+        out << "clauses in SAT solver: \n";
+        for (int i = 0; i < clauses.size(); ++i)
+        {
+            Glucose::Clause &c = ca[clauses[i]];
+            for (int j = 0; j < c.size(); ++j)
+                out << lit_id(c[j]) << " ";
+            out << "0 " << endl;
+        }
+    }
+
+    void GlucoseSolver::print_assumption(std::ostream &out)
+    {
+        out << "assumptions in SAT solver: \n";
+        if (!assumptions.size())
+            out << " Empty ";
+        for (int i = 0; i < assumptions.size(); ++i)
+            out << lit_id(assumptions[i]) << " ";
+        out << endl;
     }
 }

@@ -22,6 +22,7 @@ namespace car
         virtual Cube get_uc() = 0;
         virtual Cube get_model() = 0;
         virtual void print_assumption(std::ostream &out_stream) = 0;
+        virtual void print_clauses(std::ostream &out_stream) = 0;
     };
 
 
@@ -39,6 +40,7 @@ namespace car
         Cube get_uc() override;                      // get UC from SAT solver
         Cube get_model() override;                   // get the model from SAT solver
         void print_assumption(std::ostream &out_stream) override;
+        void print_clauses(std::ostream &out_stream) override;
     };
 
     

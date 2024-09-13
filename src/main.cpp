@@ -18,7 +18,7 @@
 #include "carChecker.h"
 #include "statistics.h"
 #include "definition.h"
-#include "implysolver.h"
+#include "InvSolver.h"
 #include "ModelSolver.h"
 #include <stdlib.h>
 #include <stdio.h>
