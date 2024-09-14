@@ -173,6 +173,11 @@ namespace car
             }
         }
 
+        ///////////////////////////////////
+        /// @subsection sat solver      ///
+        ///////////////////////////////////
+
+        SatSolverEnum sat_option;
 
         ///////////////////////////////////
         /// @subsection restart         ///

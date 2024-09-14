@@ -374,6 +374,11 @@ public:
         CONT_PRIQ   = 1,    // Priority Queue.
     };
 
+    enum SatSolverEnum{
+        SAT_GLUCOSE = 0,
+        SAT_CADICAL = 1,
+    };
+
     /// ##################################################
     /// #####               CLI OPTIONS             ######
     /// ##################################################
@@ -426,6 +431,9 @@ public:
 
         // the container, STK or PRIORITY_QUEUE 
         ContainerEnum container_option;
+
+        // sat solver option.
+        SatSolverEnum sat_option;
 
         std::string inputPath;
         std::string outputPath;

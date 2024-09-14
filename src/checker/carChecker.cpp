@@ -19,12 +19,12 @@ using clock_high = time_point<steady_clock>;
 namespace car
 {
     Checker::Checker(Problem *model, const OPTIONS &opt, std::ostream &out, Checker *last_chker) : 
-    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), simp(opt.simplifyCNF), container_option(opt.container_option)
+    out(out), model_(model), rotate_enabled(opt.enable_rotate), inter_cnt(opt.inter_cnt), inv_incomplete(opt.inv_incomplete), uc_no_sort(opt.raw_uc), impMethod(opt.impMethod), time_limit_to_restart(opt.time_limit_to_restart), rememOption(opt.rememOption), LOStrategy(opt.LOStrategy), convAmount(opt.convAmount), convParam(opt.convParam), convMode(opt.convMode), subStat(opt.subStat), partial(opt.partial), last_chker(last_chker), fresh_levels(0), backwardCAR(!opt.forward), bad_(model->output(0)), inv_solver(nullptr), multi_solver(opt.multi_solver),propMode(opt.propMode), propParam(opt.propParam), simp(opt.simplifyCNF), container_option(opt.container_option), sat_option(opt.sat_option)
     {
         if(!multi_solver)
         {
-            main_solver = new ModelSolver(model, simp);
-            prop_solver = new ModelSolver(model, simp);
+            main_solver = new ModelSolver(model, simp, sat_option);
+            prop_solver = new ModelSolver(model, simp, sat_option);
         }    
 
         rotates.clear();
@@ -98,7 +98,7 @@ namespace car
                 int needs = level - main_solvers.size() + 1;
                 while(needs > 0)
                 {
-                    auto *new_slv = new ModelSolver(model_,simp);
+                    auto *new_slv = new ModelSolver(model_,simp, sat_option);
                     main_solvers.push_back(new_slv);                        
                     --needs;
                 }
@@ -263,7 +263,7 @@ namespace car
     {
         OSequence &O = whichO();
         // FIXME: Should we reuse inv_solver instead of recreating?
-        inv_solver = new InvSolver(model_);
+        inv_solver = new InvSolver(model_, sat_option);
         bool res = inv_solver->invFound(O, fresh_levels);
 
         /**

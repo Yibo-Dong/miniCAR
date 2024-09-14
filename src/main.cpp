@@ -198,6 +198,12 @@ OPTIONS parse_args(int argc, char **argv)
         {
             opt.container_option = CONT_PRIQ;
         }
+        else if (strcmp(argv[i], "--sat") == 0)
+        {
+            assert(i + 1 < argc);
+            ++i;
+            opt.sat_option = SatSolverEnum(atoi(argv[i]));
+        }
         else if (opt.inputPath.empty())
         {
             opt.inputPath = string(argv[i]);

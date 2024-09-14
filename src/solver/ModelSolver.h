@@ -58,9 +58,9 @@ namespace car
         void loadTransSimp();
 
     public:
-        ModelSolver(const Problem *model, bool simp) : m(model)
+        ModelSolver(const Problem *model, bool simp, const SatSolverEnum& sat_option) : m(model)
         {
-            SATslv = SATSolverFactory::create_solver("Glucose");
+            SATslv = SATSolverFactory::create_solver(sat_option, model->max_id());
             if (simp)
                 loadTransSimp();
             else

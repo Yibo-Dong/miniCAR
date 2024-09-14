@@ -643,12 +643,16 @@ namespace car {
 	 */
 	void Problem::shrink_to_latch_vars (Cube& uc) const
 	{
-        if(!latch_var(abs(uc.back())))
-            uc.pop_back();
-        // for(auto i :uc)
-        // {
-        //     assert(latch_var(abs(i)));
-        // }
+        int idx = 0;
+        for(size_t i = 0; i < uc.size(); ++i)
+        {
+            if(latch_var(abs(uc[i])))
+            {
+                uc[idx] = uc[i];
+                ++idx;
+            }
+        }
+        uc.resize(idx);
 	}
 
 

@@ -16,9 +16,10 @@ namespace car
         std::unordered_map<int, int> pos_flags, neg_flags; // level -> flag
 
     public:
-        InvSolver(const Problem *m)
+        InvSolver(const Problem *m, const SatSolverEnum& sat_option)
         {
-            SATslv = SATSolverFactory::create_solver("Glucose");
+            // sz not used in glucose.
+            SATslv = SATSolverFactory::create_solver(sat_option, m->max_id());
             loadConstraints(m);
             max_flag = m->max_id() + 1;
         }

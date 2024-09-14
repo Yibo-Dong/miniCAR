@@ -1,6 +1,7 @@
 #include "ModelSolver.h"
 #include <vector>
-using std::vector;
+#include <iostream>
+using namespace std;
 
 namespace car
 {
